@@ -11,6 +11,8 @@
 #include "vrp_instance.h"
 #include "preprocess_travel_times.h"
 #include "preprocess_time_windows.h"
+#include "preprocess_waiting_times.h"
+#include "labeling.h"
 
 using namespace std;
 using namespace goc;
@@ -34,14 +36,16 @@ int main(int argc, char** argv)
 	
 	// Preprocess instance JSON.
 	preprocess_travel_times(instance);
+	preprocess_waiting_times(instance);
 	preprocess_time_windows(instance);
 	
 	// Parse instance.
 	VRPInstance vrp = instance;
-	MLBExecutionLog log(true);
-	Route best;
+	MLBExecutionLog log;
+	Route best = run_labeling(vrp, time_limit, &log);
 	
 	// Show results.
+	clog << "Time: " << log.time << endl;
 	clog << "Status: " << log.status << endl;
 	if (!best.path.empty())
 	{

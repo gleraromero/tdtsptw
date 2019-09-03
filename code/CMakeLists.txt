@@ -11,6 +11,11 @@ elseif ("${CMAKE_BUILD_TYPE}" MATCHES debug OR "${CMAKE_BUILD_TYPE}" MATCHES Deb
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 endif()
 
+if ("${RUNNER}" MATCHES ON)
+    message("-- Runner compilation")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRUNNER")
+endif()
+
 # Add include directory.
 include_directories("include/")
 
@@ -19,6 +24,6 @@ add_subdirectory(goc)
 include_directories(goc/include)
 
 # Create binaries.
-add_executable(main src/main.cpp src/vrp_instance.cpp src/preprocess_travel_times.cpp src/preprocess_time_windows.cpp src/label.cpp src/labeling.cpp)
+add_executable(main src/main.cpp src/vrp_instance.cpp src/preprocess_travel_times.cpp src/preprocess_time_windows.cpp src/label.cpp src/labeling.cpp src/pwl_domination_function.cpp src/preprocess_waiting_times.cpp)
 target_link_libraries(main goc)
 target_link_libraries(main)

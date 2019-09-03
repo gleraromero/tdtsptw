@@ -29,10 +29,24 @@ public:
 	TimeUnit T; // end of planning horizon ([0,T]).
 	std::vector<goc::Interval> tw; // time window of customers (tw[i] = time window of customer i).
 	goc::Matrix<goc::PWLFunction> tau; // tau[i][j](t) = travel time of arc (i, j) if departing from i at t.
+	goc::Matrix<goc::PWLFunction> pretau; // pretau[i][j](t) = travel time of arc (i, j) if arriving at j at t.
+	goc::Matrix<goc::PWLFunction> dep; // dep[i][j](t) = departing time of arc (i, j) if arriving to j at t.
+	goc::Matrix<goc::PWLFunction> arr; // arr[i][j](t) = arrival time of arc (i, j) if departing from i at t.
+	goc::Matrix<TimeUnit> LDT; // LDT[i][j] = latest time we can depart from i to reach j within its tw.
+	goc::Matrix<TimeUnit> EAT; // EAT[i][j] = earliest time we can arrive to j if departing from i.
 	
 	// Returns: the time we finish visiting the last vertex if departing at t0.
 	// If infeasible, returns INFTY.
 	TimeUnit ReadyTime(const goc::GraphPath& p, TimeUnit t0=0) const;
+
+	// Arrival time function.
+	// @return Arrival time at end of arc e, if departing at t0, counting the time windows.
+	// @details if departing at t0 is infeasible it returns INFTY.
+	TimeUnit ArrivalTime(goc::Arc e, TimeUnit t0) const;
+
+	// @return Travel time for arc e, if departing at t0, counting the time windows.
+	// @details if departing at t0 is infeasible it returns INFTY.
+	TimeUnit TravelTime(goc::Arc e, TimeUnit t0) const;
 	
 	// Prints the JSON representation of the instance.
 	virtual void Print(std::ostream& os) const;

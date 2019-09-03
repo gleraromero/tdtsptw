@@ -11,8 +11,8 @@ using namespace goc;
 
 namespace tdtsptw
 {
-Label::Label(Label* prev, goc::Vertex v, int k, VertexSet S, goc::PWLFunction D)
-	: prev(prev), v(v), k(k), S(S), D(D)
+Label::Label(Label* prev, goc::Vertex v, int k, VertexSet S, goc::PWLFunction D, TimeUnit t, TimeUnit D_min)
+	: prev(prev), v(v), k(k), S(S), D(D), t(t), D_min(D_min)
 {
 
 }
