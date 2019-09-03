@@ -1,0 +1,5 @@
+{
+	"cmakelists_dir": "../code/",
+	"output_dir": "../output/",
+	"instances_dir": "../instances/"
+}
