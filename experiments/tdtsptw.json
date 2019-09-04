@@ -2,9 +2,16 @@
   "datasets": [{"name": "guerriero_et_al_2014", "select": "!D95"}, {"name":  "guerriero_et_al_2014b", "select": "W100 !D95"}],
   "experiments": [
     {
-      "name": "Main",
+      "name": "makespan",
       "executable": "main",
-      "time_limit": 3600
+      "time_limit": 3600,
+      "objective": "makespan"
+    },
+    {
+      "name": "duration",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "duration"
     }
   ]
 }

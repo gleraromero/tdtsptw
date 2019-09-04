@@ -19,9 +19,9 @@ namespace
 {
 // Calculates the time to depart to traverse arc e arriving at tf.
 // Returns: INFTY if it is infeasible to depart inside the horizon.
-double departing_time(const json& instance, Arc e, double tf)
+double departing_time(const Matrix<PWLFunction>& tau, Arc e, double tf)
 {
-	PWLFunction tau_e = instance["travel_times"][e.tail][e.head];
+	PWLFunction tau_e = tau[e.tail][e.head];
 	PWLFunction arr_e = tau_e + PWLFunction::IdentityFunction(dom(tau_e));
 	if (epsilon_smaller(tf, min(img(arr_e)))) return INFTY;
 	else if (epsilon_bigger(tf, max(img(arr_e)))) return max(dom(arr_e));
@@ -30,45 +30,45 @@ double departing_time(const json& instance, Arc e, double tf)
 
 // Calculates the travel time to traverse arc e departing at t0.
 // Returns: INFTY if it is infeasible to arrive inside the horizon.
-double travel_time(const json& instance, Arc e, double t0)
+double travel_time(const Matrix<PWLFunction>& tau, Arc e, double t0)
 {
-	PWLFunction tau_e = instance["travel_times"][e.tail][e.head];
+	PWLFunction tau_e = tau[e.tail][e.head];
 	if (!tau_e.Domain().Includes(t0)) return INFTY;
 	return tau_e(t0);
 }
 
 // Returns: the latest we can arrive to k if departing from i (and traversing arc (i, k)) without waiting.
-double latest_arrival(json& instance, Vertex i, Vertex k)
+double latest_arrival(json& instance, const Matrix<PWLFunction>& tau, Vertex i, Vertex k)
 {
 	vector<Interval> tw = instance["time_windows"];
-	if (departing_time(instance, {i, k}, tw[k].right) != INFTY) return tw[k].right;
-	return tw[i].right + travel_time(instance, {i, k}, tw[i].right);
+	if (departing_time(tau, {i, k}, tw[k].right) != INFTY) return tw[k].right;
+	return tw[i].right + travel_time(tau, {i, k}, tw[i].right);
 }
 
 // Returns: the earliest we can depart from i, to reach k inside its time window without waiting.
-double earliest_departure(json& instance, Vertex i, Vertex k)
+double earliest_departure(json& instance, const Matrix<PWLFunction>& tau, Vertex i, Vertex k)
 {
 	vector<Interval> tw = instance["time_windows"];
-	if (departing_time(instance, {i, k}, tw[k].left) != INFTY)
-		return departing_time(instance, {i, k}, tw[k].left) != INFTY;
+	if (departing_time(tau, {i, k}, tw[k].left) != INFTY)
+		return departing_time(tau, {i, k}, tw[k].left) != INFTY;
 	return tw[i].left;
 }
 
 // Earliest arrival time from i to all vertices if departing at a_i.
 // EAT[i][j] = INFTY if j < i.
-vector<double> compute_EAT(json& instance, Vertex i)
+vector<double> compute_EAT(json& instance, const Matrix<PWLFunction>& tau, Vertex i)
 {
 	return compute_earliest_arrival_time(instance["digraph"], i, instance["time_windows"][i][0], [&] (Vertex u, Vertex v, double t0) {
-		return travel_time(instance, {u, v}, t0);
+		return travel_time(tau, {u, v}, t0);
 	});
 }
 
 // Latest departure time from all vertices to j if arriving to j at tf.
 // LDT[i][j] = -INFTY if j < i.
-vector<double> compute_LDT(json& instance, Vertex j)
+vector<double> compute_LDT(json& instance, const Matrix<PWLFunction>& tau, Vertex j)
 {
 	auto LDT = compute_latest_departure_time(instance["digraph"], j, instance["time_windows"][j][1], [&] (Vertex u, Vertex v, double t0) {
-		return departing_time(instance, {u, v}, t0);
+		return departing_time(tau, {u, v}, t0);
 	});
 	for (double& t: LDT) if (t == INFTY) t = -INFTY;
 	return LDT;
@@ -94,7 +94,7 @@ bool includes_arc(json& instance, Arc ij)
 void preprocess_time_windows(json& instance)
 {
 	// Do many iterations of the preprocessing technique.
-	for (int iter = 0; iter < 10; ++iter)
+	for (int iter = 0; iter < 1; ++iter)
 	{
 		Digraph D = instance["digraph"];
 		int n = D.VertexCount();
@@ -105,11 +105,12 @@ void preprocess_time_windows(json& instance)
 		Vertex d = instance["end_depot"];
 		auto set_a = [&](Vertex i, double t) { instance["time_windows"][i][0] = t; };
 		auto set_b = [&](Vertex i, double t) { instance["time_windows"][i][1] = t; };
-		
+		Matrix<PWLFunction> tau = instance["travel_times"];
+
 		// Initialize EAT, LDT.
 		Matrix<double> EAT(n, n), LDT(n, n);
-		for (int i = 0; i < n; ++i) EAT[i] = compute_EAT(instance, i);
-		for (int j = 0; j < n; ++j) LDT[j] = compute_LDT(instance, j);
+		for (int i = 0; i < n; ++i) EAT[i] = compute_EAT(instance, tau, i);
+		for (int j = 0; j < n; ++j) LDT[j] = compute_LDT(instance, tau, j);
 		// Transpose LDT so LDT[i][j] is latest departure time from i to reach j.
 		for (int i = 0; i < n; ++i) for (int j = i + 1; j < n; ++j) swap(LDT[i][j], LDT[j][i]);
 		
@@ -132,7 +133,7 @@ void preprocess_time_windows(json& instance)
 		for (Vertex k:exclude(V, {o, d}))
 		{
 			double max_arrival = -INFTY;
-			for (Vertex i: D.Predecessors(k)) max_arrival = max(max_arrival, latest_arrival(instance, i, k));
+			for (Vertex i: D.Predecessors(k)) max_arrival = max(max_arrival, latest_arrival(instance, tau, i, k));
 			set_b(k, min(b(k), max(a(k), max_arrival)));
 		}
 		
@@ -141,7 +142,7 @@ void preprocess_time_windows(json& instance)
 		for (Vertex k:exclude(V, {o, d}))
 		{
 			double min_dep = INFTY;
-			for (Vertex j: D.Successors(k)) min_dep = min(min_dep, earliest_departure(instance, k, j));
+			for (Vertex j: D.Successors(k)) min_dep = min(min_dep, earliest_departure(instance, tau, k, j));
 			set_a(k, max(a(k), min(b(k), min_dep)));
 		}
 		

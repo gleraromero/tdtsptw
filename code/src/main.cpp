@@ -23,16 +23,18 @@ int main(int argc, char** argv)
 {
 	json output; // STDOUT output will go into this JSON.
 	
-	simulate_runner_input("instances/guerriero_et_al_2014", "15_70_A_A1", "experiments/tdtsptw.json", "Main");
+	simulate_runner_input("instances/guerriero_et_al_2014b", "40_70_A_100_A1", "experiments/tdtsptw.json", "makespan");
 	
 	json experiment, instance, solutions;
 	cin >> experiment >> instance >> solutions;
 	
 	// Parse experiment.
 	Duration time_limit = Duration(value_or_default(experiment, "time_limit", 7200), DurationUnit::Seconds);
+	string objective = value_or_default(experiment, "objective", "makespan");
 	
 	// Show experiment details.
 	clog << "Time limit: " << time_limit << "sec." << endl;
+	clog << "Objective: " << objective << endl;
 	
 	// Preprocess instance JSON.
 	preprocess_travel_times(instance);
@@ -42,7 +44,7 @@ int main(int argc, char** argv)
 	// Parse instance.
 	VRPInstance vrp = instance;
 	MLBExecutionLog log;
-	Route best = run_labeling(vrp, time_limit, &log);
+	Route best = run_labeling(vrp, time_limit, &log, objective == "makespan");
 	
 	// Show results.
 	clog << "Time: " << log.time << endl;

@@ -12,7 +12,7 @@ using namespace goc;
 
 namespace tdtsptw
 {
-Route run_labeling(const VRPInstance& vrp, const Duration& time_limit, MLBExecutionLog* log)
+Route run_labeling(const VRPInstance& vrp, const Duration& time_limit, MLBExecutionLog* log, bool t0_is_zero)
 {
 	int n = vrp.D.VertexCount();
 	
@@ -20,11 +20,9 @@ Route run_labeling(const VRPInstance& vrp, const Duration& time_limit, MLBExecut
 	Stopwatch rolex(true), rolex2(false), rolex3(false);
 	auto comp = [&] (Label* l, Label* m) { return l->D_min > m->D_min; };
 	priority_queue<Label*, vector<Label*>, decltype(comp)> q(comp);
-	q.push(new Label{nullptr, vrp.o, 1, create_bitset<MAX_N>({vrp.o}), PWLFunction::ConstantFunction(0.0, {vrp.tw[vrp.o].left, vrp.tw[vrp.o].left}),vrp.tw[vrp.o].left, 0.0});
+	q.push(new Label{nullptr, vrp.o, 1, create_bitset<MAX_N>({vrp.o}), PWLFunction::ConstantFunction(0.0, {vrp.tw[vrp.o].left, t0_is_zero ? vrp.tw[vrp.o].left : vrp.tw[vrp.o].right}), vrp.tw[vrp.o].left, 0.0});
 
 	Matrix<unordered_map<VertexSet, vector<Label*>>> D(n, n+1);
-	for (Vertex v: vrp.D.Vertices()) clog << v << ") " << vrp.tw[v] << endl;
-	clog << vrp.LDT << endl;
 	Route best({}, 0.0, INFTY);
 	while (!q.empty())
 	{
@@ -65,6 +63,8 @@ Route run_labeling(const VRPInstance& vrp, const Duration& time_limit, MLBExecut
 		rolex2.Reset().Resume();
 		insert_sorted(D[l->v][l->k][l->S], l, [] (Label* l1, Label* l2) { return l1->D_min < l2->D_min; });
 		*log->process_time += rolex2.Peek();
+		stretch_to_size(*log->count_by_length, l->k+1, 0);
+		(*log->count_by_length)[l->k]++;
 
 		// Extend label l.
 		rolex2.Reset().Resume();
@@ -74,7 +74,9 @@ Route run_labeling(const VRPInstance& vrp, const Duration& time_limit, MLBExecut
 			if (l->S.test(w)) continue;
 			if (epsilon_bigger(l->t, vrp.LDT[l->v][w])) continue;
 			TimeUnit t_w = vrp.ArrivalTime({l->v, w}, l->t);
-			for (Vertex u: vrp.D.Vertices()) if (!l->S.test(u) && u != w && epsilon_smaller(vrp.LDT[w][u], t_w)) continue;
+			bool any_unreachable = false;
+			for (Vertex u: vrp.D.Vertices()) if (!l->S.test(u) && u != w && epsilon_smaller(vrp.LDT[w][u], t_w)) { any_unreachable = true; break; }
+			if (any_unreachable) continue;
 			PWLFunction D_w = epsilon_smaller(max(dom(l->D)), min(img(vrp.dep[l->v][w])))
 						   ? PWLFunction::ConstantFunction(l->D(max(dom(l->D))) + min(vrp.tw[w]) - max(dom(l->D)), {min(vrp.tw[w]), min(vrp.tw[w])})
 						   : (l->D + vrp.tau[l->v][w]).Compose(vrp.dep[l->v][w]);
