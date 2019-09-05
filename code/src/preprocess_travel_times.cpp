@@ -18,7 +18,7 @@ namespace
 // Returns: INFTY if it is infeasible to depart inside the horizon.
 double departing_time(const Matrix<int> C, const vector<Interval>& T, const Matrix<double>& S, const Matrix<double>& D, Arc e, double tf)
 {
-	int d = D[e.tail][e.head];
+	double d = D[e.tail][e.head];
 	auto& speed = S[C[e.tail][e.head]];
 	double t = tf;
 	for (int k = (int)T.size()-1; k >= 0; --k)
@@ -40,7 +40,7 @@ double departing_time(const Matrix<int> C, const vector<Interval>& T, const Matr
 // Returns: INFTY if it is infeasible to arrive inside the horizon.
 double travel_time(const Matrix<int> C, const vector<Interval>& T, const Matrix<double>& S, const Matrix<double>& D, Arc e, double t0)
 {
-	int d = D[e.tail][e.head];
+	double d = D[e.tail][e.head];
 	auto& speed = S[C[e.tail][e.head]];
 	double t = t0;
 	for (int k = 0; k < T.size(); ++k)
