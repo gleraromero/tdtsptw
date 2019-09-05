@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 {
 	json output; // STDOUT output will go into this JSON.
 	
-	simulate_runner_input("instances/guerriero_et_al_2014b", "40_70_A_100_A1", "experiments/tdtsptw.json", "makespan");
+	simulate_runner_input("instances/guerriero_et_al_2014b", "40_70_A_100_A1", "experiments/easy.json", "makespan");
 	
 	json experiment, instance, solutions;
 	cin >> experiment >> instance >> solutions;
