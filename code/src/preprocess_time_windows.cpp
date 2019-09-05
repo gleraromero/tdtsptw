@@ -182,7 +182,7 @@ void preprocess_time_windows(json& instance)
 		}
 		
 		// Compute Precedence Matrix.
-		Matrix<double> P(n, n, false);
+		Matrix<bool> P(n, n, false);
 		for (Vertex i: V)
 		{
 			for (Vertex j: V)

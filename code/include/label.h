@@ -21,9 +21,10 @@ public:
 	VertexSet S; // forbidden vertices for extension.
 	goc::PWLFunction D; // D(t) minimum duration if reaching v at t.
 	TimeUnit t; // t = min(dom(D))
-	TimeUnit D_min; // D_min = min(img(D))
+	TimeUnit cost; // cost = min(img(D)) - P
+	double P; // sum of penalty costs
 	
-	Label(Label* prev, goc::Vertex v, int k, VertexSet S, goc::PWLFunction D, TimeUnit t, TimeUnit D_min);
+	Label(Label* prev, goc::Vertex v, int k, VertexSet S, goc::PWLFunction D, TimeUnit t, TimeUnit cost, double P);
 	
 	goc::GraphPath Path() const;
 	

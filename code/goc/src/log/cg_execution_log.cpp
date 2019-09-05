@@ -16,7 +16,7 @@ namespace goc
 json CGExecutionLog::ToJSON() const
 {
 	json j;
-	j["log_type"] = "cg"; // ID of the log type.
+	j["kd_type"] = "cg"; // ID of the log type.
 	if (screen_output.IsSet()) j["screen_output"] = screen_output.Value();
 	if (time.IsSet()) j["time"] = time.Value().Amount(DurationUnit::Seconds);
 	if (status.IsSet()) j["status"] = STR(status.Value());

@@ -34,6 +34,8 @@ public:
 	goc::Matrix<goc::PWLFunction> arr; // arr[i][j](t) = arrival time of arc (i, j) if departing from i at t.
 	goc::Matrix<TimeUnit> LDT; // LDT[i][j] = latest time we can depart from i to reach j within its tw.
 	goc::Matrix<TimeUnit> EAT; // EAT[i][j] = earliest time we can arrive to j if departing from i.
+	goc::Matrix<bool> prec; // prec[i][j] = i is a predecessor of j.
+	std::vector<int> prec_count; // prec_count[i] = #predecessors of i.
 	
 	// Returns: the time we finish visiting the last vertex if departing at t0.
 	// If infeasible, returns INFTY.

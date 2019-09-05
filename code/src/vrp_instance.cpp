@@ -81,5 +81,15 @@ void from_json(const json& j, VRPInstance& instance)
 		instance.tau[u][u] = instance.pretau[u][u] = PWLFunction::ConstantFunction(0.0, instance.tw[u]);
 		instance.dep[u][u] = instance.arr[u][u] = PWLFunction::IdentityFunction(instance.tw[u]);
 	}
+	instance.prec = Matrix<bool>(n, n);
+	for (Vertex i: instance.D.Vertices())
+		for (Vertex k: instance.D.Vertices())
+			instance.prec[i][k] = (bool)j["precedence_matrix"][i][k];
+	
+	instance.prec_count = vector<int>(n, 0);
+	for (Vertex i: instance.D.Vertices())
+		for (Vertex k: instance.D.Vertices())
+			if (instance.prec[i][k])
+				instance.prec_count[k]++;
 }
 } // namespace tdtsptw

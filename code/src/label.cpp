@@ -11,8 +11,8 @@ using namespace goc;
 
 namespace tdtsptw
 {
-Label::Label(Label* prev, goc::Vertex v, int k, VertexSet S, goc::PWLFunction D, TimeUnit t, TimeUnit D_min)
-	: prev(prev), v(v), k(k), S(S), D(D), t(t), D_min(D_min)
+Label::Label(Label* prev, goc::Vertex v, int k, VertexSet S, goc::PWLFunction D, TimeUnit t, TimeUnit cost, double P)
+	: prev(prev), v(v), k(k), S(S), D(D), t(t), cost(cost), P(P)
 {
 
 }
@@ -26,6 +26,6 @@ GraphPath Label::Path() const
 
 void Label::Print(ostream& os) const
 {
-	os << "{ P: " << Path() << ", k: " << k << ", S: " << S << ", D: " << D << "}";
+	os << "{ P: " << Path() << ", k: " << k << ", S: " << S << ", P: " << P << ", D: " << D << "}";
 }
 } // namespace tdtsptw
