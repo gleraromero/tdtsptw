@@ -103,6 +103,12 @@ PWLFunction compute_travel_time_function(const Matrix<int> C, const vector<Inter
 
 void preprocess_travel_times(json& instance)
 {
+	int n = instance["digraph"]["vertex_count"];
+	double T = instance["speed_zones"].back()[1];
+	instance["clusters"] = Matrix<int>(n,n,0);
+	instance["speed_zones"] = {Interval(0, T)};
+	instance["cluster_speeds"] = Matrix<double>(1,1,1.0);
+	
 	Digraph D = instance["digraph"];
 	Matrix<int> C = instance["clusters"];
 	vector<Interval> TZ = instance["speed_zones"];

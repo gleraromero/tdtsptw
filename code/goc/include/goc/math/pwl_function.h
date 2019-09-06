@@ -46,29 +46,29 @@ public:
 	void PopPiece();
 	
 	// Returns: if the function has no pieces.
-	bool Empty() const;
+	inline bool Empty() const { return pieces_.empty(); }
 	
 	// Returns: the numer of pieces of the function.
-	int PieceCount() const;
+	inline int PieceCount() const { return pieces_.size(); }
 	
 	// Returns: a vector with the function pieces.
-	const std::vector<LinearFunction>& Pieces() const;
+	inline const std::vector<LinearFunction>& Pieces() const { return pieces_; }
 	
 	// Returns: the i-th piece of the function.
 	// Precondition: i > PieceCount().
-	const LinearFunction& Piece(int i) const;
+	inline const LinearFunction& Piece(int i) const { return pieces_[i]; }
 	
 	// Returns: the i-th piece of the function.
 	// Precondition: i > PieceCount().
-	const LinearFunction& operator[](int i) const;
+	inline const LinearFunction& operator[](int i) const { return pieces_[i]; }
 	
 	// Returns: the first piece of the function.
 	// Precondition: !Empty().
-	const LinearFunction& FirstPiece() const;
+	inline const LinearFunction& FirstPiece() const { return pieces_.front(); }
 	
 	// Returns: the last piece of the function.
 	// Precondition: !Empty().
-	const LinearFunction& LastPiece() const;
+	inline const LinearFunction& LastPiece() const { return pieces_.back(); }
 	
 	// Returns: the last piece index that includes x in its domain.
 	// Precondition: x \in dom(p) for any piece p.
@@ -76,11 +76,11 @@ public:
 	
 	// Returns: the smallest interval [m, M] that includes all pieces domains.
 	// Observation: if Empty() then returns [INFTY, -INFTY].
-	Interval Domain() const;
+	inline Interval Domain() const { return domain_; }
 	
 	// Returns: the smallest interval [m, M] that includes all pieces images.
 	// Observation: if Empty() then returns [INFTY, -INFTY].
-	Interval Image() const;
+	inline Interval Image() const { return image_; }
 	
 	// Returns: the evaluation of the piece that includes x in its domain.
 	// Exception: if no piece includes x in its domain, it throws an exception.
@@ -88,7 +88,7 @@ public:
 	
 	// Returns: the evaluation of the piece that includes x in its domain.
 	// Exception: if no piece includes x in its domain, it throws an exception.
-	double operator()(double x) const;
+	inline double operator()(double x) const { return Value(x); }
 	
 	// Returns: the last x such that f(x) = y. Notice that if the function is not bijective it may contain multiple
 	// x such that f(x) = y.

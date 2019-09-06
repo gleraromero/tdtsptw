@@ -11,6 +11,7 @@
 
 #include "goc/lib/json.hpp"
 #include "goc/print/printable.h"
+#include "goc/math/number_utils.h"
 
 namespace goc
 {
@@ -28,10 +29,10 @@ public:
 	Interval(double left, double right);
 	
 	// Returns: if left > right.
-	bool Empty() const;
+	inline bool Empty() const { return epsilon_bigger(left, right); }
 	
 	// Returns: if value \in [left, right] using epsilon-comparison.
-	bool Includes(double value) const;
+	inline bool Includes(double value) const { return epsilon_smaller_equal(left, value) && epsilon_bigger_equal(right, value); }
 	
 	// Returns: if r=[a,b]\subseteq [left, right] using epsilon-comparison.
 	bool IsIncludedIn(const Interval& r) const;
@@ -40,10 +41,10 @@ public:
 	bool Intersects(const Interval& r) const;
 	
 	// Returns: this \cap r.
-	Interval Intersection(const Interval& r) const;
+	inline Interval Intersection(const Interval& r) const { return Interval(std::max(left, r.left), std::min(right, r.right)); }
 	
 	// Returns: if the domain is [a, a] for some a.
-	bool IsPoint() const;
+	inline bool IsPoint() const { return epsilon_equal(left, right); }
 	
 	// Prints the interval.
 	// Format: [left, right].

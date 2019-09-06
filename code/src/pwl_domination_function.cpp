@@ -11,12 +11,21 @@ namespace tdtsptw
 {
 PWLDominationFunction::PWLDominationFunction(const PWLFunction& f)
 {
-	// Add all f's pieces in order.
-	size_ = 0;
-	int i = first_ = last_ = -1;
-	pieces_.reserve(f.Pieces().size()*2);
-	next_.reserve(f.Pieces().size()*2);
-	for (auto& p: f.Pieces()) i = AddPieceAfter(i, p);
+	if (f.PieceCount() == 0)
+	{
+		size_ = 0;
+		first_ = last_ = -1;
+	}
+	else
+	{
+		// Add all f's pieces in order.
+		size_ = f.PieceCount();
+		pieces_ = f.Pieces();
+		first_ = 0;
+		last_ = (int) pieces_.size() - 1;
+		next_ = vector<int>(size_, -1);
+		for (int i = 0; i < size_ - 1; ++i) next_[i] = i + 1;
+	}
 	domain_ = f.Domain();
 }
 
@@ -27,7 +36,7 @@ PWLDominationFunction::operator PWLFunction() const
 	return f;
 }
 
-Interval PWLDominationFunction::Domain() const
+inline Interval PWLDominationFunction::Domain() const
 {
 	return domain_;
 }
@@ -92,11 +101,11 @@ bool PWLDominationFunction::DominatePieces(const PWLFunction& f2, double delta)
 				ld = l;
 				rd = r;
 			}
-				// Case 2: f1 is dominated in a prefix or suffix of [l, r].
+			// Case 2: f1 is dominated in a prefix or suffix of [l, r].
 			else
 			{
 				// Find intersection in domain m such that f1(m) == f2(m)+delta.
-				double m = p1.Intersection(LinearFunction({l, f2l+delta}, {r, f2r+delta}));
+				double m = (p2.intercept+delta - p1.intercept) / (p1.slope - p2.slope);
 				m = max(m, l);
 				m = min(m, r);
 				// If prefix is dominated then f1(l) >= f1(l)+delta
@@ -116,15 +125,19 @@ bool PWLDominationFunction::DominatePieces(const PWLFunction& f2, double delta)
 				// Case B: [ld, rd] is a prefix of dom(p1), then update the left domain and image of p1.
 			else if (epsilon_smaller_equal(ld, p1.domain.left))
 			{
-				p1 = LinearFunction({rd, p1.Value(rd)}, {p1.domain.right, p1.Value(p1.domain.right)});
+				p1.domain.left = rd;
+				if (epsilon_smaller(p1.slope, 0.0)) p1.image.right = p1.Value(rd);
+				else p1.image.left = p1.Value(rd);
 			}
 				// Case C: [ld, rd] is a suffix of dom(p1), then update the right domain and image of p1.
 			else if (epsilon_bigger_equal(rd, p1.domain.right))
 			{
-				p1 = LinearFunction({p1.domain.left, p1.Value(p1.domain.left)}, {ld, p1.Value(ld)});
+				p1.domain.right = ld;
+				if (epsilon_smaller(p1.slope, 0.0)) p1.image.left = p1.Value(rd);
+				else p1.image.right = p1.Value(rd);
 			}
-				// Case D: [ld, rd] is in the middle of dom(p1), then we need to split p1 into the leftmost and rightmost pieces.
-				// Only apply this case if ld < rd. Discarding a point in a continuous space is unnecessary.
+			// Case D: [ld, rd] is in the middle of dom(p1), then we need to split p1 into the leftmost and rightmost pieces.
+			// Only apply this case if ld < rd. Discarding a point in a continuous space is unnecessary.
 			else if (epsilon_smaller(ld, rd))
 			{
 				// We first create the rightmost piece [rd, max(dom(p1))].

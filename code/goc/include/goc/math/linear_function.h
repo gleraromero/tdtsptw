@@ -34,11 +34,11 @@ public:
 	
 	// Returns: the value of the function f(x).
 	// Precondition: x \in domain.
-	double Value(double x) const;
+	inline double Value(double x) const { return slope * x + intercept; }
 	
 	// Returns: the value of the function f(x).
 	// Precondition: x \in domain.
-	double operator()(double x) const;
+	inline double operator()(double x) const { return Value(x); }
 	
 	// Returns: the last x such that f(x) = y.
 	// Observation: if slope == 0 the function is not inversible therefore many f(x) = y might exist.

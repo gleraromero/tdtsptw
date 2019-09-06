@@ -25,7 +25,7 @@ int main(int argc, char** argv)
 {
 	json output; // STDOUT output will go into this JSON.
 	
-	simulate_runner_input("instances/guerriero_et_al_2014b", "30_70_A_50_A5", "experiments/hard.json", "makespan");
+	simulate_runner_input("instances/afg_1995", "rbg021.6", "experiments/afg.json", "duration");
 	
 	json experiment, instance, solutions;
 	cin >> experiment >> instance >> solutions;
@@ -63,7 +63,8 @@ int main(int argc, char** argv)
 		cg_execution_log->iterations->push_back(iteration_log);
 		return !R.empty();
 	};
-	auto cg_log = cg_solver.Solve(spf.formulation, {CGOption::IterationsInformation});
+	CGExecutionLog cg_log;
+	cg_log = cg_solver.Solve(spf.formulation, {CGOption::IterationsInformation});
 	clog << "Finished CG in " << cg_log.time << "secs." << endl;
 	
 	// Solve Exact.

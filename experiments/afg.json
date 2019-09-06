@@ -1,5 +1,5 @@
 {
-  "datasets": [{"name":  "guerriero_et_al_2014b", "select": "W50 !D95 !N15"}],
+  "datasets": [{"name":  "afg_1995"}],
   "experiments": [
     {
       "name": "makespan",

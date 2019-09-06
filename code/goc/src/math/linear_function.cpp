@@ -25,16 +25,6 @@ LinearFunction::LinearFunction(const Point2D& p1, const Point2D& p2)
 	intercept = p2.y - slope * p2.x;
 }
 
-double LinearFunction::Value(double x) const
-{
-	return slope * x + intercept;
-}
-
-double LinearFunction::operator()(double x) const
-{
-	return Value(x);
-}
-
 double LinearFunction::PreValue(double y) const
 {
 	if (!image.Includes(y)) fail(STR(y) + " is not in the image " + STR(image));

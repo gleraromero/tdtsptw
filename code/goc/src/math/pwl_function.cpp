@@ -84,41 +84,6 @@ void PWLFunction::PopPiece()
 	UpdateImage();
 }
 
-bool PWLFunction::Empty() const
-{
-	return pieces_.empty();
-}
-
-int PWLFunction::PieceCount() const
-{
-	return pieces_.size();
-}
-
-const vector<LinearFunction>& PWLFunction::Pieces() const
-{
-	return pieces_;
-}
-
-const LinearFunction& PWLFunction::Piece(int i) const
-{
-	return pieces_[i];
-}
-
-const LinearFunction& PWLFunction::operator[](int i) const
-{
-	return pieces_[i];
-}
-
-const LinearFunction& PWLFunction::FirstPiece() const
-{
-	return pieces_.front();
-}
-
-const LinearFunction& PWLFunction::LastPiece() const
-{
-	return pieces_.back();
-}
-
 int PWLFunction::PieceIncluding(double x) const
 {
 	// if x is outside the Domain(), throw exception.
@@ -138,16 +103,6 @@ int PWLFunction::PieceIncluding(double x) const
 	return -1;
 }
 
-Interval PWLFunction::Domain() const
-{
-	return domain_;
-}
-
-Interval PWLFunction::Image() const
-{
-	return image_;
-}
-
 double PWLFunction::Value(double x) const
 {
 	// if x is outside the Domain(), throw exception.
@@ -165,11 +120,6 @@ double PWLFunction::Value(double x) const
 	// The function is not continuous and x is not in the domain of any piece.
 	fail("PWLFunction::Value(" + STR(x) +") failed, becuase x is not inside the domain of its pieces.");
 	return -1;
-}
-
-double PWLFunction::operator()(double x) const
-{
-	return Value(x);
 }
 
 double PWLFunction::PreValue(double y) const
