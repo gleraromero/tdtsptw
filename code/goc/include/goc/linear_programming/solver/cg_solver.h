@@ -31,7 +31,7 @@ enum class CGOption { IterationsInformation, ScreenOutput };
 // - incumbent_value: the value of the lp relaxation.
 // - time_limit: maximum time to execute the pricing algorithm.
 // - execution_log: pointer to the cg execution log to add the iteration log.
-typedef std::function<void(const std::vector<double>& duals, double incumbent_value, Duration time_limit, CGExecutionLog* cg_execution_log)> PricingFunction;
+typedef std::function<bool(const std::vector<double>& duals, double incumbent_value, Duration time_limit, CGExecutionLog* cg_execution_log)> PricingFunction;
 
 // Class representing a solver for column generation. Its purpose is to abstract the
 // specific solver implementations from the algorithms.

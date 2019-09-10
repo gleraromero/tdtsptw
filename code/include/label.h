@@ -24,7 +24,9 @@ public:
 	TimeUnit cost; // cost = min(img(D)) - P
 	double P; // sum of penalty costs
 	int r; // number of vertices from the L path that where visited (NGL relaxation).
-	
+
+	Label() = default;
+
 	Label(Label* prev, goc::Vertex v, int k, VertexSet S, goc::PWLFunction D, TimeUnit t, TimeUnit cost, double P, int r=0);
 	
 	goc::GraphPath Path() const;

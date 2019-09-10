@@ -11,7 +11,7 @@
 #include <goc/goc.h>
 
 // Maximum number of vertices in an instance.
-#define MAX_N 100
+#define MAX_N 300
 
 namespace tdtsptw
 {
@@ -36,6 +36,7 @@ public:
 	goc::Matrix<TimeUnit> EAT; // EAT[i][j] = earliest time we can arrive to j if departing from i.
 	goc::Matrix<bool> prec; // prec[i][j] = i is a predecessor of j.
 	std::vector<int> prec_count; // prec_count[i] = #predecessors of i.
+	std::vector<int> suc_count; // suc_count[i] = #successors of i.
 	
 	// Returns: the time we finish visiting the last vertex if departing at t0.
 	// If infeasible, returns INFTY.
@@ -49,6 +50,8 @@ public:
 	// @return Travel time for arc e, if departing at t0, counting the time windows.
 	// @details if departing at t0 is infeasible it returns INFTY.
 	TimeUnit TravelTime(goc::Arc e, TimeUnit t0) const;
+
+	goc::Route BestDurationRoute(const goc::GraphPath& p) const;
 	
 	// Prints the JSON representation of the instance.
 	virtual void Print(std::ostream& os) const;

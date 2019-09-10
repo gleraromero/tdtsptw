@@ -105,9 +105,17 @@ void preprocess_travel_times(json& instance)
 {
 	int n = instance["digraph"]["vertex_count"];
 	double T = instance["speed_zones"].back()[1];
-	instance["clusters"] = Matrix<int>(n,n,0);
+	int K = instance["speed_zones"].size();
+	int CC = instance["cluster_speeds"].size();
 	instance["speed_zones"] = {Interval(0, T)};
-	instance["cluster_speeds"] = Matrix<double>(1,1,1.0);
+	for (int c = 0; c < CC; ++c)
+	{
+		double min_s = 0.0;
+		for (double speed: instance["cluster_speeds"][c]) min_s = max(min_s, speed);
+		instance["cluster_speeds"][c] = {min_s};
+	}
+	clog << instance["speed_zones"] << endl;
+	clog << instance["cluster_speeds"] << endl;
 	
 	Digraph D = instance["digraph"];
 	Matrix<int> C = instance["clusters"];

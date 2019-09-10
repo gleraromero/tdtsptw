@@ -57,8 +57,10 @@ CGExecutionLog solve_colgen(Formulation* formulation,
 	int row_count = -1;
 	output.WriteHeader();
 	double objective_value = 0.0;
-	while (variable_count < formulation->VariableCount() || row_count < formulation->ConstraintCount())
+	bool keep_iterating = true;
+	while (keep_iterating)
 	{
+		keep_iterating = false;
 		// Check if time limit was exceeded.
 		if (rolex.Peek() >= time_limit) {execution_log.status = CGStatus::TimeLimitReached; break; }
 		
@@ -77,7 +79,7 @@ CGExecutionLog solve_colgen(Formulation* formulation,
 		
 		// Solve the pricing problem (i.e. add new variables to the formulation).
 		Stopwatch pricing_rolex(true);
-		pricing_function(*lp_log.duals, *lp_log.incumbent_value, time_limit - rolex.Peek(), &execution_log);
+		keep_iterating = pricing_function(*lp_log.duals, *lp_log.incumbent_value, time_limit - rolex.Peek(), &execution_log);
 		*execution_log.pricing_time += pricing_rolex.Pause();
 	}
 	output.WriteRow({STR(rolex.Peek()), STR(execution_log.iteration_count), STR(objective_value), STR(formulation->VariableCount())});

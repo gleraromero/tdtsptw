@@ -49,7 +49,7 @@ void SPF::AddRoute(const Route& r)
 	
 	// Update omega_by_arc structure.
 	for (int k = 1; k < (int)r.path.size()-1; ++k) y_by_arc[r.path[k]][r.path[k+1]].insert(y_j);
-	
+
 	// Set duration(r) as c_j in the objective function.
 	formulation->SetObjectiveCoefficient(y_j, r.duration);
 }

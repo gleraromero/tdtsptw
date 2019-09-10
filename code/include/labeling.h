@@ -19,7 +19,9 @@ goc::Route initial_heuristic(const VRPInstance& vrp, std::vector<goc::Vertex>& P
 
 goc::Route run_labeling(const VRPInstance& vrp, const goc::Duration& time_limit, goc::MLBExecutionLog* log, bool t0_is_zero);
 
-std::vector<goc::Route> run_ng_labeling(const VRPInstance& vrp, const goc::Duration& time_limit, goc::MLBExecutionLog* log, bool t0_is_zero, const std::vector<double>& penalties);
+std::vector<goc::Route> run_ng_labeling(const VRPInstance& vrp, const goc::Duration& time_limit, goc::MLBExecutionLog* log, bool t0_is_zero, const std::vector<double>& penalties, bool relaxation, goc::Route* best=nullptr);
+
+std::vector<goc::Route> run_ng_labeling_non_hamiltonian(const VRPInstance& vrp, const goc::Duration& time_limit, goc::MLBExecutionLog* log, bool t0_is_zero, const std::vector<double>& penalties, double sigma, bool relaxation);
 } // namespace tdtsptw
 
 #endif //TDTSPTW_LABELING_H

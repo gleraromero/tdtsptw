@@ -39,6 +39,20 @@ TimeUnit VRPInstance::TravelTime(Arc e, TimeUnit t0) const
 	return t - t0;
 }
 
+Route VRPInstance::BestDurationRoute(const GraphPath& p) const
+{
+	PWLFunction Delta = arr[p[0]][p[0]];
+	if (Delta.Empty()) return {{}, 0.0, INFTY};
+	for (int k = 0; k < (int)p.size()-1; ++k)
+	{
+		Vertex i = p[k], j = p[k+1];
+		Delta = arr[i][j].Compose(Delta);
+		if (Delta.Empty()) return {{}, 0.0, INFTY};
+	}
+	Delta = Delta - PWLFunction::IdentityFunction(dom(Delta));
+	return Route(p, Delta.PreValue(min(img(Delta))), min(img(Delta)));
+}
+
 void VRPInstance::Print(ostream& os) const
 {
 	os << json(*this);
@@ -87,9 +101,17 @@ void from_json(const json& j, VRPInstance& instance)
 			instance.prec[i][k] = (bool)j["precedence_matrix"][i][k];
 	
 	instance.prec_count = vector<int>(n, 0);
+	instance.suc_count = vector<int>(n, 0);
 	for (Vertex i: instance.D.Vertices())
+	{
 		for (Vertex k: instance.D.Vertices())
+		{
 			if (instance.prec[i][k])
+			{
 				instance.prec_count[k]++;
+				instance.suc_count[i]++;
+			}
+		}
+	}
 }
 } // namespace tdtsptw

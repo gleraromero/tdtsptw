@@ -16,6 +16,7 @@ double PricingProblem::PathReducedCost(const goc::GraphPath& p, double c_p) cons
 {
 	double rc = c_p;
 	for (Vertex i: p) rc -= penalties[i];
+	rc -= sigma;
 	return rc;
 }
 

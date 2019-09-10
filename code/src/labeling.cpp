@@ -18,7 +18,7 @@ Route initial_heuristic(const VRPInstance& vrp, vector<Vertex>& P, VertexSet S, 
 	Vertex u = P.back();
 	if (P.size() == n)
 	{
-		if (u == vrp.d) return Route(P, 0.0, t);
+		if (u == vrp.d) return vrp.BestDurationRoute(P);
 		else return Route({}, 0.0, INFTY);
 	}
 	for (Vertex w: vrp.D.Vertices()) if (!S.test(w) && epsilon_smaller(vrp.LDT[u][w], t)) return Route({}, 0.0, INFTY);
@@ -138,7 +138,7 @@ vector<VertexSet> NGSet(const VRPInstance& vrp, int delta)
 		{
 			if (i == j || j == vrp.o || j == vrp.d) continue;
 			if (epsilon_bigger(vrp.EAT[j][i], vrp.LDT[i][j])) continue;
-			N_by_dist.push_back({vrp.TravelTime({i,j}, vrp.LDT[i][j]), j});
+			N_by_dist.push_back({vrp.TravelTime({j,i}, vrp.LDT[j][i]), j});
 		}
 		sort(N_by_dist.begin(), N_by_dist.end());
 		for (int k = 0; k < min(delta, (int)N_by_dist.size()); ++k) N[i].set(N_by_dist[k].second);
@@ -146,14 +146,14 @@ vector<VertexSet> NGSet(const VRPInstance& vrp, int delta)
 	return N;
 }
 
-vector<Route> run_ng_labeling(const VRPInstance& vrp, const Duration& time_limit, MLBExecutionLog* log, bool t0_is_zero, const vector<double>& penalties)
+vector<Route> run_ng_labeling(const VRPInstance& vrp, const Duration& time_limit, MLBExecutionLog* log, bool t0_is_zero, const vector<double>& penalties, bool relaxation, Route* best_p)
 {
 	int n = vrp.D.VertexCount();
 	
 	// Compute neighbours.
 	vector<VertexSet> N = NGSet(vrp, 3);
 	GraphPath L = NGL(vrp);
-	
+
 	// V_L = { v \in L }
 	VertexSet V_L;
 	for (Vertex v: L) V_L.set(v);
@@ -170,8 +170,7 @@ vector<Route> run_ng_labeling(const VRPInstance& vrp, const Duration& time_limit
 	
 	*log = MLBExecutionLog(true);
 	Stopwatch rolex(true), rolex2(false), rolex3(false);
-	
-	Matrix<vector<Label*>> D(n, n+1);
+
 	Route best({}, 0.0, INFTY);
 	double best_cost = INFTY;
 	vector<Route> solutions;
@@ -217,12 +216,9 @@ vector<Route> run_ng_labeling(const VRPInstance& vrp, const Duration& time_limit
 				for (Label* m: ND[l->v])
 				{
 					if (epsilon_smaller(max(img(l->D)) - l->P, m->cost)) break;
+					if (relaxation) { is_dominated = true; break; }
 					if (!is_subset(m->S, l->S)) continue;
-					count++;
-					if ((is_dominated = l_D.DominatePieces(m->D, l->P - m->P))) {
-						count2++;
-						break;
-					}
+					if ((is_dominated = l_D.DominatePieces(m->D, l->P - m->P))) break;
 				}
 				if (!is_dominated)
 				{
@@ -234,6 +230,7 @@ vector<Route> run_ng_labeling(const VRPInstance& vrp, const Duration& time_limit
 				}
 				else
 				{
+					log->dominated_count++;
 					delete l;
 				}
 			}
@@ -255,17 +252,18 @@ vector<Route> run_ng_labeling(const VRPInstance& vrp, const Duration& time_limit
 					if (epsilon_bigger(l->t, vrp.LDT[l->v][w])) continue;
 					if (!V[l->r].test(w)) continue;
 					if (vrp.prec_count[w] > l->k) continue;
+					if (vrp.suc_count[w] > n-k-1) continue;
 					int r_w = w == L[l->r+1] ? l->r+1 : l->r;
-					
-//					TimeUnit t_w = vrp.ArrivalTime({l->v, w}, l->t);
-//					int unreachable_count = 0;
-//					for (Vertex u: vrp.D.Vertices()) if (!l->S.test(u) && u != w && epsilon_smaller(vrp.LDT[w][u], t_w)) unreachable_count++;
-//					if (unreachable_count > l->k) continue;
+
+					TimeUnit t_w = vrp.ArrivalTime({l->v, w}, l->t);
+					int unreachable_count = 0;
+					for (Vertex u: vrp.D.Vertices()) if (!l->S.test(u) && u != w && epsilon_smaller(vrp.LDT[w][u], t_w)) unreachable_count++;
+					if (unreachable_count > l->k) continue;
 					PWLFunction D_w = epsilon_smaller(max(dom(l->D)), min(img(vrp.dep[l->v][w])))
 									  ? PWLFunction::ConstantFunction(l->D(max(dom(l->D))) + min(vrp.tw[w]) - max(dom(l->D)), {min(vrp.tw[w]), min(vrp.tw[w])})
 									  : (l->D + vrp.tau[l->v][w]).Compose(vrp.dep[l->v][w]);
 					if (D_w.Empty()) continue;
-					q[(k+1)%2][r_w].push_back(new Label(l, w, l->k+1, unite(intersection(l->S, N[w]), {w}), D_w, min(dom(D_w)), min(img(D_w))-l->P-penalties[w], l->P + penalties[w], r_w));
+					q[(k+1)%2][r_w].push_back(new Label(l, w, l->k+1, unite(intersection(l->S, N[w]), {w}), D_w, t_w, min(img(D_w))-l->P-penalties[w], l->P + penalties[w], r_w));
 					log->extended_count++;
 				}
 			}
@@ -275,8 +273,132 @@ vector<Route> run_ng_labeling(const VRPInstance& vrp, const Duration& time_limit
 	log->time = rolex.Peek();
 	if (log->status == MLBStatus::DidNotStart) log->status = MLBStatus::Finished;
 	clog << "\t Cost: " << best_cost;
-	clog << "\t Count: " << count << ", Count2: " << count2 << endl;
+	clog << "\t Count: " << count << ", Count2: " << count2;
 	clog << "\tBest bound: " << best_cost + sum<Vertex>(vrp.D.Vertices(), [&] (Vertex v) { return penalties[v]; }) << endl;
+	if (best_p) *best_p = best;
 	return solutions;
 }
+//
+//vector<Route> run_ng_labeling_non_hamiltonian(const VRPInstance& vrp, const Duration& time_limit, MLBExecutionLog* log, bool t0_is_zero, const vector<double>& penalties, double sigma, bool relaxation)
+//{
+//	clog << sigma << endl;
+////	exit(0);
+//	int n = vrp.D.VertexCount();
+//
+//	// Compute neighbours.
+//	vector<VertexSet> N = NGSet(vrp, 3);
+//	GraphPath L = NGL(vrp);
+//
+//	// V_L = { v \in L }
+//	VertexSet V_L;
+//	for (Vertex v: L) V_L.set(v);
+//
+//	// Sets V_i = { v \in V : !(v < L_i) and !(L_{i+1} < v) }.
+//	vector<VertexSet> V(L.size());
+//	for (int i = 0; i < (int)L.size()-1; ++i)
+//	{
+//		V[i].set(L[i+1]);
+//		for (Vertex v: vrp.D.Vertices())
+//			if (!V_L.test(v) && !vrp.prec[v][L[i]] && !vrp.prec[L[i+1]][v])
+//				V[i].set(v);
+//	}
+//
+//	*log = MLBExecutionLog(true);
+//	stretch_to_size(*log->count_by_length, n+1, 0);
+//
+//	Stopwatch rolex(true), rolex2(false), rolex3(false);
+//
+//	Matrix<vector<Label*>> D(n, n+1);
+//	Route best({}, 0.0, INFTY);
+//	double best_cost = INFTY;
+//	vector<Route> solutions;
+//	auto comp = [] (Label* l, Label* m) { return make_tuple(l->t, l->cost) > make_tuple(m->t, m->cost); };
+//	priority_queue<Label*, vector<Label*>, decltype(comp)> q[2] = { priority_queue<Label*, vector<Label*>, decltype(comp)>(comp), priority_queue<Label*, vector<Label*>, decltype(comp)>(comp) };
+//	q[0].push(new Label(nullptr, vrp.o, 1, create_bitset<MAX_N>({vrp.o}), PWLFunction::ConstantFunction(0.0, {vrp.tw[vrp.o].left, t0_is_zero ? vrp.tw[vrp.o].left : vrp.tw[vrp.o].right}), vrp.tw[vrp.o].left, -penalties[vrp.o]-sigma, penalties[vrp.o]+sigma, 0));
+//	// Each k \in 0...|L|-1 is a stage.
+//	for (int k = 0; k < L.size(); ++k)
+//	{
+//		vector<vector<Label*>> D(n); // domination structure.
+//		while (!q[k%2].empty())
+//		{
+//			Label* l = q[k%2].top();
+//			q[k%2].pop();
+//
+//			// Check domination.
+//			rolex2.Reset().Resume();
+//			PWLDominationFunction l_D = l->D;
+//			bool is_dominated = false;
+//			for (Label* m: D[l->v])
+//			{
+//				if (epsilon_smaller(max(img(l->D)) - l->P, m->cost)) break;
+//				if (!is_subset(m->S, l->S)) continue;
+//				if (relaxation) { is_dominated = true; break; }
+//				if ((is_dominated = l_D.DominatePieces(m->D, l->P - m->P))) break;
+//			}
+//			log->dominated_count += is_dominated;
+//			*log->domination_time += rolex.Peek();
+//			if (is_dominated) *log->positive_domination_time += rolex.Peek();
+//			if (!is_dominated) *log->negative_domination_time += rolex.Peek();
+//
+//			if (!is_dominated)
+//			{
+//				l->D = (PWLFunction)l_D;
+//				l->t = min(dom(l->D));
+//				l->cost = min(img(l->D))-l->P;
+//				insert_sorted(D[l->v], l, [] (Label* l1, Label* l2) { return l1->cost < l2->cost; });
+//				log->processed_count++;
+//				(*log->count_by_length)[k]++;
+//			}
+//			else
+//			{
+//				log->dominated_count++;
+//				delete l;
+//				continue;
+//			}
+////			clog << *l << endl;
+//			// Extension.
+//			// Extension.
+//			rolex2.Reset().Resume();
+//			// Otherwise, extend.
+//			for (Vertex w: vrp.D.Successors(l->v))
+//			{
+//				// Check feasibility.
+//				if (l->S.test(w)) continue;
+//				if (epsilon_bigger(l->t, vrp.LDT[l->v][w])) continue;
+//				if (!V[l->r].test(w)) continue;
+//				int r_w = w == L[l->r+1] ? l->r+1 : l->r;
+////				if (vrp.prec_count[L[l->r+1]] < l->k) continue;
+//
+//				TimeUnit t_w = vrp.ArrivalTime({l->v, w}, l->t);
+//				PWLFunction D_w = epsilon_smaller(max(dom(l->D)), min(img(vrp.dep[l->v][w])))
+//								  ? PWLFunction::ConstantFunction(l->D(max(dom(l->D))) + min(vrp.tw[w]) - max(dom(l->D)), {min(vrp.tw[w]), min(vrp.tw[w])})
+//								  : (l->D + vrp.tau[l->v][w]).Compose(vrp.dep[l->v][w]);
+//				if (D_w.Empty()) continue;
+//				log->extended_count++;
+//
+//				// Process tour.
+//				if (w == vrp.d)
+//				{
+//					if (l->cost < best_cost)
+//					{
+//						best = Route(l->Path(), l->D.PreValue(min(img(l->D)))-min(img(l->D)), min(img(l->D)));
+//						best_cost = l->cost;
+//					}
+//					if (epsilon_smaller(l->cost, 0.0))
+//					{
+//						solutions.push_back(Route(l->Path(), l->D.PreValue(min(img(l->D)))-min(img(l->D)), min(img(l->D))));
+//						if (solutions.size() == 3000) break;
+//					}
+//					continue;
+//				}
+//
+//				q[r_w%2].push(new Label(l, w, l->k+1, unite(intersection(l->S, N[w]), {w}), D_w, min(dom(D_w)), min(img(D_w))-l->P-penalties[w], l->P + penalties[w], r_w));
+//			}
+//			*log->extension_time += rolex2.Peek();
+//			if (solutions.size() == 3000) break;
+//		}
+//		if (solutions.size() == 3000) break;
+//	}
+//	return solutions;
+//}
 } // namespace tdtsptw
