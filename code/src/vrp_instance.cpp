@@ -12,6 +12,36 @@ using namespace nlohmann;
 
 namespace tdtsptw
 {
+TimeUnit VRPInstance::TravelTime(Arc e, TimeUnit t0) const
+{
+	double t = ArrivalTime(e, t0);
+	if (t == INFTY) return INFTY;
+	return t - t0;
+}
+
+TimeUnit VRPInstance::PreTravelTime(Arc e, TimeUnit tf) const
+{
+	double t = DepartureTime(e, tf);
+	if (t == INFTY) return INFTY;
+	return tf - t;
+}
+
+TimeUnit VRPInstance::ArrivalTime(Arc e, TimeUnit t0) const
+{
+	auto& tau_e = tau[e.tail][e.head];
+	if (epsilon_smaller(tau_e.Domain().right, t0)) return INFTY;
+	else if (epsilon_bigger(tau_e.Domain().left, t0)) return tau_e.Domain().left+tau_e(tau_e.Domain().left);
+	return t0 + tau_e(t0);
+}
+
+TimeUnit VRPInstance::DepartureTime(Arc e, TimeUnit tf) const
+{
+	auto& dep_e = dep[e.tail][e.head];
+	if (epsilon_smaller(tf, dep_e.Domain().left)) return INFTY;
+	if (epsilon_bigger(tf, dep_e.Domain().right)) return max(img(dep_e));
+	return dep[e.tail][e.head](tf);
+}
+
 TimeUnit VRPInstance::ReadyTime(const GraphPath& p, TimeUnit t0) const
 {
 	TimeUnit t = t0;
@@ -24,19 +54,17 @@ TimeUnit VRPInstance::ReadyTime(const GraphPath& p, TimeUnit t0) const
 	return t;
 }
 
-TimeUnit VRPInstance::ArrivalTime(Arc e, TimeUnit t0) const
+TimeUnit VRPInstance::MinimumTravelTime(Arc e, TimeUnit t0) const
 {
-	auto& tau_e = tau[e.tail][e.head];
-	if (epsilon_smaller(tau_e.Domain().right, t0)) return INFTY;
-	else if (epsilon_bigger(tau_e.Domain().left, t0)) return tau_e.Domain().left+tau_e(tau_e.Domain().left);
-	return t0 + tau_e(t0);
-}
-
-TimeUnit VRPInstance::TravelTime(Arc e, TimeUnit t0) const
-{
-	double t = ArrivalTime(e, t0);
-	if (t == INFTY) return INFTY;
-	return t - t0;
+	TimeUnit tmin = INFTY;
+	for (auto& p: tau[e.tail][e.head].Pieces())
+	{
+		if (p.domain.Includes(t0))
+			tmin = min(min(tmin, p.Value(t0)), p.Value(p.domain.right));
+		else if (epsilon_smaller_equal(t0, p.domain.left))
+			tmin = min(tmin, p.image.left);
+	}
+	return tmin;
 }
 
 Route VRPInstance::BestDurationRoute(const GraphPath& p) const
@@ -76,8 +104,10 @@ void from_json(const json& j, VRPInstance& instance)
 	instance.d = j["end_depot"];
 	instance.T = j["horizon"][1];
 	instance.tw = vector<Interval>(j["time_windows"].begin(), j["time_windows"].end());
-	instance.EAT = j["EAT"];
-	instance.LDT = j["LDT"];
+	for (int i = 0; i < n; ++i) instance.a.push_back(instance.tw[i].left);
+	for (int i = 0; i < n; ++i) instance.b.push_back(instance.tw[i].right);
+	if (has_key(j, "EAT")) instance.EAT = j["EAT"];
+	if (has_key(j, "LDT")) instance.LDT = j["LDT"];
 	instance.tau = instance.arr = instance.dep = instance.pretau = Matrix<PWLFunction>(n, n);
 	for (Vertex u: instance.D.Vertices())
 	{
@@ -95,21 +125,24 @@ void from_json(const json& j, VRPInstance& instance)
 		instance.tau[u][u] = instance.pretau[u][u] = PWLFunction::ConstantFunction(0.0, instance.tw[u]);
 		instance.dep[u][u] = instance.arr[u][u] = PWLFunction::IdentityFunction(instance.tw[u]);
 	}
-	instance.prec = Matrix<bool>(n, n);
-	for (Vertex i: instance.D.Vertices())
-		for (Vertex k: instance.D.Vertices())
-			instance.prec[i][k] = (bool)j["precedence_matrix"][i][k];
-	
-	instance.prec_count = vector<int>(n, 0);
-	instance.suc_count = vector<int>(n, 0);
-	for (Vertex i: instance.D.Vertices())
+	if (has_key(j, "precedence_matrix"))
 	{
-		for (Vertex k: instance.D.Vertices())
+		instance.prec = Matrix<bool>(n, n);
+		for (Vertex i: instance.D.Vertices())
+			for (Vertex k: instance.D.Vertices())
+				instance.prec[i][k] = (bool) j["precedence_matrix"][i][k];
+		
+		instance.prec_count = vector<int>(n, 0);
+		instance.suc_count = vector<int>(n, 0);
+		for (Vertex i: instance.D.Vertices())
 		{
-			if (instance.prec[i][k])
+			for (Vertex k: instance.D.Vertices())
 			{
-				instance.prec_count[k]++;
-				instance.suc_count[i]++;
+				if (instance.prec[i][k])
+				{
+					instance.prec_count[k]++;
+					instance.suc_count[i]++;
+				}
 			}
 		}
 	}

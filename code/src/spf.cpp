@@ -13,11 +13,8 @@ using namespace goc;
 
 namespace tdtsptw
 {
-SPF::SPF(const Digraph& D) : n(D.VertexCount()), D(D)
+SPF::SPF(int n) : n(n)
 {
-	route_seq = 0;
-	y_by_arc = Matrix<unordered_set<Variable>>(n, n);
-	
 	formulation = LPSolver::NewFormulation();
 	formulation->Minimize(Expression()); // Minimization.
 	formulation->AddConstraint(Expression().EQ(0.0)); // Start depot.
@@ -33,7 +30,7 @@ SPF::~SPF()
 void SPF::AddRoute(const Route& r)
 {
 	// Add route r to Omega.
-	int j = route_seq++;
+	int j = formulation->VariableCount();
 	
 	// Add variable y_j to the formulation.
 	Variable y_j = formulation->AddVariable("y_" + STR(j), VariableDomain::Real, 0.0, INFTY);
@@ -47,22 +44,8 @@ void SPF::AddRoute(const Route& r)
 	// Set coefficient 1.0 in vertices visited.
 	for (int k = 1; k < (int)r.path.size()-1; ++k) formulation->SetConstraintCoefficient(r.path[k], y_j, a_ij[r.path[k]]);
 	
-	// Update omega_by_arc structure.
-	for (int k = 1; k < (int)r.path.size()-1; ++k) y_by_arc[r.path[k]][r.path[k+1]].insert(y_j);
-
 	// Set duration(r) as c_j in the objective function.
 	formulation->SetObjectiveCoefficient(y_j, r.duration);
-}
-
-void SPF::SetForbiddenArcs(const vector<Arc>& A)
-{
-	// Restore previously forbidden arcs.
-	for (Arc e: forbidden_arcs) for (auto& y_j: y_by_arc[e.tail][e.head]) formulation->SetVariableBound(y_j, 0.0, INFTY);
-	
-	// All forbidden arcs must be set to 0.
-	for (Arc e: A) for (auto& y_j : y_by_arc[e.tail][e.head]) formulation->SetVariableBound(y_j, 0.0, 0.0);
-	
-	forbidden_arcs = A;
 }
 
 const Route& SPF::RouteOf(const Variable& variable) const

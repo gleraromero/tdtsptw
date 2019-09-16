@@ -24,6 +24,6 @@ add_subdirectory(goc)
 include_directories(goc/include)
 
 # Create binaries.
-add_executable(main src/main.cpp src/vrp_instance.cpp src/preprocess_travel_times.cpp src/preprocess_time_windows.cpp src/label.cpp src/labeling.cpp src/pwl_domination_function.cpp src/preprocess_waiting_times.cpp src/spf.cpp src/pricing_problem.cpp)
+add_executable(main src/main.cpp src/vrp_instance.cpp src/preprocess_travel_times.cpp src/preprocess_time_windows.cpp src/pwl_domination_function.cpp src/preprocess_waiting_times.cpp src/spf.cpp src/pricing_problem.cpp src/lbl_ng.cpp src/lbl_exact.cpp src/subgradient.cpp src/heuristic.cpp)
 target_link_libraries(main goc)
 target_link_libraries(main)

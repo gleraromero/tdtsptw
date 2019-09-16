@@ -1,0 +1,11 @@
+{
+  "datasets": [{"name":  "lms_2019"}],
+  "experiments": [
+    {
+      "name": "Main",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "duration"
+    }
+  ]
+}

@@ -28,6 +28,7 @@ public:
 	goc::Vertex o, d; // origin and destination depot.
 	TimeUnit T; // end of planning horizon ([0,T]).
 	std::vector<goc::Interval> tw; // time window of customers (tw[i] = time window of customer i).
+	std::vector<TimeUnit> a, b; // release and deadline of the time windows.
 	goc::Matrix<goc::PWLFunction> tau; // tau[i][j](t) = travel time of arc (i, j) if departing from i at t.
 	goc::Matrix<goc::PWLFunction> pretau; // pretau[i][j](t) = travel time of arc (i, j) if arriving at j at t.
 	goc::Matrix<goc::PWLFunction> dep; // dep[i][j](t) = departing time of arc (i, j) if arriving to j at t.
@@ -38,18 +39,29 @@ public:
 	std::vector<int> prec_count; // prec_count[i] = #predecessors of i.
 	std::vector<int> suc_count; // suc_count[i] = #successors of i.
 	
-	// Returns: the time we finish visiting the last vertex if departing at t0.
-	// If infeasible, returns INFTY.
-	TimeUnit ReadyTime(const goc::GraphPath& p, TimeUnit t0=0) const;
-
-	// Arrival time function.
-	// @return Arrival time at end of arc e, if departing at t0, counting the time windows.
-	// @details if departing at t0 is infeasible it returns INFTY.
-	TimeUnit ArrivalTime(goc::Arc e, TimeUnit t0) const;
-
-	// @return Travel time for arc e, if departing at t0, counting the time windows.
-	// @details if departing at t0 is infeasible it returns INFTY.
+	// Returns: the travel time for arc e if departing at t0.
+	// If departure at t0 is infeasible, returns INFTY.
 	TimeUnit TravelTime(goc::Arc e, TimeUnit t0) const;
+	
+	// Returns: the travel time for arc e if arriving at tf.
+	// If arrival at tf is infeasible, returns INFTY.
+	TimeUnit PreTravelTime(goc::Arc e, TimeUnit tf) const;
+	
+	// Returns: the arrival time for arc e if departing at t0.
+	// If departure at t0 is infeasible, returns INFTY.
+	TimeUnit ArrivalTime(goc::Arc e, TimeUnit t0) const;
+	
+	// Returns: the departure time for arc e if arriving at tf.
+	// If arrival at tf is infeasible, returns INFTY.
+	TimeUnit DepartureTime(goc::Arc e, TimeUnit tf) const;
+	
+	// Returns: the time we finish visiting the last vertex if departing at t0.
+	// If infeasible, returns a route with empty path and INFTY duration.
+	TimeUnit ReadyTime(const goc::GraphPath& p, TimeUnit t0=0) const;
+	
+	// @return the minimum travel time for arc e if departing at or after t0.
+	// @details if departing at or after t0 is infeasible it returns INFTY.
+	TimeUnit MinimumTravelTime(goc::Arc e, TimeUnit t0=0.0) const;
 
 	goc::Route BestDurationRoute(const goc::GraphPath& p) const;
 	

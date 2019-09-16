@@ -20,7 +20,6 @@ class PricingProblem : public goc::Printable
 {
 public:
 	std::vector<double> penalties;
-	double sigma;
 	
 	// Returns: the reduced cost of graph path p with cost c_p.
 	double PathReducedCost(const goc::GraphPath& p, double c_p) const;

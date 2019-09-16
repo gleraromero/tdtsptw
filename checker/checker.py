@@ -146,8 +146,7 @@ def main():
 			if "makespan" in experiment_name: tags.append("MAKESPAN")
 			if "duration" in experiment_name: tags.append("DURATION")
 			bks = best_known_solution(dataset_name, instance_name, tags)
-
-			status = output["stdout"]["Exact"]["status"]
+			status = output["stdout"]["status"]
 			opt_found = status == "Optimum" or status == "Finished" # Indicates if the optimum solution was found.
 			if "Best solution" in output["stdout"]:
 				solution = output["stdout"]["Best solution"]
