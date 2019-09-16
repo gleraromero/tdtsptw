@@ -2,10 +2,36 @@
   "datasets": [{"name":  "lms_2019"}],
   "experiments": [
     {
-      "name": "Main",
+      "name": "NGL",
       "executable": "main",
       "time_limit": 3600,
-      "objective": "duration"
+      "objective": "duration",
+      "colgen": false,
+      "relaxation": "NGL"
+    },
+    {
+      "name": "NGL-TD",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "duration",
+      "colgen": false,
+      "relaxation": "NGL-TD"
+    },
+    {
+      "name": "CG-NGL",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "duration",
+      "colgen": true,
+      "relaxation": "NGL"
+    },
+    {
+      "name": "CG-NGL-TD",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "duration",
+      "colgen": true,
+      "relaxation": "NGL-TD"
     }
   ]
 }

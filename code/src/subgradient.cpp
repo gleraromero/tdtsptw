@@ -26,12 +26,13 @@ bool is_feasible_solution(const VRPInstance& vrp, const GraphPath& path)
 }
 }
 
-vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, int max_iter, Route& UB, double& LB, CGExecutionLog* log)
+vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, bool use_td_relaxation, int max_iter, Route& UB, double& LB, CGExecutionLog* log)
 {
 	vector<double> lambda(vrp.D.VertexCount(), 0.0);
 	map<GraphPath, Route> route_set; // To avoid returning multiple times the same solution, we index them by the route.
 	log->iteration_count = 0;
 	log->iterations = vector<json>();
+	Stopwatch rolex(true);
 	for (int t = 0; t < max_iter; ++t)
 	{
 		clog << "Iteration " << (t+1) << endl;
@@ -40,7 +41,9 @@ vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, int max
 		MLBExecutionLog it_log(true);
 		Route best;
 		double best_LB;
-		auto Routes = run_ng(vrp, NG, lambda, UB.duration, &best, &best_LB, &it_log, nullptr);
+		vector<Route> Routes;
+		if (!use_td_relaxation) Routes = run_ng_td(vrp, NG, lambda, UB.duration, &best, &best_LB, &it_log, nullptr);
+		else Routes = run_ng(vrp, NG, lambda, UB.duration, &best, &best_LB, &it_log, nullptr);
 		LB = max(LB, best_LB + Lambda);
 		
 		// Log iteration information.
@@ -65,6 +68,9 @@ vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, int max
 		route_set[best.path] = best;
 	}
 	clog << "LB subgradient: " << LB << endl;
+	log->incumbent_value = LB;
+	log->time = rolex.Peek();
+	log->status = CGStatus::Optimum;
 	vector<Route> r;
 	for (auto& route: route_set) r.push_back(route.second);
 	return r;

@@ -83,6 +83,35 @@ struct BoundingStructure
 // @returns a set of negative cost routes.
 std::vector<goc::Route> run_ng(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda,
 							   double UB, goc::Route* best_route, double* best_cost, goc::MLBExecutionLog* log, BoundingStructure* B);
+
+class TDNGLabel : public goc::Printable
+{
+public:
+	TDNGLabel* prev;
+	goc::Vertex v;
+	int S;
+	goc::PWLFunction Tdur;
+	double lambda;
+	
+	TDNGLabel(TDNGLabel* prev, goc::Vertex v, int S, const goc::PWLFunction& Tdur, double lambda);
+	
+	goc::GraphPath Path() const;
+	
+	virtual void Print(std::ostream& os) const;
+};
+
+// Runs an NG labeling algorithm to find negative cost routes.
+// @param vrp: VRP Instance
+// @param NG: structure with NG information.
+// @param lambda: penalties for vertices.
+// @param UB: upper bound on the duration of the optimal route.
+// @param [out] best_route: route with best cost.
+// @param [out] best_cost: cost of best_route.
+// @param [out] log: output log to save the execution information.
+// @param [out] B: bounding structure for usage at exact labeling later.
+// @returns a set of negative cost routes.
+std::vector<goc::Route> run_ng_td(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda,
+								  double UB, goc::Route* best_route, double* best_cost, goc::MLBExecutionLog* log, BoundingStructure* B);
 } // namespace tdtsptw
 
 #endif //TDTSPTW_LBL_NG_H

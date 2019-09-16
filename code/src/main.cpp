@@ -85,7 +85,7 @@ int main(int argc, char** argv)
 {
 	json output; // STDOUT output will go into this JSON.
 	
-	simulate_runner_input("instances/guerriero_et_al_2014", "20_70_B_C6", "experiments/easy.json", "makespan");
+	simulate_runner_input("instances/lms_2019", "rbg016a", "experiments/lms.json", "Main");
 	
 	json experiment, instance, solutions;
 	cin >> experiment >> instance >> solutions;
@@ -93,10 +93,14 @@ int main(int argc, char** argv)
 	// Parse experiment.
 	Duration time_limit = Duration(value_or_default(experiment, "time_limit", 7200), DurationUnit::Seconds);
 	string objective = value_or_default(experiment, "objective", "duration");
+	string relaxation = value_or_default(experiment, "relaxation", "NGL-TD");
+	bool colgen = value_or_default(experiment, "colgen", true);
 	
 	// Show experiment details.
 	clog << "Time limit: " << time_limit << "sec." << endl;
 	clog << "Objective: " << objective << endl;
+	clog << "Relaxation: " << relaxation << endl;
+	clog << "Colgen: " << colgen << endl;
 	
 	// Set departing time from depot equal to 0 if makespan objective.
 	if (objective == "makespan") instance["time_windows"][0] = Interval(0, 0);
@@ -131,7 +135,7 @@ int main(int argc, char** argv)
 		
 		// Run subgradient.
 		CGExecutionLog subgradient_log;
-		auto sg_routes = subgradient(vrp, NG, 10, UB, LB, &subgradient_log);
+		auto sg_routes = subgradient(vrp, NG, relaxation == "NGL-TD", 10, UB, LB, &subgradient_log);
 		output["Subgradient"] = subgradient_log;
 		
 		// Solve CG to obtain best penalties.
@@ -154,11 +158,14 @@ int main(int argc, char** argv)
 			bool early_stop = false; // If any other termination condition is met, early_stop is set to true.
 			cg_solver.pricing_function = [&](const vector<double>& duals, double incumbent_value, Duration time_limit,
 											 CGExecutionLog* cg_execution_log) {
+				if (!colgen) return false;
 				auto pp = spf.InterpretDuals(duals);
 				MLBExecutionLog iteration_log(true);
 				Route best;
 				double best_cost;
-				auto R = run_ng(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log, nullptr);
+				vector<Route> R;
+				if (relaxation == "NGL-TD")	R = run_ng(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log, nullptr);
+				else if (relaxation == "NGL") R = run_ng_td(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log, nullptr);
 				
 				// Compute new LB.
 				LB = max(LB, best_cost + sum(pp.penalties));
@@ -188,7 +195,7 @@ int main(int argc, char** argv)
 			output["CG"] = cg_log;
 			
 			// If gap was not closed, get best LB.
-			if (!early_stop && cg_log.status == CGStatus::Optimum) LB = cg_log.incumbent_value;
+			if (!early_stop && cg_log.status == CGStatus::Optimum && colgen) LB = cg_log.incumbent_value;
 			clog << "Finished CG in " << cg_log.time << "secs with LB: " << LB << endl;
 			bool found_opt = epsilon_equal(LB, UB.duration);
 			if (found_opt) clog << "Optimality was closed in CG" << endl;
@@ -196,12 +203,13 @@ int main(int argc, char** argv)
 			// If optimum was not found, run exact algorithm.
 			if (!found_opt)
 			{
-				clog << "Obtaining bound labels..." << endl;
+				clog << "Obtaining bound labels with NGL relaxation..." << endl;
 				Route best;
 				double best_cost;
 				MLBExecutionLog bound_log(true);
 				BoundingStructure B(&vrp, &NG, penalties);
-				run_ng(vrp, NG, penalties, UB.duration, &best, &best_cost, &bound_log, &B);
+				run_ng_td(vrp, NG, penalties, UB.duration, &best, &best_cost, &bound_log, &B);
+				clog << "LB: " << best_cost + sum(penalties) << endl;
 				
 				clog << "Running exact algorithm..." << endl;
 				MLBExecutionLog exact_log(true);
@@ -211,6 +219,9 @@ int main(int argc, char** argv)
 				output["Exact"] = exact_log;
 			}
 		}
+		LPExecutionLog lb_log;
+		lb_log.incumbent_value = LB;
+		output["LB"] = lb_log;
 		
 		// Get best route.
 		if (UB.duration != INFTY)

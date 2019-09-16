@@ -133,8 +133,8 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 						// Bounding.
 						double LBw = B->CompletionBound(lw.lambda, lw.Tdur, lw.S, k+1, lw.v);
 						if (epsilon_bigger_equal(LBw, best.duration)) continue;
-						if (epsilon_smaller(LBw, LB)) { clog << LBw << " " << LB << endl; fail("Nope"); }
-						LBw = floor(LBw);
+//						if (epsilon_smaller(LBw, LB)) { clog << LBw << " " << LB << endl; fail("Nope"); }
+						LBw = max(LB, (int)floor(LBw));
 						q[LBw][k+1][w].push_back(lw);
 						log->extended_count++;
 					}
