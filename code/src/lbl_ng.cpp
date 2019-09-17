@@ -108,6 +108,23 @@ NGStructure::NGStructure(const VRPInstance& vrp, int delta) : delta(delta)
 	}
 }
 
+NGStructure::NGStructure(const VRPInstance& vrp, const std::vector<VertexSet>& N, const goc::GraphPath& L, int delta)
+	: N(N), L(L), delta(delta)
+{
+	VertexSet V_L;
+	for (Vertex v: L) V_L.set(v);
+	
+	// Compute NGL sets V_i = { v \in V : !(v < L_i) and !(L_{i+1} < v) }.
+	V = vector<VertexSet>(L.size());
+	for (int i = 0; i < (int)L.size()-1; ++i)
+	{
+		V[i].set(L[i+1]);
+		for (Vertex v: vrp.D.Vertices())
+			if (!V_L.test(v) && !vrp.prec[v][L[i]] && !vrp.prec[L[i+1]][v])
+				V[i].set(v);
+	}
+}
+
 NGLabel::NGLabel(NGLabel* prev, Vertex v, int S, double Tdur, double Thelp, double lambda) : prev(prev), v(v), S(S), Tdur(Tdur), Thelp(Thelp), lambda(lambda)
 {}
 
@@ -124,49 +141,8 @@ void NGLabel::Print(ostream& os) const
 	os << "{P:" << Path() << ", S: " << S << ", Tdur: " << Tdur << ", Thelp: " << Thelp << ", lambda: " << lambda << "}";
 }
 
-BoundingStructure::BoundingStructure(VRPInstance* vrp, NGStructure* NG, const vector<double>& penalties)
-	: vrp(vrp), NG(NG), penalties(penalties)
-{
-	// Init structure.
-	int n = vrp->D.VertexCount();
-	S = Matrix<vector<VectorMap<double, vector<NGLabel>>>>(n+1, n, vector<VectorMap<double, vector<NGLabel>>>(NG->L.size()));
-	penalties_sum = sum(penalties);
-}
-
-void BoundingStructure::AddBound(int k, int r, const NGLabel& l)
-{
-	insert_sorted(S[k][l.v][r].Insert(floor(l.Thelp), {}), l, [] (const NGLabel& l1, const NGLabel& l2) { return l1.Tdur < l2.Tdur; });
-}
-
-double BoundingStructure::CompletionBound(double Tlambda, const goc::PWLFunction& Tdur, const VertexSet& V, int k, Vertex w)
-{
-	int n = vrp->D.VertexCount();
-	double T = vrp->T;
-	
-	double LB = UB;
-	double Thelp = -(max(dom(Tdur))-Tdur.Value(max(dom(Tdur))))-Tlambda;
-	double min_dur = min(img(Tdur))-Tlambda;
-	// Bounding labels should have visited all L[r] such that L[r] \not\in S, and not more. It also should
-	// have visited L[r'] if there is a L[r'] = w.
-	int r = 0;
-	for (r = 0; r < (int)NG->L.size()-1 && (!V.test(NG->L[r+1]) || NG->L[r+1] == w); ++r) {}
-	
-	for (auto& Thelp_entry: S[n-k+1][w][r])
-	{
-		double Thelpm = Thelp_entry.first;
-		if (epsilon_bigger(T + Thelpm + Thelp + penalties[w] + penalties_sum, LB)) break;
-		for (auto& m: Thelp_entry.second)
-		{
-			if (epsilon_bigger(m.Tdur + min_dur + penalties[w] + penalties_sum, LB)) break;
-			if (intersection(NG->NGSet[w][m.S], V) != create_bitset<MAX_N>({w})) continue;
-			LB = min(LB, max(m.Tdur + min_dur, T + m.Thelp + Thelp) + penalties[w] + penalties_sum);
-		}
-	}
-	return LB;
-}
-
 vector<Route> run_ng(const VRPInstance& vrp, const NGStructure& NG, const vector<double>& lambda, double UB,
-					 Route* best_route, double* best_cost, MLBExecutionLog* log, BoundingStructure* B)
+					 Route* best_route, double* best_cost, MLBExecutionLog* log)
 {
 	// Return set of negative cost routes in NEG.
 	vector<Route> NEG;
@@ -217,9 +193,6 @@ vector<Route> run_ng(const VRPInstance& vrp, const NGStructure& NG, const vector
 						log->dominated_count++;
 						continue;
 					}
-					
-					// Save it to B.
-					if (B) B->AddBound(k, r, l);
 					
 					// Extension.
 					log->processed_count++;
@@ -296,7 +269,7 @@ void TDNGLabel::Print(ostream& os) const
 }
 
 vector<Route> run_ng_td(const VRPInstance& vrp, const NGStructure& NG, const vector<double>& lambda, double UB,
-					 Route* best_route, double* best_cost, MLBExecutionLog* log, BoundingStructure* B)
+					 Route* best_route, double* best_cost, MLBExecutionLog* log)
 {
 	// Return set of negative cost routes in NEG.
 	vector<Route> NEG;
@@ -357,9 +330,6 @@ vector<Route> run_ng_td(const VRPInstance& vrp, const NGStructure& NG, const vec
 					}
 					l.Tdur = (PWLFunction)Tdurl;
 					D[l.S].push_back(&l);
-					
-					// Save it to B.
-					if (B) B->AddBound(k, r, NGLabel(nullptr, v, l.S, min(img(l.Tdur))-l.lambda, -(max(dom(l.Tdur))-l.Tdur(max(dom(l.Tdur))))-l.lambda, l.lambda));
 					
 					// Extension.
 					log->processed_count++;

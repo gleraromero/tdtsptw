@@ -15,7 +15,7 @@
 
 #include "vrp_instance.h"
 #include "pricing_problem.h"
-#include "lbl_ng.h"
+#include "dssr.h"
 
 namespace tdtsptw
 {
@@ -28,7 +28,7 @@ namespace tdtsptw
 // @param [out] best_route: route with best cost.
 // @param [out] log: output log to save the execution information.
 // @returns the optimal tour.
-goc::Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure* B,
+goc::Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure& B,
 					 const std::vector<double>& lambda, const goc::Route& UB, double lb, goc::MLBExecutionLog* log);
 	
 } // namespace tdtsptw

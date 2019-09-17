@@ -18,74 +18,18 @@
 #include "subgradient.h"
 #include "spf.h"
 #include "heuristic.h"
+#include "dssr.h"
 
 using namespace std;
 using namespace goc;
 using namespace nlohmann;
 using namespace tdtsptw;
 
-VRPInstance reverse_instance(const VRPInstance& vrp)
-{
-	int n = vrp.D.VertexCount();
-	
-	VRPInstance rev;
-	rev.D = vrp.D.Reverse();
-	rev.o = vrp.d, rev.d = vrp.o;
-	rev.T = vrp.T;
-	for (Vertex v: vrp.D.Vertices()) rev.tw.push_back({rev.T-vrp.tw[v].right, rev.T-vrp.tw[v].left});
-	for (Vertex v: vrp.D.Vertices()) rev.a.push_back(rev.tw[v].left);
-	for (Vertex v: vrp.D.Vertices()) rev.b.push_back(rev.tw[v].right);
-	rev.prec = Matrix<bool>(n,n, false);
-	rev.prec_count = vector<int>(n, 0);
-	rev.suc_count = vector<int>(n, 0);
-	for (Vertex v: vrp.D.Vertices())
-	{
-		for (Vertex w: vrp.D.Vertices())
-		{
-			if (vrp.prec[w][v])
-			{
-				rev.prec[v][w] = true;
-				rev.prec_count[w]++;
-				rev.suc_count[v]++;
-			}
-		}
-	}
-	rev.LDT = rev.EAT = Matrix<double>(n, n);
-	for (Vertex v: vrp.D.Vertices())
-	{
-		for (Vertex w: vrp.D.Vertices())
-		{
-			rev.EAT[v][w] = vrp.T - vrp.LDT[w][v];
-			rev.LDT[v][w] = vrp.T - vrp.EAT[w][v];
-		}
-	}
-	rev.arr = rev.tau = rev.dep = rev.pretau = Matrix<PWLFunction>(n, n);
-	for (Vertex u: vrp.D.Vertices())
-	{
-		for (Vertex v: vrp.D.Successors(u))
-		{
-			// Compute reverse travel functions.
-			rev.arr[v][u] = vrp.T - vrp.dep[u][v].Compose(vrp.T - PWLFunction::IdentityFunction({0.0, vrp.T}));
-			rev.arr[v][u] = Min(PWLFunction::ConstantFunction(min(img(rev.arr[v][u])), {min(rev.tw[v]), min(dom(rev.arr[v][u]))}), rev.arr[v][u]);
-			rev.tau[v][u] = rev.arr[v][u] - PWLFunction::IdentityFunction({0.0, vrp.T});
-			rev.dep[v][u] = rev.arr[v][u].Inverse();
-			rev.pretau[v][u] = PWLFunction::IdentityFunction(dom(rev.dep[v][u])) - rev.dep[v][u];
-		}
-	}
-	// Add travel functions for (i, i) (for boundary reasons).
-	for (Vertex u: rev.D.Vertices())
-	{
-		rev.tau[u][u] = rev.pretau[u][u] = PWLFunction::ConstantFunction(0.0, rev.tw[u]);
-		rev.dep[u][u] = rev.arr[u][u] = PWLFunction::IdentityFunction(rev.tw[u]);
-	}
-	return rev;
-}
-
 int main(int argc, char** argv)
 {
 	json output; // STDOUT output will go into this JSON.
 	
-	simulate_runner_input("instances/lms_2019", "rbg021.4", "experiments/lms.json", "NGL");
+	simulate_runner_input("instances/guerriero_et_al_2014", "15_70_A_A5", "experiments/easy.json", "NGL");
 	
 	json experiment, instance, solutions;
 	cin >> experiment >> instance >> solutions;
@@ -95,12 +39,14 @@ int main(int argc, char** argv)
 	string objective = value_or_default(experiment, "objective", "duration");
 	string relaxation = value_or_default(experiment, "relaxation", "NGL-TD");
 	bool colgen = value_or_default(experiment, "colgen", true);
+	bool dssr = value_or_default(experiment, "dssr", true);
 	
 	// Show experiment details.
 	clog << "Time limit: " << time_limit << "sec." << endl;
 	clog << "Objective: " << objective << endl;
 	clog << "Relaxation: " << relaxation << endl;
 	clog << "Colgen: " << colgen << endl;
+	clog << "DSSR: " << colgen << endl;
 	
 	// Set departing time from depot equal to 0 if makespan objective.
 	if (objective == "makespan") instance["time_windows"][0] = Interval(0, 0);
@@ -114,12 +60,12 @@ int main(int argc, char** argv)
 	// Parse instance.
 	clog << "Parsing instance..." << endl;
 	VRPInstance vrp = instance;
-	VRPInstance back_vrp = reverse_instance(vrp);
 	
 	// Get UB.
 	double LB = 0.0;
 	vector<Vertex> P = {vrp.o};
 	Route UB = initial_heuristic(vrp, P, create_bitset<MAX_N>({vrp.o}), vrp.tw[vrp.o].left);
+//	Route UB = vrp.BestDurationRoute({0,5,16,17,19,10,11,8,2,3,4,12,1,15,13,6,14,9,18,7,20});
 	if (UB.duration == INFTY)
 	{
 		output["status"] = "Infeasible";
@@ -165,8 +111,8 @@ int main(int argc, char** argv)
 				Route best;
 				double best_cost;
 				vector<Route> R;
-				if (relaxation == "NGL-TD")	R = run_ng(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log, nullptr);
-				else if (relaxation == "NGL") R = run_ng_td(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log, nullptr);
+				if (relaxation == "NGL-TD")	R = run_ng(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
+				else if (relaxation == "NGL") R = run_ng_td(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
 				
 				// Compute new LB.
 				LB = max(LB, best_cost + sum(pp.penalties));
@@ -204,20 +150,11 @@ int main(int argc, char** argv)
 			// If optimum was not found, run exact algorithm.
 			if (!found_opt)
 			{
-				clog << "Obtaining bound labels with NGL relaxation..." << endl;
-				Route best;
-				double best_cost;
-				MLBExecutionLog bound_log(true);
-				BoundingStructure B(&vrp, &NG, penalties);
-				run_ng_td(vrp, NG, penalties, UB.duration, &best, &best_cost, &bound_log, &B);
-				LB = best_cost + sum(penalties);
-				clog << "LB: " << best_cost + sum(penalties) << endl;
-				
-				clog << "Running exact algorithm..." << endl;
+				clog << "Running DSSR" << endl;
+				CGExecutionLog dssr_log;
 				MLBExecutionLog exact_log(true);
-				UB = Route(reverse(UB.path), vrp.T - UB.t0, UB.duration);
-				UB = run_exact(back_vrp, NG, &B, penalties, UB, LB, &exact_log);
-				UB = Route(reverse(UB.path), vrp.T - UB.t0, UB.duration);
+				auto B = run_dssr(vrp, NG, dssr ? 10 : 0, penalties, UB, LB, &dssr_log, &exact_log);
+				output["DSSR"] = dssr_log;
 				output["Exact"] = exact_log;
 			}
 		}

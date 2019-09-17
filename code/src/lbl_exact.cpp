@@ -13,35 +13,7 @@ using namespace goc;
 
 namespace tdtsptw
 {
-class Label : public Printable
-{
-public:
-	Label* prev;
-	Vertex v;
-	VertexSet S;
-	goc::PWLFunction Tdur;
-	TimeUnit Ttime; // t = min(dom(D))
-	double lambda;
-	
-	Label(Label* prev, goc::Vertex v, const VertexSet& S, const goc::PWLFunction& Tdur, double Ttime, double lambda)
-		: prev(prev), v(v), S(S), Tdur(Tdur), Ttime(Ttime), lambda(lambda)
-	{ }
-	
-	GraphPath Path() const
-	{
-		if (!prev) return {v};
-		GraphPath p = prev->Path();
-		p.push_back(v);
-		return p;
-	}
-	
-	virtual void Print(ostream& os) const
-	{
-		clog << "{ P: " << Path() << ", S: " << S << ", Tdur: " << Tdur << ", Ttime: " << Ttime << ", lambda: " << lambda << "}";
-	}
-};
-
-Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure* B, const vector<double>& lambda,
+Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure& B, const vector<double>& lambda,
 				const Route& UB, double lb, MLBExecutionLog* log)
 {
 	Stopwatch rolex(true), rolex_domination(false), rolex_queuing(false), rolex_extension(false), rolex_bounding(false);
@@ -55,7 +27,7 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 	// ending at vertex v.
 	Matrix<vector<vector<Label>>> q(UB.duration+1, n, vector<vector<Label>>(n, vector<Label>()));
 	q[0][1][vrp.o].push_back(Label(nullptr, vrp.o, create_bitset<MAX_N>({vrp.o}), PWLFunction::ConstantFunction(0.0, vrp.tw[vrp.o]), vrp.a[vrp.o], lambda[vrp.o]));
-	B->UB = best.duration;
+	B.UB = best.duration;
 	// Dominance structure: D[v][S] contains labels with v(l)=v, S(l)=S sorted by cost.
 	vector<unordered_map<VertexSet, vector<Label>>> D(n);
 	vector<Label*> pool;
@@ -126,14 +98,33 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 						// Process tour.
 						if (w == vrp.d)
 						{
-							if (min(img(lw.Tdur)) < best.duration) best = Route(lw.Path(), lw.Tdur.PreValue(min(img(lw.Tdur))), min(img(lw.Tdur)));
+							if (min(img(lw.Tdur)) < best.duration) best = Route(lw.Path(), max(dom(lw.Tdur))-lw.Tdur(max(dom(lw.Tdur))), min(img(lw.Tdur)));
 							break;
 						}
 						
 						// Bounding.
-						double LBw = B->CompletionBound(lw.lambda, lw.Tdur, lw.S, k+1, lw.v);
-						if (epsilon_bigger_equal(LBw, best.duration)) continue;
+						auto LL = reverse(NG.L);
+						int r = 0;
+						for (r = 0; r < LL.size(); ++r)
+							if (!lw.S.test(LL[r]))
+							{
+								r--;
+								break;
+							}
+//						int r = 0;
+//						for (r = 0; r < (int)NG.L.size()-1 && (!lw.S.test(NG.L[r+1]) || NG.L[r+1] == w); ++r) {}
+						double LBw = B.CompletionBound(k+1, r, lw);
+//						if (LBw < lb) { clog << LBw << " " << lb << endl; fail("Nope");}
+//						clog << LBw << endl;
+						
+//						double LBw = LB;
+						if (epsilon_bigger_equal(LBw, best.duration))
+						{
+							log->enumerated_count++;
+							continue;
+						}
 //						if (epsilon_smaller(LBw, LB)) { clog << LBw << " " << LB << endl; fail("Nope"); }
+//						clog << LBw << endl;
 						LBw = max(LB, (int)floor(LBw));
 						q[LBw][k+1][w].push_back(lw);
 						log->extended_count++;

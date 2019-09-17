@@ -42,8 +42,8 @@ vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, bool us
 		Route best;
 		double best_LB;
 		vector<Route> Routes;
-		if (!use_td_relaxation) Routes = run_ng_td(vrp, NG, lambda, UB.duration, &best, &best_LB, &it_log, nullptr);
-		else Routes = run_ng(vrp, NG, lambda, UB.duration, &best, &best_LB, &it_log, nullptr);
+		if (!use_td_relaxation) Routes = run_ng_td(vrp, NG, lambda, UB.duration, &best, &best_LB, &it_log);
+		else Routes = run_ng(vrp, NG, lambda, UB.duration, &best, &best_LB, &it_log);
 		LB = max(LB, best_LB + Lambda);
 		
 		// Log iteration information.

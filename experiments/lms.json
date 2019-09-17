@@ -7,15 +7,8 @@
       "time_limit": 3600,
       "objective": "duration",
       "colgen": false,
+      "dssr": false,
       "relaxation": "NGL"
-    },
-    {
-      "name": "NGL-TD",
-      "executable": "main",
-      "time_limit": 3600,
-      "objective": "duration",
-      "colgen": false,
-      "relaxation": "NGL-TD"
     },
     {
       "name": "CG-NGL",
@@ -23,6 +16,7 @@
       "time_limit": 3600,
       "objective": "duration",
       "colgen": true,
+      "dssr": false,
       "relaxation": "NGL"
     },
     {
@@ -31,6 +25,25 @@
       "time_limit": 3600,
       "objective": "duration",
       "colgen": true,
+      "dssr": false,
+      "relaxation": "NGL-TD"
+    },
+    {
+      "name": "CG-NGL-DSSR",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "duration",
+      "colgen": true,
+      "dssr": true,
+      "relaxation": "NGL"
+    },
+    {
+      "name": "CG-NGL-TD-DSSR",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "duration",
+      "colgen": true,
+      "dssr": true,
       "relaxation": "NGL-TD"
     }
   ]

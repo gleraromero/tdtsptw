@@ -37,6 +37,8 @@ struct NGStructure
 	
 	// Builds the NGStructure with respect to vrp and delta.
 	NGStructure(const VRPInstance& vrp, int delta);
+	
+	NGStructure(const VRPInstance& vrp, const std::vector<VertexSet>& N, const goc::GraphPath& L, int delta);
 };
 
 class NGLabel : public goc::Printable
@@ -54,23 +56,6 @@ public:
 	virtual void Print(std::ostream& os) const;
 };
 
-// Structure for obtaining lower bounds on the completion of all extensions.
-struct BoundingStructure
-{
-	goc::Matrix<std::vector<goc::VectorMap<double, std::vector<NGLabel>>>> S; // S[k][v][r][Thelp] sorted by Tdur.
-	VRPInstance* vrp;
-	NGStructure* NG;
-	std::vector<double> penalties;
-	double UB;
-	double penalties_sum;
-	
-	BoundingStructure(VRPInstance* vrp, NGStructure* NG, const std::vector<double>& penalties);
-	
-	void AddBound(int k, int r, const NGLabel& l);
-	
-	double CompletionBound(double Tlambda, const goc::PWLFunction& Tdur, const VertexSet& V, int k, goc::Vertex w);
-};
-
 // Runs an NG labeling algorithm to find negative cost routes.
 // @param vrp: VRP Instance
 // @param NG: structure with NG information.
@@ -79,10 +64,9 @@ struct BoundingStructure
 // @param [out] best_route: route with best cost.
 // @param [out] best_cost: cost of best_route.
 // @param [out] log: output log to save the execution information.
-// @param [out] B: bounding structure for usage at exact labeling later.
 // @returns a set of negative cost routes.
 std::vector<goc::Route> run_ng(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda,
-							   double UB, goc::Route* best_route, double* best_cost, goc::MLBExecutionLog* log, BoundingStructure* B);
+							   double UB, goc::Route* best_route, double* best_cost, goc::MLBExecutionLog* log);
 
 class TDNGLabel : public goc::Printable
 {
@@ -108,10 +92,9 @@ public:
 // @param [out] best_route: route with best cost.
 // @param [out] best_cost: cost of best_route.
 // @param [out] log: output log to save the execution information.
-// @param [out] B: bounding structure for usage at exact labeling later.
 // @returns a set of negative cost routes.
 std::vector<goc::Route> run_ng_td(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda,
-								  double UB, goc::Route* best_route, double* best_cost, goc::MLBExecutionLog* log, BoundingStructure* B);
+								  double UB, goc::Route* best_route, double* best_cost, goc::MLBExecutionLog* log);
 } // namespace tdtsptw
 
 #endif //TDTSPTW_LBL_NG_H
