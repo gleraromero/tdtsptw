@@ -376,6 +376,7 @@ vector<Route> run_ng_td(const VRPInstance& vrp, const NGStructure& NG, const vec
 						if (n-k-1 < vrp.suc_count[w]) continue;
 						if (n-k-1 < vrp.suc_count[NG.L[r+1]]) continue;
 						if (!NG.V[r].test(w)) continue;
+						if (epsilon_smaller(vrp.LDT[v][w], min(dom(l.Tdur)))) continue;
 						PWLFunction Tdurw = epsilon_smaller(max(dom(l.Tdur)), min(img(vrp.dep[v][w])))
 											? PWLFunction::ConstantFunction(l.Tdur(max(dom(l.Tdur))) + vrp.a[w] - max(dom(l.Tdur)), {vrp.a[w], vrp.a[w]})
 											: (l.Tdur + vrp.tau[v][w]).Compose(vrp.dep[v][w]);

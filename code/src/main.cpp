@@ -85,7 +85,7 @@ int main(int argc, char** argv)
 {
 	json output; // STDOUT output will go into this JSON.
 	
-	simulate_runner_input("instances/lms_2019", "rbg016a", "experiments/lms.json", "Main");
+	simulate_runner_input("instances/lms_2019", "rbg021.4", "experiments/lms.json", "NGL");
 	
 	json experiment, instance, solutions;
 	cin >> experiment >> instance >> solutions;
@@ -109,6 +109,7 @@ int main(int argc, char** argv)
 	preprocess_travel_times(instance);
 	preprocess_waiting_times(instance);
 	preprocess_time_windows(instance);
+	preprocess_waiting_times(instance);
 	
 	// Parse instance.
 	clog << "Parsing instance..." << endl;
@@ -209,6 +210,7 @@ int main(int argc, char** argv)
 				MLBExecutionLog bound_log(true);
 				BoundingStructure B(&vrp, &NG, penalties);
 				run_ng_td(vrp, NG, penalties, UB.duration, &best, &best_cost, &bound_log, &B);
+				LB = best_cost + sum(penalties);
 				clog << "LB: " << best_cost + sum(penalties) << endl;
 				
 				clog << "Running exact algorithm..." << endl;
