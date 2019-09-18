@@ -41,46 +41,24 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 				// Check if LB has reached best.
 				if (epsilon_bigger_equal(LB, best.duration)) break;
 				
-				rolex_queuing.Resume();
-				sort(q[LB][k][v].begin(), q[LB][k][v].end(), [](Label& l1, Label& l2) { return make_tuple(min(img(l1.Tdur)), l1.Ttime) < make_tuple(min(img(l2.Tdur)), l2.Ttime); });
-				rolex_queuing.Pause();
+//				rolex_queuing.Resume();
+//				sort(q[LB][k][v].begin(), q[LB][k][v].end(), [](Label& l1, Label& l2) { return make_tuple(min(img(l1.Tdur)), l1.Ttime) < make_tuple(min(img(l2.Tdur)), l2.Ttime); });
+//				rolex_queuing.Pause();
 				
 				for (Label& l: q[LB][k][v])
 				{
 					// Check if LB has reached best.
 					if (epsilon_bigger_equal(LB, best.duration)) break;
 					
-					// Domination.
-					rolex_domination.Resume();
-					bool is_dominated = false;
-					PWLDominationFunction l_D = l.Tdur;
-					for (Label& m: D[v][l.S])
-					{
-						if (epsilon_bigger(min(img(m.Tdur)), max(img(l.Tdur)))) break;
-						if (!l_D.DominatePieces(m.Tdur)) continue;
-						is_dominated = true;
-						break;
-					}
-					rolex_domination.Pause();
-					if (is_dominated)
-					{
-						log->dominated_count++;
-						continue;
-					}
-					// Get non dominated pieces.
-					l.Tdur = (PWLFunction)l_D;
-					l.Ttime = min(dom(l.Tdur));
-					insert_sorted(D[v][l.S], l, [] (const Label& l1, const Label& l2) { return min(img(l1.Tdur)) < min(img(l2.Tdur));});
-					
 					// Extension.
 					(*log->count_by_length)[k]++;
 					log->processed_count++;
-					rolex_extension.Resume();
 					pool.push_back(new Label(l));
 					for (Vertex w: vrp.D.Successors(v))
 					{
 						// Feasibility check.
 						if (l.S.test(w)) continue;
+						rolex_extension.Resume();
 						VertexSet Sw = l.S;
 						Sw.set(w);
 						double Ttimew = vrp.ArrivalTime({v,w}, l.Ttime);
@@ -97,7 +75,6 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 						
 						// Optimization: We do not need points after LDTw.
 						Tdurw = Tdurw.RestrictDomain({min(dom(Tdurw)), LDTw});
-						
 						if (Tdurw.Empty()) continue;
 						Label lw(pool.back(), w, Sw, Tdurw, Ttimew, l.lambda + lambda[w]);
 						
@@ -107,8 +84,36 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 							if (min(img(lw.Tdur)) < best.duration) best = Route(lw.Path(), max(dom(lw.Tdur))-lw.Tdur(max(dom(lw.Tdur))), min(img(lw.Tdur)));
 							break;
 						}
+						log->enumerated_count++;
+						rolex_extension.Pause();
+						
+						// Domination.
+						rolex_domination.Resume();
+						bool is_dominated = false;
+						PWLDominationFunction lw_D = lw.Tdur;
+						for (Label& m: D[lw.v][lw.S])
+						{
+							if (epsilon_bigger(min(img(m.Tdur)), max(img(lw.Tdur)))) break;
+							if (!lw_D.DominatePieces(m.Tdur)) continue;
+							is_dominated = true;
+							break;
+						}
+						rolex_domination.Pause();
+						if (is_dominated)
+						{
+							log->dominated_count++;
+							rolex_domination.Pause();
+							continue;
+						}
+						
+						// Get non dominated pieces.
+						lw.Tdur = (PWLFunction)lw_D;
+						lw.Ttime = min(dom(lw.Tdur));
+						insert_sorted(D[lw.v][lw.S], lw, [] (const Label& l1, const Label& l2) { return min(img(l1.Tdur)) < min(img(l2.Tdur));});
+						rolex_domination.Pause();
 						
 						// Bounding.
+						rolex_bounding.Resume();
 						auto LL = reverse(NG.L);
 						int r = 0;
 						for (r = 0; r < LL.size(); ++r)
@@ -120,11 +125,13 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 						double LBw = B.CompletionBound(k+1, r, lw);
 						if (epsilon_bigger_equal(LBw, best.duration))
 						{
-							log->enumerated_count++;
+							log->bounded_count++;
+							rolex_bounding.Pause();
 							continue;
 						}
 						LBw = max(LB, (int)floor(LBw));
 						q[LBw][k+1][w].push_back(lw);
+						rolex_bounding.Pause();
 						log->extended_count++;
 					}
 					rolex_extension.Pause();
@@ -137,6 +144,7 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 	log->domination_time = rolex_domination.Peek();
 	log->extension_time = rolex_extension.Peek();
 	log->queuing_time = rolex_queuing.Peek();
+	log->bounding_time = rolex_bounding.Peek();
 	log->time = rolex.Peek();
 	
 	return best;

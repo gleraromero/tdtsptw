@@ -39,6 +39,7 @@ public:
 	Maybe<int> dominated_count; // number of labels dominated.
 	Maybe<int> corrected_count; // number of labels corrected.
 	Maybe<int> processed_count; // number of labels processed.
+	Maybe<int> bounded_count; // number of labels bounded.
 	Maybe<std::vector<int>> count_by_length; // count_by_length[i] indicates how many labels of length i were processed.
 	Maybe<Duration> queuing_time; // time pushing and popping from the queue.
 	Maybe<Duration> enumeration_time; // time spent in the enumeration phase.
@@ -46,6 +47,7 @@ public:
 	Maybe<Duration> domination_time; // time spent in the domination phase.
 	Maybe<Duration> correction_time; // time spent in the correction phase.
 	Maybe<Duration> process_time; // time spent in the process phase.
+	Maybe<Duration> bounding_time; // time spent in the bounding phase.
 	Maybe<Duration> positive_domination_time; // time spent in the domination phase (when the result was DOMINATED).
 	Maybe<Duration> negative_domination_time; // time spent in the domination phase (when the result was NOT DOMINATED).
 	

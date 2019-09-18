@@ -22,9 +22,9 @@ MLBExecutionLog::MLBExecutionLog(bool init_defaults)
 		screen_output = "";
 		time = 0.0_hr;
 		status = MLBStatus::DidNotStart;
-		enumerated_count = extended_count = dominated_count = corrected_count = processed_count = 0;
+		bounded_count = enumerated_count = extended_count = dominated_count = corrected_count = processed_count = 0;
 		count_by_length = vector<int>();
-		queuing_time = enumeration_time = extension_time = domination_time = correction_time = process_time = negative_domination_time = positive_domination_time = 0.0_hr;
+		bounding_time = queuing_time = enumeration_time = extension_time = domination_time = correction_time = process_time = negative_domination_time = positive_domination_time = 0.0_hr;
 	}
 }
 
@@ -40,6 +40,7 @@ json MLBExecutionLog::ToJSON() const
 	if (dominated_count.IsSet()) j["dominated_count"] = dominated_count.Value();
 	if (corrected_count.IsSet()) j["corrected_count"] = corrected_count.Value();
 	if (processed_count.IsSet()) j["processed_count"] = processed_count.Value();
+	if (bounded_count.IsSet()) j["bounded_count"] = bounded_count.Value();
 	if (count_by_length.IsSet()) j["count_by_length"] = count_by_length.Value();
 	if (queuing_time.IsSet()) j["queuing_time"] = queuing_time.Value();
 	if (enumeration_time.IsSet()) j["enumeration_time"] = enumeration_time.Value();
@@ -47,6 +48,7 @@ json MLBExecutionLog::ToJSON() const
 	if (domination_time.IsSet()) j["domination_time"] = domination_time.Value();
 	if (correction_time.IsSet()) j["correction_time"] = correction_time.Value();
 	if (process_time.IsSet()) j["process_time"] = process_time.Value();
+	if (bounding_time.IsSet()) j["bounding_time"] = bounding_time.Value();
 	if (positive_domination_time.IsSet()) j["positive_domination_time"] = positive_domination_time.Value();
 	if (negative_domination_time.IsSet()) j["negative_domination_time"] = negative_domination_time.Value();
 	
