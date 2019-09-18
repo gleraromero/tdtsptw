@@ -114,15 +114,7 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 						
 						// Bounding.
 						rolex_bounding.Resume();
-						auto LL = reverse(NG.L);
-						int r = 0;
-						for (r = 0; r < LL.size(); ++r)
-							if (!lw.S.test(LL[r]))
-							{
-								r--;
-								break;
-							}
-						double LBw = B.CompletionBound(k+1, r, lw);
+						double LBw = B.CompletionBound(k+1, -1, lw);
 						if (epsilon_bigger_equal(LBw, best.duration))
 						{
 							log->bounded_count++;

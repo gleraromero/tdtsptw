@@ -127,6 +127,16 @@ double BoundingStructure::CompletionBound(int k, int r, const Label& l) const
 
 	double LB = UB;
 	Vertex w = l.v;
+	
+	// Fix: If r was not calculated.
+	if (r == -1)
+	{
+		auto LL = reverse(NG->L);
+		r = 0;
+		for (r = 0; r < LL.size(); ++r)
+			if (!l.S.test(LL[r])) { r--; break; }
+	}
+	
 	r = (int)NG->L.size()-r-1;
 	r -= NG->L[r] != w;
 	double Thelpl = -(max(dom(l.Tdur))-l.Tdur(max(dom(l.Tdur))))-l.lambda;
@@ -224,7 +234,6 @@ BoundingStructure run_labeling(const VRPInstance& vrp, const NGStructure& NG, co
 					log->processed_count++;
 					rolex_extension.Resume();
 					(*log->count_by_length)[k]++;
-					Label* ll = new Label(l);
 					for (Vertex w: vrp.D.Successors(v))
 					{
 						// Feasibility check.
@@ -240,7 +249,7 @@ BoundingStructure run_labeling(const VRPInstance& vrp, const NGStructure& NG, co
 						if (Tdurw.Empty()) continue;
 						VertexSet Sw = intersection(l.S, NG.N[w]);
 						Sw.set(w);
-						Label lw(ll, w, Sw, Tdurw, min(dom(l.Tdur)), l.lambda + lambda[w]);
+						Label lw(&l, w, Sw, Tdurw, min(dom(l.Tdur)), l.lambda + lambda[w]);
 						
 						// Process tour.
 						if (w == vrp.d)
@@ -421,7 +430,7 @@ BoundingStructure run_dssr(const VRPInstance& vrp, const NGStructure& NG, int ma
 		double best_cost;
 		Route best_route;
 		MLBExecutionLog iteration_log(true);
-		run_ti_labeling(*vrps[d], *ngs[d], lambda, &best_route, &best_cost, &iteration_log);
+		run_labeling(*vrps[d], *ngs[d], lambda, &best_route, &best_cost, &iteration_log);
 		dssr_log->iteration_count++;
 		dssr_log->iterations->push_back(iteration_log);
 

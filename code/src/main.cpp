@@ -153,7 +153,7 @@ int main(int argc, char** argv)
 				clog << "Running DSSR" << endl;
 				CGExecutionLog dssr_log;
 				MLBExecutionLog exact_log(true);
-				auto B = run_dssr(vrp, NG, dssr ? 10 : 0, penalties, UB, LB, &dssr_log, &exact_log);
+				auto B = run_dssr(vrp, NG, dssr ? 5 : 0, penalties, UB, LB, &dssr_log, &exact_log);
 				output["DSSR"] = dssr_log;
 				output["Exact"] = exact_log;
 			}
