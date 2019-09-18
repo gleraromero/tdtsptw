@@ -25,12 +25,11 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 	
 	// q is the queue where q[LB][k][v] is the bucket of labels with duration bound LB, having k vertices and
 	// ending at vertex v.
-	Matrix<vector<vector<Label>>> q(UB.duration+1, n, vector<vector<Label>>(n, vector<Label>()));
-	q[0][1][vrp.o].push_back(Label(nullptr, vrp.o, create_bitset<MAX_N>({vrp.o}), PWLFunction::ConstantFunction(0.0, vrp.tw[vrp.o]), vrp.a[vrp.o], lambda[vrp.o]));
+	Matrix<vector<vector<Label*>>> q(UB.duration+1, n, vector<vector<Label*>>(n, vector<Label*>()));
+	q[0][1][vrp.o].push_back(new Label(nullptr, vrp.o, create_bitset<MAX_N>({vrp.o}), PWLFunction::ConstantFunction(0.0, vrp.tw[vrp.o]), vrp.a[vrp.o], lambda[vrp.o]));
 	B.UB = best.duration;
 	// Dominance structure: D[v][S] contains labels with v(l)=v, S(l)=S sorted by cost.
-	vector<unordered_map<VertexSet, vector<Label>>> D(n);
-	vector<Label*> pool;
+	vector<unordered_map<VertexSet, vector<Label*>>> D(n);
 	
 	for (int LB = 0; LB < best.duration; ++LB)
 	{
@@ -45,7 +44,7 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 //				sort(q[LB][k][v].begin(), q[LB][k][v].end(), [](Label& l1, Label& l2) { return make_tuple(min(img(l1.Tdur)), l1.Ttime) < make_tuple(min(img(l2.Tdur)), l2.Ttime); });
 //				rolex_queuing.Pause();
 				
-				for (Label& l: q[LB][k][v])
+				for (Label* l: q[LB][k][v])
 				{
 					// Check if LB has reached best.
 					if (epsilon_bigger_equal(LB, best.duration)) break;
@@ -53,15 +52,14 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 					// Extension.
 					(*log->count_by_length)[k]++;
 					log->processed_count++;
-					pool.push_back(new Label(l));
 					for (Vertex w: vrp.D.Successors(v))
 					{
 						// Feasibility check.
-						if (l.S.test(w)) continue;
+						if (l->S.test(w)) continue;
 						rolex_extension.Resume();
-						VertexSet Sw = l.S;
+						VertexSet Sw = l->S;
 						Sw.set(w);
-						double Ttimew = vrp.ArrivalTime({v,w}, l.Ttime);
+						double Ttimew = vrp.ArrivalTime({v,w}, l->Ttime);
 						double LDTw = vrp.b[w];
 						for (Vertex u: vrp.D.Vertices())
 							if (!Sw.test(u))
@@ -69,19 +67,19 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 						if (epsilon_smaller(LDTw, Ttimew)) continue;
 						
 						// Extension.
-						PWLFunction Tdurw = epsilon_smaller(max(dom(l.Tdur)), min(img(vrp.dep[v][w])))
-										  ? PWLFunction::ConstantFunction(l.Tdur(max(dom(l.Tdur))) + vrp.a[w] - max(dom(l.Tdur)), {vrp.a[w], vrp.a[w]})
-										  : (l.Tdur + vrp.tau[v][w]).Compose(vrp.dep[v][w]);
+						PWLFunction Tdurw = epsilon_smaller(max(dom(l->Tdur)), min(img(vrp.dep[v][w])))
+										  ? PWLFunction::ConstantFunction(l->Tdur(max(dom(l->Tdur))) + vrp.a[w] - max(dom(l->Tdur)), {vrp.a[w], vrp.a[w]})
+										  : (l->Tdur + vrp.tau[v][w]).Compose(vrp.dep[v][w]);
 						
 						// Optimization: We do not need points after LDTw.
 						Tdurw = Tdurw.RestrictDomain({min(dom(Tdurw)), LDTw});
 						if (Tdurw.Empty()) continue;
-						Label lw(pool.back(), w, Sw, Tdurw, Ttimew, l.lambda + lambda[w]);
+						auto lw = new Label(l, w, Sw, Tdurw, Ttimew, l->lambda + lambda[w]);
 						
 						// Process tour.
 						if (w == vrp.d)
 						{
-							if (min(img(lw.Tdur)) < best.duration) best = Route(lw.Path(), max(dom(lw.Tdur))-lw.Tdur(max(dom(lw.Tdur))), min(img(lw.Tdur)));
+							if (min(img(lw->Tdur)) < best.duration) best = Route(lw->Path(), max(dom(lw->Tdur))-lw->Tdur(max(dom(lw->Tdur))), min(img(lw->Tdur)));
 							break;
 						}
 						log->enumerated_count++;
@@ -90,11 +88,11 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 						// Domination.
 						rolex_domination.Resume();
 						bool is_dominated = false;
-						PWLDominationFunction lw_D = lw.Tdur;
-						for (Label& m: D[lw.v][lw.S])
+						PWLDominationFunction lw_D = lw->Tdur;
+						for (Label* m: D[lw->v][lw->S])
 						{
-							if (epsilon_bigger(min(img(m.Tdur)), max(img(lw.Tdur)))) break;
-							if (!lw_D.DominatePieces(m.Tdur)) continue;
+							if (epsilon_bigger(min(img(m->Tdur)), max(img(lw->Tdur)))) break;
+							if (!lw_D.DominatePieces(m->Tdur)) continue;
 							is_dominated = true;
 							break;
 						}
@@ -107,14 +105,14 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 						}
 						
 						// Get non dominated pieces.
-						lw.Tdur = (PWLFunction)lw_D;
-						lw.Ttime = min(dom(lw.Tdur));
-						insert_sorted(D[lw.v][lw.S], lw, [] (const Label& l1, const Label& l2) { return min(img(l1.Tdur)) < min(img(l2.Tdur));});
+						lw->Tdur = (PWLFunction)lw_D;
+						lw->Ttime = min(dom(lw->Tdur));
+						insert_sorted(D[lw->v][lw->S], lw, [] (Label* l1, Label* l2) { return min(img(l1->Tdur)) < min(img(l2->Tdur));});
 						rolex_domination.Pause();
 						
 						// Bounding.
 						rolex_bounding.Resume();
-						double LBw = B.CompletionBound(k+1, -1, lw);
+						double LBw = B.CompletionBound(k+1, -1, *lw);
 						if (epsilon_bigger_equal(LBw, best.duration))
 						{
 							log->bounded_count++;
