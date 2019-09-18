@@ -95,23 +95,33 @@ TILabel Label::ToTI() const
 	return TILabel(nullptr, v, S, min(img(Tdur))-lambda, -(max(dom(Tdur))-Tdur(max(dom(Tdur))))-lambda, lambda);
 }
 
+BoundingStructure::BoundLabel::BoundLabel(double T, const Label& l)
+{
+	lambda = l.lambda;
+	Thelp = -(max(dom(l.Tdur))-l.Tdur(max(dom(l.Tdur))))-l.lambda;
+	Tdur = min(img(l.Tdur))-l.lambda;
+	Ttime = min(dom(l.Tdur));
+	completionTdur = l.Tdur.Compose(T - PWLFunction::IdentityFunction({0.0, T}));
+	S = l.S;
+}
+
 BoundingStructure::BoundingStructure(VRPInstance* vrp, NGStructure* NG, const vector<double>& penalties, double UB)
 	: vrp(vrp), NG(NG), penalties(penalties), UB(UB)
 {
 	int n = vrp->D.VertexCount();
-	S = Matrix<vector<VectorMap<double, vector<Label>>>>(n+1, n, vector<VectorMap<double, vector<Label>>>(NG->L.size()));
+	S = Matrix<vector<VectorMap<double, vector<BoundLabel>>>>(n+1, n, vector<VectorMap<double, vector<BoundLabel>>>(NG->L.size()));
 	penalties_sum = sum(penalties);
 }
 
 void BoundingStructure::AddBound(int k, int r, const Label& l)
 {
-	insert_sorted(S[k][l.v][r].Insert(floor(l.Thelp()), {}), l,
-		[] (const Label& l1, const Label& l2) { return l1.Tdurnum() < l2.Tdurnum(); });
+	BoundLabel bl(vrp->T, l);
+	insert_sorted(S[k][l.v][r].Insert(bl.Tdur, {}), bl,
+		[] (const BoundLabel& l1, const BoundLabel& l2) { return l1.Thelp < l2.Thelp; });
 }
 
 double BoundingStructure::CompletionBound(int k, int r, const Label& l) const
 {
-//	if (!enabled) return l.Tdur;
 	int n = vrp->D.VertexCount();
 	double T = vrp->T;
 
@@ -119,36 +129,27 @@ double BoundingStructure::CompletionBound(int k, int r, const Label& l) const
 	Vertex w = l.v;
 	r = (int)NG->L.size()-r-1;
 	r -= NG->L[r] != w;
-	double Thelpl = l.Thelp();
-	double Tdurl = l.Tdurnum();
-	for (auto& Thelp_entry: S[n-k+1][w][r])
+	double Thelpl = -(max(dom(l.Tdur))-l.Tdur(max(dom(l.Tdur))))-l.lambda;
+	double Tdurl = min(img(l.Tdur))-l.lambda;
+	for (auto& Tdur_entry: S[n-k+1][w][r])
 	{
-		double Thelpm = Thelp_entry.first;
-		if (epsilon_bigger(T + Thelpm + Thelpl + penalties[w] + penalties_sum, LB)) break;
-		for (auto& m: Thelp_entry.second)
+		double Tdurm = Tdur_entry.first;
+		if (epsilon_bigger(Tdurm + Tdurl + penalties[w] + penalties_sum, LB)) break;
+		for (auto& m: Tdur_entry.second)
 		{
-			if (epsilon_bigger(m.Tdurnum() + Tdurl + penalties[w] + penalties_sum, LB)) break;
+			if (epsilon_bigger(T + m.Thelp + Thelpl + penalties[w] + penalties_sum, LB)) break;
 			if (epsilon_smaller(T-m.Ttime, l.Ttime)) continue;
 			if (intersection(m.S, l.S) != create_bitset<MAX_N>({w})) continue;
-			// Uncomment for TI-Bounding
-			if (epsilon_smaller(max(dom(l.Tdur)), T-max(dom(m.Tdur))))
+			if (epsilon_smaller(max(dom(l.Tdur)), min(dom(m.completionTdur)))) // Revisar
 			{
-				LB = min(LB, T + m.Thelp() + Thelpl + penalties[w] + penalties_sum);
+				LB = min(LB, T + m.Thelp + Thelpl + penalties[w] + penalties_sum);
 			}
 			else
 			{
-				PWLFunction lm_duration = l.Tdur + m.Tdur.Compose(T - PWLFunction::IdentityFunction({0.0, T}));
+				PWLFunction lm_duration = l.Tdur + m.completionTdur;
 				double dur = lm_duration.Empty() ? INFTY : min(img(lm_duration)) - m.lambda - l.lambda;
 				LB = min(LB, dur + penalties[w] + penalties_sum);
 			}
-//			LB = min(LB, max(m.Tdurnum() + Tdurl + penalties[w] + penalties_sum, T + Thelpm + Thelpl + penalties[w] + penalties_sum));
-			continue;
-
-			// TD-Bounding.
-			// Merge l and m duration functions lm_d(t) = l_d(t) + m_d(T-t).
-			PWLFunction lm_duration = l.Tdur + m.Tdur.Compose(T - PWLFunction::IdentityFunction({0.0, T}));
-			double lb = max(T+m.Thelp()+Thelpl, lm_duration.Empty() ? -INFTY : min(img(lm_duration)) - l.lambda - m.lambda) + penalties[w] + penalties_sum;
-			LB = min(LB, lb);
 		}
 	}
 	

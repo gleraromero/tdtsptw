@@ -84,14 +84,20 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 						VertexSet Sw = l.S;
 						Sw.set(w);
 						double Ttimew = vrp.ArrivalTime({v,w}, l.Ttime);
-						bool any_unreachable = false;
-						for (Vertex u: vrp.D.Vertices()) if (!Sw.test(u) && epsilon_smaller(vrp.LDT[w][u], Ttimew)) { any_unreachable = true; break; }
-						if (any_unreachable) continue;
+						double LDTw = vrp.b[w];
+						for (Vertex u: vrp.D.Vertices())
+							if (!Sw.test(u))
+								LDTw = min(LDTw, vrp.LDT[w][u]);
+						if (epsilon_smaller(LDTw, Ttimew)) continue;
 						
 						// Extension.
 						PWLFunction Tdurw = epsilon_smaller(max(dom(l.Tdur)), min(img(vrp.dep[v][w])))
 										  ? PWLFunction::ConstantFunction(l.Tdur(max(dom(l.Tdur))) + vrp.a[w] - max(dom(l.Tdur)), {vrp.a[w], vrp.a[w]})
 										  : (l.Tdur + vrp.tau[v][w]).Compose(vrp.dep[v][w]);
+						
+						// Optimization: We do not need points after LDTw.
+						Tdurw = Tdurw.RestrictDomain({min(dom(Tdurw)), LDTw});
+						
 						if (Tdurw.Empty()) continue;
 						Label lw(pool.back(), w, Sw, Tdurw, Ttimew, l.lambda + lambda[w]);
 						
@@ -111,20 +117,12 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 								r--;
 								break;
 							}
-//						int r = 0;
-//						for (r = 0; r < (int)NG.L.size()-1 && (!lw.S.test(NG.L[r+1]) || NG.L[r+1] == w); ++r) {}
 						double LBw = B.CompletionBound(k+1, r, lw);
-//						if (LBw < lb) { clog << LBw << " " << lb << endl; fail("Nope");}
-//						clog << LBw << endl;
-						
-//						double LBw = LB;
 						if (epsilon_bigger_equal(LBw, best.duration))
 						{
 							log->enumerated_count++;
 							continue;
 						}
-//						if (epsilon_smaller(LBw, LB)) { clog << LBw << " " << LB << endl; fail("Nope"); }
-//						clog << LBw << endl;
 						LBw = max(LB, (int)floor(LBw));
 						q[LBw][k+1][w].push_back(lw);
 						log->extended_count++;

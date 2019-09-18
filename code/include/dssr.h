@@ -67,7 +67,20 @@ public:
 class BoundingStructure
 {
 public:
-	goc::Matrix<std::vector<goc::VectorMap<double, std::vector<Label>>>> S; // S[k][v][r][Thelp] sorted by min(img(Tdur)).
+	class BoundLabel : public goc::Printable
+	{
+	public:
+		double Thelp, Tdur, Ttime;
+		goc::PWLFunction completionTdur;
+		double lambda;
+		VertexSet S;
+		
+		BoundLabel(double T, const Label& l);
+		
+		inline virtual void Print(std::ostream& os) const {}
+	};
+	
+	goc::Matrix<std::vector<goc::VectorMap<double, std::vector<BoundLabel>>>> S; // S[k][v][r][Tdur] sorted by Thelp.
 	VRPInstance* vrp;
 	NGStructure* NG;
 	std::vector<double> penalties;
