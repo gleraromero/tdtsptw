@@ -30,7 +30,7 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 	B.UB = best.duration;
 	// Dominance structure: D[v][S] contains labels with v(l)=v, S(l)=S sorted by cost.
 	vector<unordered_map<VertexSet, vector<Label*>>> D(n);
-	
+	int count = 0;
 	for (int LB = 0; LB < best.duration; ++LB)
 	{
 		for (int k = 1; k < n; ++k)
@@ -123,6 +123,7 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 						q[LBw][k+1][w].push_back(lw);
 						rolex_bounding.Pause();
 						log->extended_count++;
+						if (count++ % 100000 == 0) clog << "Count: " << count << endl;
 					}
 					rolex_extension.Pause();
 				}
