@@ -41,7 +41,7 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 				if (epsilon_bigger_equal(LB, best.duration)) break;
 				
 				rolex_queuing.Resume();
-				sort(q[LB][k][v].begin(), q[LB][k][v].end(), [](Label* l1, Label* l2) { return make_tuple(min(img(l1->Tdur)), l1->Ttime) < make_tuple(min(img(l2->Tdur)), l2->Ttime); });
+				sort(q[LB][k][v].begin(), q[LB][k][v].end(), [](Label* l1, Label* l2) { return make_tuple(l1->Ttime, min(img(l1->Tdur))) < make_tuple(l2->Ttime, min(img(l2->Tdur))); });
 				rolex_queuing.Pause();
 				
 				for (Label* l: q[LB][k][v])
