@@ -86,6 +86,7 @@ public:
 	std::vector<double> penalties;
 	double UB;
 	double penalties_sum;
+	bool enabled=true;
 	
 	BoundingStructure(VRPInstance* vrp, NGStructure* NG, const std::vector<double>& penalties, double UB);
 	

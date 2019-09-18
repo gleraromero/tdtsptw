@@ -122,6 +122,7 @@ void BoundingStructure::AddBound(int k, int r, const Label& l)
 
 double BoundingStructure::CompletionBound(int k, int r, const Label& l) const
 {
+	if (!enabled) return min(img(l.Tdur));
 	int n = vrp->D.VertexCount();
 	double T = vrp->T;
 
@@ -418,77 +419,82 @@ BoundingStructure run_dssr(const VRPInstance& vrp, const NGStructure& NG, int ma
 	
 	VRPInstance* vrps[2] = { (VRPInstance*)&vrp, (VRPInstance*)&back_vrp };
 	NGStructure* ngs[2] = { (NGStructure*)&NG, &back_NG };
-	
-	bool changed = true;
-	int d = 0;
-	while (changed && dssr_log->iteration_count < max_iter)
-	{
-		changed = false;
-		d = 1 - d;
-
-		// Solve labeling.
-		double best_cost;
-		Route best_route;
-		MLBExecutionLog iteration_log(true);
-		run_labeling(*vrps[d], *ngs[d], lambda, &best_route, &best_cost, &iteration_log);
-		dssr_log->iteration_count++;
-		dssr_log->iterations->push_back(iteration_log);
-
-		// Update LB.
-		LB = max(LB, best_cost+Lambda);
-
-		// Find cycles.
-		auto& P = best_route.path;
-		vector<int> last(n, -1);
-		vector<pair<int, int>> C(n, {-1, -1});
-		bool found_cycles = false;
-		for (int i = 1; i < (int)P.size()-1; ++i)
-		{
-			// If we have already visited vertex P[i], then we have a cycle.
-			if (last[P[i]] > -1)
-			{
-				C[P[i]] = {last[P[i]], i};
-				found_cycles = true;
-			}
-			// Set the last time we visited P[i].
-			last[P[i]] = i;
-		}
-
-		// If no cycles were found, we have the optimum.
-		if (!found_cycles)
-		{
-			break;
-		}
-
-		// Remove cycles from NG.
-		for (int i = 1; i < n-1; ++i)
-		{
-			if (C[i].first == -1 || NG.N[P[i]].count() >= NG.delta) continue;
-			for (int j = C[i].first+1; j < C[i].second; ++j)
-			{
-				ngs[0]->N[P[j]].set(i);
-				ngs[1]->N[P[j]].set(i);
-				changed = true;
-			}
-		}
-
-		clog << "DSSR Iteration " << dssr_log->iteration_count << ", LB: " << LB << endl;
-	}
-	clog << "Finished DSSR with LB: " << LB << " and UB: " << UB.duration << endl;
-	Route best_route;
-	double best_cost;
-	MLBExecutionLog bound_log(true);
 	BoundingStructure B(&back_vrp, &back_NG, lambda, UB.duration);
-	B = run_labeling(back_vrp, back_NG, lambda, &best_route, &best_cost,&bound_log);
-	dssr_log->iteration_count++;
-	dssr_log->iterations->push_back(bound_log);
-	LB = best_cost + Lambda;
-	B.UB = UB.duration;
-	clog << "Improvement with NGL finished LB: " << LB << " and UB: " << UB.duration << endl;
-	dssr_log->status = CGStatus::Optimum;
-	dssr_log->incumbent_value = LB;
-	dssr_log->time = rolex.Peek();
-	
+	B.enabled = false;
+	if (max_iter > -1)
+	{
+		clog << "Running DSSR" << endl;
+		bool changed = true;
+		int d = 0;
+		while (changed && dssr_log->iteration_count < max_iter)
+		{
+			changed = false;
+			d = 1 - d;
+			
+			// Solve labeling.
+			double best_cost;
+			Route best_route;
+			MLBExecutionLog iteration_log(true);
+			run_labeling(*vrps[d], *ngs[d], lambda, &best_route, &best_cost, &iteration_log);
+			dssr_log->iteration_count++;
+			dssr_log->iterations->push_back(iteration_log);
+			
+			// Update LB.
+			LB = max(LB, best_cost + Lambda);
+			
+			// Find cycles.
+			auto& P = best_route.path;
+			vector<int> last(n, -1);
+			vector<pair<int, int>> C(n, {-1, -1});
+			bool found_cycles = false;
+			for (int i = 1; i < (int) P.size() - 1; ++i)
+			{
+				// If we have already visited vertex P[i], then we have a cycle.
+				if (last[P[i]] > -1)
+				{
+					C[P[i]] = {last[P[i]], i};
+					found_cycles = true;
+				}
+				// Set the last time we visited P[i].
+				last[P[i]] = i;
+			}
+			
+			// If no cycles were found, we have the optimum.
+			if (!found_cycles)
+			{
+				break;
+			}
+			
+			// Remove cycles from NG.
+			for (int i = 1; i < n - 1; ++i)
+			{
+				if (C[i].first == -1 || NG.N[P[i]].count() >= NG.delta) continue;
+				for (int j = C[i].first + 1; j < C[i].second; ++j)
+				{
+					ngs[0]->N[P[j]].set(i);
+					ngs[1]->N[P[j]].set(i);
+					changed = true;
+				}
+			}
+			
+			clog << "\tDSSR Iteration " << dssr_log->iteration_count << ", LB: " << LB << endl;
+		}
+		clog << "Finished DSSR with LB: " << LB << " and UB: " << UB.duration << endl;
+		Route best_route;
+		double best_cost;
+		MLBExecutionLog bound_log(true);
+		B = BoundingStructure(&back_vrp, &back_NG, lambda, UB.duration);
+		B = run_labeling(back_vrp, back_NG, lambda, &best_route, &best_cost, &bound_log);
+		dssr_log->iteration_count++;
+		dssr_log->iterations->push_back(bound_log);
+		LB = best_cost + Lambda;
+		B.UB = UB.duration;
+		clog << "Improvement with NGL finished LB: " << LB << " and UB: " << UB.duration << endl;
+		dssr_log->status = CGStatus::Optimum;
+		dssr_log->incumbent_value = LB;
+		dssr_log->time = rolex.Peek();
+	}
+	clog << "Running exact algorithm." << endl;
 	UB = run_exact(vrp, back_NG, B, lambda, UB, LB, exact_log);
 	clog << "Exact finished in " << exact_log->time << "s, with UB: " << UB.duration << endl;
 	return B;

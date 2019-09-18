@@ -81,79 +81,85 @@ int main(int argc, char** argv)
 		NGStructure NG(vrp, 3);
 		
 		// Run subgradient.
-		CGExecutionLog subgradient_log;
-		auto sg_routes = subgradient(vrp, NG, relaxation == "NGL-TD", 10, UB, LB, &subgradient_log);
-		output["Subgradient"] = subgradient_log;
-		
+		vector<Route> sg_routes;
+//		CGExecutionLog subgradient_log;
+//		sg_routes = subgradient(vrp, NG, relaxation == "NGL-TD", 10, UB, LB, &subgradient_log);
+//		output["Subgradient"] = subgradient_log;
+//
 		// Solve CG to obtain best penalties.
 		if (epsilon_smaller(LB, UB.duration))
 		{
-			clog << "Running CG algorithm..." << endl;
-			// Initialize SPF.
-			SPF spf(vrp.D.VertexCount());
-			spf.AddRoute(UB);
-			for (auto& r: sg_routes) spf.AddRoute(r);
-			
-			// Configure CG algorithm.
-			CGSolver cg_solver;
-			LPSolver lp_solver;
-			cg_solver.time_limit = time_limit;
-			cg_solver.lp_solver = &lp_solver;
-			cg_solver.screen_output = &clog;
-			
 			vector<double> penalties(vrp.D.VertexCount(), 0.0); // Keep best set of penalties.
-			bool early_stop = false; // If any other termination condition is met, early_stop is set to true.
-			cg_solver.pricing_function = [&](const vector<double>& duals, double incumbent_value, Duration time_limit,
-											 CGExecutionLog* cg_execution_log) {
-				if (!colgen) return false;
-				auto pp = spf.InterpretDuals(duals);
-				MLBExecutionLog iteration_log(true);
-				Route best;
-				double best_cost;
-				vector<Route> R;
-				if (relaxation == "NGL-TD")	R = run_ng(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
-				else if (relaxation == "NGL") R = run_ng_td(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
-				
-				// Compute new LB.
-				LB = max(LB, best_cost + sum(pp.penalties));
-				
-				// If LB=UB, we know that UB is optimum, we can stop.
-				if (epsilon_equal(LB, UB.duration))
-				{
-					early_stop = true;
-					penalties = pp.penalties;
-					clog << "Stop CG (LB = UB)" << endl;
-					return false;
-				}
-				
-				// Add the best solution to the RMP if it is not a feasible solution (otherwise it was already added).
-				if (!R.empty()) spf.AddRoute(best);
-				
-				// Log iteration.
-				cg_execution_log->iterations->push_back(iteration_log);
-				
-				// Keep best penalties if it is the last iteration.
-				if (R.empty()) penalties = pp.penalties;
-				return !R.empty();
-			};
 			
-			// Run CG.
-			auto cg_log = cg_solver.Solve(spf.formulation, {CGOption::IterationsInformation});
-			output["CG"] = cg_log;
-			
-			// If gap was not closed, get best LB.
-			if (!early_stop && cg_log.status == CGStatus::Optimum && colgen) LB = cg_log.incumbent_value;
-			clog << "Finished CG in " << cg_log.time << "secs with LB: " << LB << endl;
+			if (colgen)
+			{
+				clog << "Running CG algorithm..." << endl;
+				// Initialize SPF.
+				SPF spf(vrp.D.VertexCount());
+				spf.AddRoute(UB);
+				for (auto& r: sg_routes) spf.AddRoute(r);
+				
+				// Configure CG algorithm.
+				CGSolver cg_solver;
+				LPSolver lp_solver;
+				cg_solver.time_limit = time_limit;
+				cg_solver.lp_solver = &lp_solver;
+				cg_solver.screen_output = &clog;
+				
+				bool early_stop = false; // If any other termination condition is met, early_stop is set to true.
+				cg_solver.pricing_function = [&](const vector<double>& duals, double incumbent_value,
+												 Duration time_limit, CGExecutionLog* cg_execution_log) {
+					if (!colgen) return false;
+					auto pp = spf.InterpretDuals(duals);
+					MLBExecutionLog iteration_log(true);
+					Route best;
+					double best_cost;
+					vector<Route> R;
+					if (relaxation == "NGL-TD")
+						R = run_ng(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
+					else if (relaxation == "NGL")
+						R = run_ng_td(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
+					
+					// Compute new LB.
+					LB = max(LB, best_cost + sum(pp.penalties));
+					
+					// If LB=UB, we know that UB is optimum, we can stop.
+					if (epsilon_equal(LB, UB.duration))
+					{
+						early_stop = true;
+						penalties = pp.penalties;
+						clog << "Stop CG (LB = UB)" << endl;
+						return false;
+					}
+					
+					// Add the best solution to the RMP if it is not a feasible solution (otherwise it was already added).
+					if (!R.empty()) spf.AddRoute(best);
+					
+					// Log iteration.
+					cg_execution_log->iterations->push_back(iteration_log);
+					
+					// Keep best penalties if it is the last iteration.
+					if (R.empty()) penalties = pp.penalties;
+					return !R.empty();
+				};
+				
+				// Run CG.
+				auto cg_log = cg_solver.Solve(spf.formulation, {CGOption::IterationsInformation});
+				output["CG"] = cg_log;
+				
+				// If gap was not closed, get best LB.
+				if (!early_stop && cg_log.status == CGStatus::Optimum) LB = cg_log.incumbent_value;
+				clog << "Finished CG in " << cg_log.time << "secs with LB: " << LB << endl;
+			}
 			bool found_opt = epsilon_equal(LB, UB.duration);
 			if (found_opt) clog << "Optimality was closed in CG" << endl;
 			
 			// If optimum was not found, run exact algorithm.
 			if (!found_opt)
 			{
-				clog << "Running DSSR" << endl;
 				CGExecutionLog dssr_log;
 				MLBExecutionLog exact_log(true);
-				auto B = run_dssr(vrp, NG, dssr ? 5 : 0, penalties, UB, LB, &dssr_log, &exact_log);
+				run_dssr(vrp, NG, relaxation == "None" ? -1 : (dssr ? 5 : 0), penalties, UB, LB, &dssr_log, &exact_log);
 				output["DSSR"] = dssr_log;
 				output["Exact"] = exact_log;
 			}

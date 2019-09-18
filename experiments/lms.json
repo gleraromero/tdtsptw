@@ -2,6 +2,15 @@
   "datasets": [{"name":  "lms_2019"}],
   "experiments": [
     {
+      "name": "None",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "duration",
+      "colgen": false,
+      "dssr": false,
+      "relaxation": "None"
+    },
+    {
       "name": "NGL",
       "executable": "main",
       "time_limit": 3600,
