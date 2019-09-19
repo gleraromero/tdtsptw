@@ -64,6 +64,7 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 					{
 						log->dominated_count++;
 						rolex_domination.Pause();
+						delete l;
 						continue;
 					}
 					
