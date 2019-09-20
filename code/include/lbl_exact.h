@@ -31,6 +31,20 @@ namespace tdtsptw
 goc::Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure& B,
 					 const std::vector<double>& lambda, const goc::Route& UB, double lb, goc::MLBExecutionLog* log);
 	
+
+class MinFunc
+{
+public:
+	std::vector<goc::LinearFunction> Merge(const std::vector<goc::LinearFunction>& F);
+	
+	const goc::LinearFunction& operator[](int index);
+	
+private:
+	goc::PWLFunction pieces_;
+};
+
+goc::Route run_exact_piecewise(const VRPInstance& vrp, const goc::GraphPath& L, const std::vector<double>& lambda,
+						  double LB, double UB, goc::MLBExecutionLog* log);
 } // namespace tdtsptw
 
 #endif //TDTSPTW_LBL_EXACT_H

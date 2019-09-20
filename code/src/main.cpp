@@ -29,7 +29,7 @@ int main(int argc, char** argv)
 {
 	json output; // STDOUT output will go into this JSON.
 	
-	simulate_runner_input("instances/guerriero_et_al_2014", "15_70_A_A5", "experiments/easy.json", "NGL");
+	simulate_runner_input("instances/lms_2019", "rbg017.2", "experiments/lms.json", "NGL");
 	
 	json experiment, instance, solutions;
 	cin >> experiment >> instance >> solutions;
@@ -65,6 +65,7 @@ int main(int argc, char** argv)
 	double LB = 0.0;
 	vector<Vertex> P = {vrp.o};
 	Route UB = initial_heuristic(vrp, P, create_bitset<MAX_N>({vrp.o}), vrp.tw[vrp.o].left);
+	
 //	Route UB = vrp.BestDurationRoute({0,5,16,17,19,10,11,8,2,3,4,12,1,15,13,6,14,9,18,7,20});
 	if (UB.duration == INFTY)
 	{
@@ -79,6 +80,14 @@ int main(int argc, char** argv)
 		// Build NG structure.
 		clog << "Building NG structure..." << endl;
 		NGStructure NG(vrp, 3);
+		
+		{
+			vector<double> penalties(vrp.D.VertexCount(), 0.0);
+			MLBExecutionLog log(true);
+			auto r = run_exact_piecewise(vrp, NG.L, penalties, 0.0, UB.duration, &log);
+			clog << r << endl;
+			exit(0);
+		}
 		
 		// Run subgradient.
 		vector<Route> sg_routes;
