@@ -193,8 +193,9 @@ const LinearFunction& MinFunc::operator[](int index)
 struct State
 {
 public:
-	struct Piece
+	class Piece : public Printable
 	{
+	public:
 		int lb;
 		LinearFunction f;
 
@@ -227,7 +228,7 @@ public:
 			}
 
 			// Dominate by waiting time.
-			if (epsilon_bigger_equal(max(dom(q)), max(dom(p))) && epsilon_bigger_equal(t2, max(dom(p))))
+			if (epsilon_bigger(max(dom(q)), max(dom(p))) && epsilon_bigger(t2, max(dom(p))))
 			{
 				LinearFunction ID({max(dom(p)), p(max(dom(p)))}, {max(dom(q)), max(dom(q))-max(dom(p))+p(max(dom(p)))});
 				t2 = ID.Intersection(q);
@@ -253,6 +254,11 @@ public:
 			}
 			return false;
 		}
+
+		virtual void Print(ostream& os) const
+		{
+			os << f;
+		}
 	};
 
 	// Merges pieces in F with pieces with P, preserving pieces in F when matches occur.
@@ -264,224 +270,96 @@ public:
 		F.clear();
 
 		// Sweep pieces.
-		for (int i = 0, j = 0; i < P1.size() || j < P2.size();)
+		int i = 0, j = 0;
+		for (; i < P1.size() && j < P2.size();)
 		{
-			if (i < P1.size() && F.back().Dominate(P1[i])) { ++i; continue; }
-			if (j < P2.size() && F.back().Dominate(P2[j])) { ++j; continue; }
-			if (i == (int)P1.size()) { F.push_back(P2[j]); ++j; continue; }
-			if (j == (int)P2.size()) { F.push_back(P1[i]); ++i; continue; }
 			if (P1[i].Dominate(P2[j])) { ++j; continue; }
 			if (P2[j].Dominate(P1[i])) { ++i; continue; }
-			if (epsilon_smaller(min(dom(P1[i].f)), max(dom(P2[j].f))))
+
+			if (epsilon_smaller(min(dom(P1[i].f)), min(dom(P2[j].f))))
 			{
-				// If p1 starts before p2, but p2 does not have a prefix dominated, then p1 is not dominated in
-				// [min(dom(p1)), min(max(dom(p1)), min(dom(p2))], we can add it to F.
-				F.push_back(Piece(P1[i].lb, P1[i].f.RestrictDomain({min(dom(P1[i].f)), min(max(dom(P1[i].f)), min(dom(P2[j].f)))})));
+				if (epsilon_smaller_equal(max(dom(P1[i].f)), min(dom(P2[j].f))))
+				{
+					F.push_back(P1[i]);
+					++i;
+				}
+				else
+				{
+					F.push_back(Piece(P1[i].lb, P1[i].f.RestrictDomain({min(dom(P1[i].f)), min(dom(P2[j].f))})));
+					P1[i].f.domain.left = P2[j].f.domain.left;
+				}
 			}
 			else
 			{
-				// If p2 starts before p1, but p1 does not have a prefix dominated, then p2 is not dominated in
-				// [min(dom(p2)), min(max(dom(p2)), min(dom(p1))], we can add it to F.
-				F.push_back(Piece(P2[j].lb, P2[j].f.RestrictDomain({min(dom(P2[j].f)), min(max(dom(P2[j].f)), min(dom(P1[i].f)))})));
+				if (epsilon_smaller_equal(max(dom(P2[j].f)), min(dom(P1[i].f))))
+				{
+					F.push_back(P2[j]);
+					++j;
+				}
+				else
+				{
+					F.push_back(Piece(P2[j].lb, P2[j].f.RestrictDomain({min(dom(P2[j].f)), min(dom(P1[i].f))})));
+					P2[j].f.domain.left = P1[i].f.domain.left;
+				}
 			}
+		}
+		// Add remaining pieces.
+		F.insert(F.end(), P1.begin()+i, P1.end());
+		F.insert(F.end(), P2.begin()+j, P2.end());
+
+		// Checks.
+		// Assert is increasing in domain.
+		for (int i = 0; i < (int)F.size()-1; ++i)
+		{
+			assert(epsilon_smaller_equal(max(dom(F[i].f)), min(dom(F[i+1].f))));
 		}
 	}
 
 	vector<Piece> F;
 };
 
-struct PWLState
-{
-	void Add(const LinearFunction& f)
-	{
-		LinearFunction p = f;
-		vector<LinearFunction> ND;
-		
-		// If p is a point.
-		if (epsilon_equal(min(dom(p)), max(dom(p))))
-		{
-			double t = min(dom(p)), v = min(img(p));
-			bool dominated = false;
-			for (auto& q: F)
-			{
-				if (epsilon_bigger(min(dom(q)), t)) break;
-				// Check if q includes p domain, then check if it is smaller equal.
-				if (dom(q).Includes(t)) dominated = epsilon_smaller_equal(q(t), v);
-				// Check if waiting after q dominates t.
-				else dominated = epsilon_smaller_equal(q(max(dom(q)))+t-max(dom(q)), v);
-				if (dominated) break;
-			}
-			if (!dominated) ND.push_back(p);
-		}
-		// Otherwise, p is not a point.
-		else
-		{
-			for (auto& q: F)
-			{
-				// If p is a point, then it is dominated.
-				if (epsilon_equal(min(dom(p)), max(dom(p)))) break;
-				if (epsilon_bigger(min(dom(q)), max(dom(p)))) break;
-				
-				for (int i: {0, 1})
-				{
-					// If p is a point, then it is dominated.
-					if (epsilon_equal(min(dom(p)), max(dom(p)))) break;
-					
-					LinearFunction q_i = i == 0 ? q : LinearFunction({max(dom(q)), q(max(dom(q)))}, {max(dom(p)), q(max(dom(q)))+max(dom(p))-max(dom(q))});
-					if (epsilon_smaller(max(dom(q_i)), min(dom(p)))) continue;
-					
-					// We have intersection between p and q.
-					double l = max(min(dom(p)), min(dom(q_i)));
-					double r = min(max(dom(p)), max(dom(q_i)));
-					double m = p.Intersection(q_i);
-					
-					double pl = p(l), pr = p(r);
-					double ql = q_i(l), qr = q_i(r);
-					
-					// Leave in [l, r] the dominated portion.
-					if (epsilon_smaller_equal(ql, pl) && epsilon_smaller_equal(qr, pr))
-					{
-						// [l, r] is dominated.
-					}
-					else if (epsilon_bigger_equal(ql, pl) && epsilon_bigger_equal(qr, pr))
-					{
-						// no domination.
-						l = r + 1;
-					}
-					else if (epsilon_bigger(m, l) && epsilon_smaller(m, r))
-					{
-						// [l, m] is dominated, but [m, r] is dominated for q.
-						if (epsilon_bigger_equal(pl, ql))
-						{
-							if (i == 0) q = q.RestrictDomain({min(dom(q)), m});
-							r = m;
-						}
-						// [m, r] is dominated, but [l, m] is dominated for q.
-						else
-						{
-							if (i == 0) q = q.RestrictDomain({m, max(dom(q))});
-							l = m;
-						}
-					}
-					
-					// If some domination occured...
-					if (l != r + 1)
-					{
-						// A prefix is dominated.
-						if (epsilon_equal(l, min(dom(p)))) p.domain.left = r;
-						// A suffix is dominated.
-						else if (epsilon_equal(r, max(dom(p)))) p.domain.right = l;
-						// Middle is dominated, therefore the left side will not be dominated.
-						else
-						{
-							ND.push_back(LinearFunction({min(dom(p)), p(min(dom(p)))}, {l, p(l)}));
-							p.domain.left = r;
-						}
-					}
-				}
-			}
-			if (epsilon_different(min(dom(p)), max(dom(p)))) ND.push_back(p);
-		}
-		
-//		// Dominate F with waiting time in p.
-//		if (!ND.empty() && max(dom(ND.back())) == max(dom(p)) && !F.empty())
-//		{
-//			double t = max(dom(p)), v = p(max(dom(p)));
-//			LinearFunction p_w({t, v}, {max(dom(F.back())), v+max(dom(F.back()))-t});
-//			for (int i = (int)F.size() - 1; i >= 0; --i)
-//			{
-//				auto& q = F[i];
-//				if (epsilon_smaller(max(dom(q)), t)) break;
-//				if (epsilon_bigger_equal(min(dom(q)), t))
-//				{
-//					if (epsilon_bigger_equal(q(min(dom(q))), p_w(min(dom(q)))))
-//					{
-//
-//					}
-//				}
-//				if (epsilon_bigger_equal(F[i](max(dom(F[i])))))
-//			}
-//		}
-		
-		// Now we have in ND the non dominated pieces of p, we have to insert them into F.
-		for (auto& r: ND)
-		{
-			F.push_back(r);
-			LB.push_back(INT_MAX);
-			
-			int i = (int)F.size()-1;
-			while (i > 0 && epsilon_smaller(min(dom(F[i])), min(dom(F[i-1]))))
-			{
-				swap(F[i], F[i-1]);
-				swap(LB[i], LB[i-1]);
-				--i;
-			}
-		}
-	}
-	
-	LinearFunction& operator[](int i)
-	{
-		return F[i];
-	}
-	
-	int& lb(int i)
-	{
-		return LB[i];
-	}
-	
-	void Show()
-	{
-		clog << F << endl;
-	}
-	
-	vector<LinearFunction> F;
-	vector<int> LB;
-};
-
 Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vector<double>& lambda,
 	double LB, double UB, MLBExecutionLog* log)
 {
-	Point2D p1(0, 50), p2(50, 0);
-	Point2D q1(0, 0), q2(100, 100);
-	State::Piece a(0, {p1, p2});
-	State::Piece b(0, {q1, q2});
-	clog << a.Dominate(b) << endl;
-	clog << a.f << endl;
-	clog << b.f << endl;
-
-	exit(0);
-	
 	int n = vrp.D.VertexCount();
 	int BASE = floor(LB), TOP = ceil(UB);
+	TOP = floor(LB);
 	
 	// Init structures.
-	auto Q = vector<vector<vector<vector<unordered_map<VertexSet, vector<LinearFunction>>>>>>(TOP-BASE+1, vector<vector<vector<unordered_map<VertexSet, vector<LinearFunction>>>>>(n, vector<vector<unordered_map<VertexSet, vector<LinearFunction>>>>(L.size(), vector<unordered_map<VertexSet, vector<LinearFunction>>>(n))));
-	auto D = vector<vector<vector<unordered_map<VertexSet, MinFunc>>>>(n, vector<vector<unordered_map<VertexSet, MinFunc>>>(L.size(), vector<unordered_map<VertexSet, MinFunc>>(n)));
+	auto D = vector<vector<vector<unordered_map<VertexSet, State>>>>(n, vector<vector<unordered_map<VertexSet, State>>>(L.size(), vector<unordered_map<VertexSet, State>>(n)));
 	vector<LinearFunction> R;
-	
-	Q[0][1][0][0].insert({create_bitset<MAX_N>({vrp.o}), {}}).first->second.push_back({{vrp.a[vrp.o], -lambda[vrp.o]}, {vrp.b[vrp.o], -lambda[vrp.o]}});
-	for (int lb = 0; lb <= ceil(UB)-BASE; ++lb)
+
+	State::Piece p0(-1, {{vrp.a[vrp.o], -lambda[vrp.o]}, {vrp.b[vrp.o], -lambda[vrp.o]}});
+	vector<State::Piece> P0 = {p0};
+	D[1][0][0].insert({create_bitset<MAX_N>({vrp.o}), State()}).first->second.Merge(P0);
+	for (int lb = 0; lb <= TOP-BASE; ++lb)
 	{
 		for (int k = 1; k < n; ++k)
 		{
-			clog << k << endl;
 			for (int r = 0; r < (int)L.size()-1; ++r)
 			{
 				for (int v = 0; v < n; ++v)
 				{
-					for (auto& S_f: Q[lb][k][r][v])
+					// All labels in D[k][r][v] are non dominated for lower bound lb.
+					for (auto& S_f: D[k][r][v])
 					{
-						// Domination.
+						log->enumerated_count++;
+						// Get non dominated pieces.
 						auto& S = S_f.first;
-						auto& f = S_f.second;
-						auto& D_S = D[k][r][v].insert({S, MinFunc()}).first->second;
-						auto P = D_S.Merge(f);
-						if (P.size() > 30)
-						{ clog << P << endl; exit(0);}
-						clog << P.size() << endl;
-						if (P.empty()) continue; // All pieces were dominated by previous pieces.
-						
-						// Extension.
+						auto& Delta = S_f.second;
+						// Apply bounds.
+						vector<LinearFunction> EXT; // Pieces with lb = lb that must be extended.
+						for (auto& p: Delta.F)
+						{
+							if (p.lb == -1)
+							{
+								p.lb = lb; // TODO: Calculate bound here.
+								if (p.lb == lb) EXT.push_back(p.f);
+							}
+						}
+						log->extended_count += Delta.F.size();
+
+						// Extension of pieces.
 						for (Vertex w: vrp.D.Successors(v))
 						{
 							if (S.test(w)) continue;
@@ -492,8 +370,9 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 							if (LDTw_at_v == INFTY) continue;
 							auto S_w = S;
 							S_w.set(w);
-							
-							for (auto& p_i: P)
+
+							vector<State::Piece> EXT_P; // Extended pieces.
+							for (auto& p_i: EXT)
 							{
 								int lb_i = lb;
 								if (epsilon_bigger(min(dom(p_i)), LDTw_at_v)) break;
@@ -517,12 +396,17 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 									}
 									else // Otherwise, add it to the queue.
 									{
-										Q[lb_i][k + 1][r + (w == L[r + 1])][w].insert({S_w, {}}).first->second.push_back(pp);
+										if (!EXT_P.empty() && epsilon_equal(min(dom(EXT_P.back().f)) , min(dom(pp)))) EXT_P.pop_back(); // Remove waiting time piece.
+										EXT_P.push_back(State::Piece(-1, pp));
 									}
 									
 									// Stop if tau_vw exceeds the latest departure time.
 									if (epsilon_bigger_equal(max(dom(tau_j)), LDTw_at_v)) j = vrp.tau[v][w].PieceCount();
 								}
+							}
+							if (!EXT_P.empty())
+							{
+								D[k + 1][r + (w == L[r + 1])][w].insert({S_w, State()}).first->second.Merge(EXT_P);
 							}
 						}
 					}
@@ -531,7 +415,10 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 		}
 		if (!R.empty()) break;
 	}
-	
+
+	clog << "#States: " << log->enumerated_count << endl;
+	clog << "#Pieces: " << log->extended_count << endl;
+
 	// Rebuild solution.
 	double best_t = INFTY;
 	for (auto& p: R) best_t = min(best_t, p.image.left);
