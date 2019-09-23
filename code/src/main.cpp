@@ -29,7 +29,7 @@ int main(int argc, char** argv)
 {
 	json output; // STDOUT output will go into this JSON.
 	
-	simulate_runner_input("instances/lms_2019", "rbg017.2", "experiments/lms.json", "NGL");
+	simulate_runner_input("instances/lms_2019", "rbg132.2", "experiments/lms.json", "NGL");
 	
 	json experiment, instance, solutions;
 	cin >> experiment >> instance >> solutions;
@@ -85,6 +85,9 @@ int main(int argc, char** argv)
 			vector<double> penalties(vrp.D.VertexCount(), 0.0);
 			MLBExecutionLog log(true);
 			auto r = run_exact_piecewise(vrp, NG.L, penalties, 0.0, UB.duration, &log);
+			json output;
+			output["Exact"] = log;
+			cout << output << endl;
 			clog << r << endl;
 			exit(0);
 		}

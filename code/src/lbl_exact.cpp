@@ -169,26 +169,6 @@ Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure
 // ------------------ Labeling by pieces ----------------------.
 // ------------------ Labeling by pieces ----------------------.
 // ------------------ Labeling by pieces ----------------------.
-vector<LinearFunction> MinFunc::Merge(const vector<LinearFunction>& F)
-{
-	if (F.empty()) return {};
-	PWLFunction P;
-	for (auto& p: F) P = Min(P, PWLFunction({p}));
-	PWLDominationFunction D(P);
-	D.DominatePieces(PWLFunction(pieces_));
-	if (D.Empty()) return {};
-	
-	// Now we have in D all non dominated pieces from F, we should merge them with pieces_ and return the
-	// new pieces.
-	PWLFunction FD(D);
-	pieces_ = Min(pieces_, FD);
-	return FD.Pieces();
-}
-
-const LinearFunction& MinFunc::operator[](int index)
-{
-	return pieces_[index];
-}
 
 struct State
 {
@@ -323,100 +303,116 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 {
 	int n = vrp.D.VertexCount();
 	int BASE = floor(LB), TOP = ceil(UB);
-	TOP = floor(LB);
 	
 	// Init structures.
-	auto D = vector<vector<vector<unordered_map<VertexSet, State>>>>(n, vector<vector<unordered_map<VertexSet, State>>>(L.size(), vector<unordered_map<VertexSet, State>>(n)));
+	auto D = vector<vector<unordered_map<VertexSet, State>>>(n, vector<unordered_map<VertexSet, State>>(n));
 	vector<LinearFunction> R;
 
+	Stopwatch rolex(true), rolex_domination(false), rolex_extension(false), rolex_bounding(false);
 	State::Piece p0(-1, {{vrp.a[vrp.o], -lambda[vrp.o]}, {vrp.b[vrp.o], -lambda[vrp.o]}});
 	vector<State::Piece> P0 = {p0};
-	D[1][0][0].insert({create_bitset<MAX_N>({vrp.o}), State()}).first->second.Merge(P0);
+	D[1][0].insert({create_bitset<MAX_N>({vrp.o}), State()}).first->second.Merge(P0);
 	for (int lb = 0; lb <= TOP-BASE; ++lb)
 	{
 		for (int k = 1; k < n; ++k)
 		{
-			for (int r = 0; r < (int)L.size()-1; ++r)
+			for (int v = 0; v < n; ++v)
 			{
-				for (int v = 0; v < n; ++v)
+				// All labels in D[k][v] are non dominated for lower bound lb.
+				for (auto& S_f: D[k][v])
 				{
-					// All labels in D[k][r][v] are non dominated for lower bound lb.
-					for (auto& S_f: D[k][r][v])
+					rolex_extension.Resume();
+					
+					// Get non dominated pieces.
+					auto& S = S_f.first;
+					auto& Delta = S_f.second;
+					log->processed_count++;
+					log->enumerated_count += Delta.F.size();
+					
+					// Apply bounds.
+					vector<LinearFunction> EXT; // Pieces with lb = lb that must be extended.
+					rolex_extension.Pause();
+					rolex_bounding.Resume();
+					for (auto& p: Delta.F)
 					{
-						log->enumerated_count++;
-						// Get non dominated pieces.
-						auto& S = S_f.first;
-						auto& Delta = S_f.second;
-						// Apply bounds.
-						vector<LinearFunction> EXT; // Pieces with lb = lb that must be extended.
-						for (auto& p: Delta.F)
+						if (p.lb == -1)
 						{
-							if (p.lb == -1)
-							{
-								p.lb = lb; // TODO: Calculate bound here.
-								if (p.lb == lb) EXT.push_back(p.f);
-							}
-						}
-						log->extended_count += Delta.F.size();
-
-						// Extension of pieces.
-						for (Vertex w: vrp.D.Successors(v))
-						{
-							if (S.test(w)) continue;
-							double LDT_w = INFTY;
-							for (Vertex u: vrp.D.Vertices()) if (u != w && !S.test(u)) LDT_w = min(LDT_w, vrp.LDT[w][u]);
-							int j = 0; // index of tau_vw.
-							double LDTw_at_v = vrp.DepartureTime({v,w}, LDT_w);
-							if (LDTw_at_v == INFTY) continue;
-							auto S_w = S;
-							S_w.set(w);
-
-							vector<State::Piece> EXT_P; // Extended pieces.
-							for (auto& p_i: EXT)
-							{
-								int lb_i = lb;
-								if (epsilon_bigger(min(dom(p_i)), LDTw_at_v)) break;
-								for (j = 0; j < vrp.tau[v][w].PieceCount(); ++j)
-								{
-									auto& tau_j = vrp.tau[v][w][j];
-									
-									// Check that tau_j \cap p_i \neq \emptyset.
-									if (epsilon_smaller(max(dom(tau_j)), min(dom(p_i)))) continue;
-									if (epsilon_bigger(min(dom(tau_j)), max(dom(p_i)))) break;
-									
-									// Find intersection of pieces.
-									double t1 = max(min(dom(tau_j)), min(dom(p_i)));
-									double t2 = min(LDTw_at_v, min(max(dom(tau_j)), max(dom(p_i))));
-									
-									// Extend.
-									LinearFunction pp({t1+tau_j(t1), p_i(t1)+tau_j(t1)-lambda[w]}, {t2+tau_j(t2), p_i(t2)+tau_j(t2)-lambda[w]});
-									if (k == n-1) // If complete tour, add it to the solution.
-									{
-										R.push_back(pp);
-									}
-									else // Otherwise, add it to the queue.
-									{
-										if (!EXT_P.empty() && epsilon_equal(min(dom(EXT_P.back().f)) , min(dom(pp)))) EXT_P.pop_back(); // Remove waiting time piece.
-										EXT_P.push_back(State::Piece(-1, pp));
-									}
-									
-									// Stop if tau_vw exceeds the latest departure time.
-									if (epsilon_bigger_equal(max(dom(tau_j)), LDTw_at_v)) j = vrp.tau[v][w].PieceCount();
-								}
-							}
-							if (!EXT_P.empty())
-							{
-								D[k + 1][r + (w == L[r + 1])][w].insert({S_w, State()}).first->second.Merge(EXT_P);
-							}
+							p.lb = lb; // TODO: Calculate bound here.
+							if (p.lb == lb) EXT.push_back(p.f);
 						}
 					}
+					rolex_bounding.Pause();
+					rolex_extension.Resume();
+					log->extended_count += EXT.size();
+
+					// Extension of pieces.
+					for (Vertex w: vrp.D.Successors(v))
+					{
+						if (S.test(w)) continue;
+						double LDT_w = INFTY;
+						for (Vertex u: vrp.D.Vertices()) if (u != w && !S.test(u)) LDT_w = min(LDT_w, vrp.LDT[w][u]);
+						double LDTw_at_v = vrp.DepartureTime({v,w}, LDT_w);
+						if (LDTw_at_v == INFTY) continue;
+						auto S_w = S;
+						S_w.set(w);
+
+						vector<State::Piece> EXT_P; // Extended pieces.
+						int j = 0;
+						for (auto& p_i: EXT)
+						{
+							if (epsilon_bigger(min(dom(p_i)), LDTw_at_v)) break;
+							if (epsilon_bigger(min(dom(vrp.tau[v][w][j])), max(dom(p_i)))) break;
+							for (; j < vrp.tau[v][w].PieceCount(); ++j)
+							{
+								auto& tau_j = vrp.tau[v][w][j];
+								
+								// Check that tau_j \cap p_i \neq \emptyset.
+								if (epsilon_smaller(max(dom(tau_j)), min(dom(p_i)))) continue;
+								if (epsilon_bigger(min(dom(tau_j)), max(dom(p_i)))) break;
+								
+								// Find intersection of pieces.
+								double t1 = max(min(dom(tau_j)), min(dom(p_i)));
+								double t2 = min(LDTw_at_v, min(max(dom(tau_j)), max(dom(p_i))));
+								
+								// Extend.
+								LinearFunction pp({t1+tau_j(t1), p_i(t1)+tau_j(t1)-lambda[w]}, {t2+tau_j(t2), p_i(t2)+tau_j(t2)-lambda[w]});
+								if (k == n-1) // If complete tour, add it to the solution.
+								{
+									R.push_back(pp);
+								}
+								else // Otherwise, add it to the queue.
+								{
+									if (!EXT_P.empty() && epsilon_equal(min(dom(EXT_P.back().f)) , min(dom(pp)))) EXT_P.pop_back(); // Remove waiting time piece.
+									EXT_P.push_back(State::Piece(-1, pp));
+								}
+								
+								// Stop if tau_vw exceeds the latest departure time.
+								if (epsilon_bigger_equal(max(dom(tau_j)), max(dom(p_i)))) break;
+							}
+						}
+						if (!EXT_P.empty())
+						{
+							rolex_extension.Pause();
+							rolex_domination.Resume();
+							D[k + 1][w].insert({S_w, State()}).first->second.Merge(EXT_P);
+							rolex_domination.Pause();
+							rolex_extension.Resume();
+						}
+					}
+					rolex_extension.Pause();
 				}
 			}
 		}
 		if (!R.empty()) break;
 	}
+	log->bounded_count = log->enumerated_count - log->extended_count;
+	log->extension_time = rolex_extension.Peek();
+	log->bounding_time = rolex_bounding.Peek();
+	log->domination_time = rolex_domination.Peek();
+	log->time = rolex.Peek();
 
-	clog << "#States: " << log->enumerated_count << endl;
+	clog << "Time: " << log->time << endl;
+	clog << "#States: " << log->processed_count << endl;
 	clog << "#Pieces: " << log->extended_count << endl;
 
 	// Rebuild solution.
