@@ -190,6 +190,106 @@ const LinearFunction& MinFunc::operator[](int index)
 	return pieces_[index];
 }
 
+struct State
+{
+public:
+	struct Piece
+	{
+		int lb;
+		LinearFunction f;
+
+		Piece(int lb, const LinearFunction& f)
+			: lb(lb), f(f)
+		{ }
+
+		// Reduces domain of p2 if any prefix or suffix is dominated (this(x) <= p2(x)).
+		// If p2 is fully dominated the function returns true.
+		bool Dominate(Piece& p2)
+		{
+			auto& p = f;
+			auto& q = p2.f;
+			// Remove the case when p is after q.
+			if (epsilon_bigger(min(dom(p)), max(dom(q)))) return false;
+
+			double t1 = -INFTY, t2 = INFTY;
+			if (epsilon_equal(p.slope, q.slope))
+			{
+				if (epsilon_bigger(p.intercept, q.intercept))
+					return false;
+			}
+			else if (epsilon_smaller(p.slope, q.slope))
+			{
+				t1 = p.Intersection(q);
+			}
+			else
+			{
+				t2 = p.Intersection(q);
+			}
+
+			// Dominate by waiting time.
+			if (epsilon_bigger_equal(max(dom(q)), max(dom(p))) && epsilon_bigger_equal(t2, max(dom(p))))
+			{
+				LinearFunction ID({max(dom(p)), p(max(dom(p)))}, {max(dom(q)), max(dom(q))-max(dom(p))+p(max(dom(p)))});
+				t2 = ID.Intersection(q);
+			}
+			t1 = max(t1, min(dom(p)));
+			t2 = min(t2, max(dom(q)));
+
+			// q is dominated in [t1, t2].
+			// If all q is dominated, return true.
+			if (epsilon_smaller_equal(t1, min(dom(q))) && epsilon_bigger_equal(t2, max(dom(q))))
+			{
+				return true;
+			}
+			// A prefix is dominated.
+			else if (epsilon_smaller_equal(t1, min(dom(q))))
+			{
+				q = q.RestrictDomain({t2+EPS, max(dom(q))});
+			}
+			// A suffix is dominated
+			else if (epsilon_bigger_equal(t2, max(dom(q))))
+			{
+				q = q.RestrictDomain({min(dom(q)), t1-EPS});
+			}
+			return false;
+		}
+	};
+
+	// Merges pieces in F with pieces with P, preserving pieces in F when matches occur.
+	// Precondition: pieces in P are disjunt and sorted by domain.
+	void Merge(vector<Piece>& P)
+	{
+		auto P1 = F;
+		auto& P2 = P;
+		F.clear();
+
+		// Sweep pieces.
+		for (int i = 0, j = 0; i < P1.size() || j < P2.size();)
+		{
+			if (i < P1.size() && F.back().Dominate(P1[i])) { ++i; continue; }
+			if (j < P2.size() && F.back().Dominate(P2[j])) { ++j; continue; }
+			if (i == (int)P1.size()) { F.push_back(P2[j]); ++j; continue; }
+			if (j == (int)P2.size()) { F.push_back(P1[i]); ++i; continue; }
+			if (P1[i].Dominate(P2[j])) { ++j; continue; }
+			if (P2[j].Dominate(P1[i])) { ++i; continue; }
+			if (epsilon_smaller(min(dom(P1[i].f)), max(dom(P2[j].f))))
+			{
+				// If p1 starts before p2, but p2 does not have a prefix dominated, then p1 is not dominated in
+				// [min(dom(p1)), min(max(dom(p1)), min(dom(p2))], we can add it to F.
+				F.push_back(Piece(P1[i].lb, P1[i].f.RestrictDomain({min(dom(P1[i].f)), min(max(dom(P1[i].f)), min(dom(P2[j].f)))})));
+			}
+			else
+			{
+				// If p2 starts before p1, but p1 does not have a prefix dominated, then p2 is not dominated in
+				// [min(dom(p2)), min(max(dom(p2)), min(dom(p1))], we can add it to F.
+				F.push_back(Piece(P2[j].lb, P2[j].f.RestrictDomain({min(dom(P2[j].f)), min(max(dom(P2[j].f)), min(dom(P1[i].f)))})));
+			}
+		}
+	}
+
+	vector<Piece> F;
+};
+
 struct PWLState
 {
 	void Add(const LinearFunction& f)
@@ -341,10 +441,14 @@ struct PWLState
 Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vector<double>& lambda,
 	double LB, double UB, MLBExecutionLog* log)
 {
-	PWLState S;
-	S.Add(LinearFunction({0, 10}, {0, 100}));
-	S.Add(LinearFunction({4, 20}, {6, 20}));
-	S.Show();
+	Point2D p1(0, 50), p2(50, 0);
+	Point2D q1(0, 0), q2(100, 100);
+	State::Piece a(0, {p1, p2});
+	State::Piece b(0, {q1, q2});
+	clog << a.Dominate(b) << endl;
+	clog << a.f << endl;
+	clog << b.f << endl;
+
 	exit(0);
 	
 	int n = vrp.D.VertexCount();
