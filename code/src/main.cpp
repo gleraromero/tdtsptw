@@ -25,11 +25,72 @@ using namespace goc;
 using namespace nlohmann;
 using namespace tdtsptw;
 
+namespace
+{
+VRPInstance reverse_instance(const VRPInstance& vrp)
+{
+	int n = vrp.D.VertexCount();
+	
+	VRPInstance rev;
+	rev.D = vrp.D.Reverse();
+	rev.o = vrp.d, rev.d = vrp.o;
+	rev.T = vrp.T;
+	for (Vertex v: vrp.D.Vertices()) rev.tw.push_back({-vrp.tw[v].right, -vrp.tw[v].left});
+	for (Vertex v: vrp.D.Vertices()) rev.a.push_back(rev.tw[v].left);
+	for (Vertex v: vrp.D.Vertices()) rev.b.push_back(rev.tw[v].right);
+	rev.prec = Matrix<bool>(n, n, false);
+	rev.prec_count = vector<int>(n, 0);
+	rev.suc_count = vector<int>(n, 0);
+	for (Vertex v: vrp.D.Vertices())
+	{
+		for (Vertex w: vrp.D.Vertices())
+		{
+			if (vrp.prec[w][v])
+			{
+				rev.prec[v][w] = true;
+				rev.prec_count[w]++;
+				rev.suc_count[v]++;
+			}
+		}
+	}
+	rev.LDT = rev.EAT = Matrix<double>(n, n);
+	for (Vertex v: vrp.D.Vertices())
+	{
+		for (Vertex w: vrp.D.Vertices())
+		{
+			rev.EAT[v][w] = -vrp.LDT[w][v];
+			rev.LDT[v][w] = -vrp.EAT[w][v];
+		}
+	}
+	rev.arr = rev.tau = rev.dep = rev.pretau = Matrix<PWLFunction>(n, n);
+	for (Vertex u: vrp.D.Vertices())
+	{
+		for (Vertex v: vrp.D.Successors(u))
+		{
+			// Compute reverse travel functions.
+			rev.tau[v][u] = vrp.pretau[u][v].Compose(PWLFunction::IdentityFunction({-vrp.T, 0.0}) * -1);
+			auto init_piece = LinearFunction({-vrp.T, rev.tau[v][u](min(dom(rev.tau[v][u]))) + min(dom(rev.tau[v][u])) + vrp.T}, {min(dom(rev.tau[v][u])), rev.tau[v][u](min(dom(rev.tau[v][u])))});
+			rev.tau[v][u] = Min(rev.tau[v][u], PWLFunction({init_piece}));
+			rev.arr[v][u] = rev.tau[v][u] + PWLFunction::IdentityFunction(rev.tau[v][u].Domain());
+			rev.dep[v][u] = rev.arr[v][u].Inverse();
+			rev.pretau[v][u] = PWLFunction::IdentityFunction(rev.dep[v][u].Domain()) - rev.dep[v][u];
+		}
+	}
+	// Add travel functions for (i, i) (for boundary reasons).
+	for (Vertex u: rev.D.Vertices())
+	{
+		rev.tau[u][u] = rev.pretau[u][u] = PWLFunction::ConstantFunction(0.0, rev.tw[u]);
+		rev.dep[u][u] = rev.arr[u][u] = PWLFunction::IdentityFunction(rev.tw[u]);
+	}
+	return rev;
+}
+}
+
 int main(int argc, char** argv)
 {
 	json output; // STDOUT output will go into this JSON.
 	
-	simulate_runner_input("instances/lms_2019", "rbg132.2", "experiments/lms.json", "NGL");
+	simulate_runner_input("instances/lms_2019", "rbg010a", "experiments/lms.json", "CG-NGL-TD");
 	
 	json experiment, instance, solutions;
 	cin >> experiment >> instance >> solutions;
@@ -65,7 +126,6 @@ int main(int argc, char** argv)
 	double LB = 0.0;
 	vector<Vertex> P = {vrp.o};
 	Route UB = initial_heuristic(vrp, P, create_bitset<MAX_N>({vrp.o}), vrp.tw[vrp.o].left);
-	
 //	Route UB = vrp.BestDurationRoute({0,5,16,17,19,10,11,8,2,3,4,12,1,15,13,6,14,9,18,7,20});
 	if (UB.duration == INFTY)
 	{
@@ -79,18 +139,26 @@ int main(int argc, char** argv)
 		
 		// Build NG structure.
 		clog << "Building NG structure..." << endl;
+		auto rvrp = reverse_instance(vrp);
 		NGStructure NG(vrp, 3);
-		
-		{
-			vector<double> penalties(vrp.D.VertexCount(), 0.0);
-			MLBExecutionLog log(true);
-			auto r = run_exact_piecewise(vrp, NG.L, penalties, 0.0, UB.duration, &log);
-			json output;
-			output["Exact"] = log;
-			cout << output << endl;
-			clog << r << endl;
-			exit(0);
-		}
+//		{
+//			json output;
+//			vector<double> penalties(vrp.D.VertexCount(), 0.0);
+//			MLBExecutionLog log_ngl(true);
+//			Bounding B(vrp, NG, penalties);
+//			double LB = run_ngl(rvrp, NG, penalties, &log_ngl, &B);
+//			output["NGL"] = log_ngl;
+//			clog << "NGL:   " << LB << "\t" << log_ngl.time << "\t" << log_ngl.processed_count << "\t" << log_ngl.extended_count << endl;
+////			clog << vrp.ReadyTime({0,1,2,3,4,5,6,7}, vrp.BestDurationRoute({0,1,2,3,4,5,6,7,8,9,10,11}).t0) << endl;
+////			clog << vrp.ReadyTime({0,1,2,3,4,5,6,7}, vrp.BestDurationRoute({0,1,2,3,4,5,6,7,8,9,10,11}).t0) - vrp.BestDurationRoute({0,1,2,3,4,5,6,7,8,9,10,11}).t0 << endl;
+////			exit(0);
+//			MLBExecutionLog log(true);
+//			auto r = run_exact_piecewise(vrp, reverse(NG.L), penalties, LB, UB.duration, &log, &B);
+//			clog << "Exact: " << r.duration << "\t" << log.time << "\t" << log.processed_count << "\t" << log.extended_count << endl;
+//			output["Exact"] = log;
+//			cout << output << endl;
+//			exit(0);
+//		}
 		
 		// Run subgradient.
 		vector<Route> sg_routes;
@@ -127,9 +195,9 @@ int main(int argc, char** argv)
 					Route best;
 					double best_cost;
 					vector<Route> R;
-					if (relaxation == "NGL-TD")
+					if (relaxation == "NGL")
 						R = run_ng(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
-					else if (relaxation == "NGL")
+					else if (relaxation == "NGL-TD")
 						R = run_ng_td(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
 					
 					// Compute new LB.
@@ -163,17 +231,33 @@ int main(int argc, char** argv)
 				if (!early_stop && cg_log.status == CGStatus::Optimum) LB = cg_log.incumbent_value;
 				clog << "Finished CG in " << cg_log.time << "secs with LB: " << LB << endl;
 			}
-			bool found_opt = epsilon_equal(LB, UB.duration);
-			if (found_opt) clog << "Optimality was closed in CG" << endl;
-			
+			bool found_opt = false;
+//			bool found_opt = epsilon_equal(LB, UB.duration);
+//			if (found_opt) clog << "Optimality was closed in CG" << endl;
+			clog << "Penalties: " << penalties << endl;
 			// If optimum was not found, run exact algorithm.
 			if (!found_opt)
 			{
-				CGExecutionLog dssr_log;
-				MLBExecutionLog exact_log(true);
-				run_dssr(vrp, NG, relaxation == "None" ? -1 : (dssr ? 5 : 0), penalties, UB, LB, &dssr_log, &exact_log);
-				output["DSSR"] = dssr_log;
-				output["Exact"] = exact_log;
+				MLBExecutionLog log_ngl(true);
+				Bounding B(vrp, NG, penalties);
+				if (relaxation != "None")
+				{
+					LB = run_ngl(vrp, NG, penalties, &log_ngl, &B);
+					output["NGL-TD"] = log_ngl;
+					clog << "NGL-TD:   " << LB << "\t" << log_ngl.time << "\t" << log_ngl.processed_count << "\t" << log_ngl.enumerated_count << endl;
+				}
+				
+				MLBExecutionLog log(true);
+				auto r = run_exact_piecewise(rvrp, reverse(NG.L), penalties, LB, UB.duration, &log, relaxation == "None" ? nullptr : &B);
+				clog << "Exact: " << r.duration << "\t" << log.time << "\t" << log.processed_count << "\t" << log.enumerated_count << endl;
+				output["Exact"] = log;
+				UB = r;
+
+//				CGExecutionLog dssr_log;
+//				MLBExecutionLog exact_log(true);
+//				run_dssr(vrp, NG, relaxation == "None" ? -1 : (dssr ? 5 : 0), penalties, UB, LB, &dssr_log, &exact_log);
+//				output["DSSR"] = dssr_log;
+//				output["Exact"] = exact_log;
 			}
 		}
 		LPExecutionLog lb_log;
