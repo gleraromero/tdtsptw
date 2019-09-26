@@ -36,6 +36,24 @@
       "colgen": true,
       "dssr": false,
       "relaxation": "NGL-TD"
+    },
+    {
+      "name": "CG-NGLTI-DNA",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "duration",
+      "colgen": true,
+      "dssr": true,
+      "relaxation": "NGL"
+    },
+    {
+      "name": "CG-NGLTD-DNA",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "duration",
+      "colgen": true,
+      "dssr": true,
+      "relaxation": "NGL-TD"
     }
   ]
 }

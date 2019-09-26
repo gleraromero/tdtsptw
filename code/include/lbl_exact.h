@@ -75,7 +75,9 @@ private:
 	std::vector<double> lambda;
 };
 
-double run_ngl(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda, goc::MLBExecutionLog* log, Bounding* B);
+goc::Route run_dssr(const VRPInstance& vrp, NGStructure& NG, const std::vector<double>& lambda, goc::CGExecutionLog* log, double& LB);
+
+goc::Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda, goc::MLBExecutionLog* log, Bounding* B, double& LB);
 
 goc::Route run_exact_piecewise(const VRPInstance& vrp, const goc::GraphPath& L, const std::vector<double>& lambda,
 						  double LB, double UB, goc::MLBExecutionLog* log, Bounding* B);

@@ -28,6 +28,7 @@
 #include "goc/json/json_utils.h"
 
 #include "goc/lib/json.hpp"
+#include "goc/lib/sparsepp/spp.h"
 
 #include "goc/linear_programming/cuts/separation_routine.h"
 #include "goc/linear_programming/cuts/separation_strategy.h"

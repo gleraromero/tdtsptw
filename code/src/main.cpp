@@ -90,7 +90,7 @@ int main(int argc, char** argv)
 {
 	json output; // STDOUT output will go into this JSON.
 	
-	simulate_runner_input("instances/lms_2019", "rbg010a", "experiments/lms.json", "CG-NGL-TD");
+	simulate_runner_input("instances/lms_2019", "rbg017.2", "experiments/lms.json", "CG-NGLTD-DA");
 	
 	json experiment, instance, solutions;
 	cin >> experiment >> instance >> solutions;
@@ -141,24 +141,6 @@ int main(int argc, char** argv)
 		clog << "Building NG structure..." << endl;
 		auto rvrp = reverse_instance(vrp);
 		NGStructure NG(vrp, 3);
-//		{
-//			json output;
-//			vector<double> penalties(vrp.D.VertexCount(), 0.0);
-//			MLBExecutionLog log_ngl(true);
-//			Bounding B(vrp, NG, penalties);
-//			double LB = run_ngl(rvrp, NG, penalties, &log_ngl, &B);
-//			output["NGL"] = log_ngl;
-//			clog << "NGL:   " << LB << "\t" << log_ngl.time << "\t" << log_ngl.processed_count << "\t" << log_ngl.extended_count << endl;
-////			clog << vrp.ReadyTime({0,1,2,3,4,5,6,7}, vrp.BestDurationRoute({0,1,2,3,4,5,6,7,8,9,10,11}).t0) << endl;
-////			clog << vrp.ReadyTime({0,1,2,3,4,5,6,7}, vrp.BestDurationRoute({0,1,2,3,4,5,6,7,8,9,10,11}).t0) - vrp.BestDurationRoute({0,1,2,3,4,5,6,7,8,9,10,11}).t0 << endl;
-////			exit(0);
-//			MLBExecutionLog log(true);
-//			auto r = run_exact_piecewise(vrp, reverse(NG.L), penalties, LB, UB.duration, &log, &B);
-//			clog << "Exact: " << r.duration << "\t" << log.time << "\t" << log.processed_count << "\t" << log.extended_count << endl;
-//			output["Exact"] = log;
-//			cout << output << endl;
-//			exit(0);
-//		}
 		
 		// Run subgradient.
 		vector<Route> sg_routes;
@@ -166,11 +148,11 @@ int main(int argc, char** argv)
 //		sg_routes = subgradient(vrp, NG, relaxation == "NGL-TD", 10, UB, LB, &subgradient_log);
 //		output["Subgradient"] = subgradient_log;
 //
+		Stopwatch rolex(true);
 		// Solve CG to obtain best penalties.
 		if (epsilon_smaller(LB, UB.duration))
 		{
 			vector<double> penalties(vrp.D.VertexCount(), 0.0); // Keep best set of penalties.
-			
 			if (colgen)
 			{
 				clog << "Running CG algorithm..." << endl;
@@ -198,7 +180,12 @@ int main(int argc, char** argv)
 					if (relaxation == "NGL")
 						R = run_ng(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
 					else if (relaxation == "NGL-TD")
-						R = run_ng_td(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
+					{
+						best = run_ngl(vrp, NG, pp.penalties, &iteration_log, nullptr, LB);
+						best_cost = best.duration - sum<Vertex>(best.path, [&] (Vertex v){ return pp.penalties[v]; });
+						if(epsilon_smaller(best_cost, 0.0)) R = {best};
+					}
+//						R = run_ng_td(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
 					
 					// Compute new LB.
 					LB = max(LB, best_cost + sum(pp.penalties));
@@ -235,6 +222,21 @@ int main(int argc, char** argv)
 //			bool found_opt = epsilon_equal(LB, UB.duration);
 //			if (found_opt) clog << "Optimality was closed in CG" << endl;
 			clog << "Penalties: " << penalties << endl;
+			
+			if (dssr)
+			{
+				clog << "Running DSSR to improve bounds." << endl;
+				CGExecutionLog dssr_log;
+				auto R = run_dssr(vrp, NG, penalties, &dssr_log, LB);
+				if (R.duration != INFTY)
+				{
+					UB = R;
+					clog << "\tFound solution " << UB.path << " " << UB.duration << endl;
+					dssr_log.status = CGStatus::Optimum;
+				}
+				output["DNA"] = dssr_log;
+			}
+			
 			// If optimum was not found, run exact algorithm.
 			if (!found_opt)
 			{
@@ -242,7 +244,7 @@ int main(int argc, char** argv)
 				Bounding B(vrp, NG, penalties);
 				if (relaxation != "None")
 				{
-					LB = run_ngl(vrp, NG, penalties, &log_ngl, &B);
+					Route R_NG = run_ngl(vrp, NG, penalties, &log_ngl, &B, LB);
 					output["NGL-TD"] = log_ngl;
 					clog << "NGL-TD:   " << LB << "\t" << log_ngl.time << "\t" << log_ngl.processed_count << "\t" << log_ngl.enumerated_count << endl;
 				}
@@ -252,17 +254,12 @@ int main(int argc, char** argv)
 				clog << "Exact: " << r.duration << "\t" << log.time << "\t" << log.processed_count << "\t" << log.enumerated_count << endl;
 				output["Exact"] = log;
 				UB = r;
-
-//				CGExecutionLog dssr_log;
-//				MLBExecutionLog exact_log(true);
-//				run_dssr(vrp, NG, relaxation == "None" ? -1 : (dssr ? 5 : 0), penalties, UB, LB, &dssr_log, &exact_log);
-//				output["DSSR"] = dssr_log;
-//				output["Exact"] = exact_log;
 			}
 		}
 		LPExecutionLog lb_log;
 		lb_log.incumbent_value = LB;
-		output["LB"] = lb_log;
+		lb_log.time = rolex.Peek();
+		output["General"] = lb_log;
 		
 		// Get best route.
 		if (UB.duration != INFTY)

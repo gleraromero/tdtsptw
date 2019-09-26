@@ -185,7 +185,7 @@ bool State::Piece::Dominate(Piece& p2)
 	double t1 = -INFTY, t2 = INFTY;
 	if (epsilon_equal(p.slope, q.slope))
 	{
-		if (epsilon_bigger(p.intercept, q.intercept))
+		if (epsilon_bigger(p(min(dom(q))), q(min(dom(q)))))
 			return false;
 	}
 	else if (epsilon_smaller(p.slope, q.slope))
@@ -238,8 +238,14 @@ void State::Merge(vector<Piece>& P)
 
 	// Sweep pieces.
 	int i = 0, j = 0;
+	int k = 0;
 	for (; i < P1.size() && j < P2.size();)
 	{
+		if (k++ > 10000)
+		{
+			clog << "Merge: " << k << endl;
+			fail("Merge");
+		}
 		if (P1[i].Dominate(P2[j])) { ++j; continue; }
 		if (P2[j].Dominate(P1[i])) { ++i; continue; }
 
@@ -290,8 +296,14 @@ void State::DominateBy(const State& s2)
 	
 	// Sweep pieces.
 	int i = 0, j = 0;
+	int k = 0;
 	for (; i < P1.size() && j < P2.size();)
 	{
+		if (k++ > 10000)
+		{
+			clog << "DominateBy: " << k << endl;
+			fail("DominateBy");
+		}
 		if (P1[i].Dominate(P2[j])) { ++j; continue; }
 		if (P2[j].Dominate(P1[i])) { ++i; continue; }
 		
@@ -352,13 +364,11 @@ void Bounding::AddBound(int k, int r, goc::Vertex v, const VertexSet& S, const S
 	
 	int n = vrp.D.VertexCount();
 	int R = NG.L.size();
-//	clog << n-k+1 << "\t" << R-r-(!LSet.test(v)) << "\t" << v << "\t" << S << "\t" << DeltaR << endl;
 	B[n-k+1][R-r-(!LSet.test(v))][v].push_back({S, DeltaR});
 }
 
 void Bounding::Bound(goc::Vertex v, VertexSet S, State& Delta)
 {
-//	clog << S.count() << "\t" << v << "\t" << S << "\t" << Delta.F << endl;
 	int k = S.count();
 	int r = (LSet & S).count();
 	
@@ -410,7 +420,84 @@ void Bounding::Bound(goc::Vertex v, VertexSet S, State& Delta)
 	}
 }
 
-double run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double>& lambda, MLBExecutionLog* log, Bounding* B)
+Route run_dssr(const VRPInstance& vrp, NGStructure& NG, const vector<double>& lambda, CGExecutionLog* log, double& LB)
+{
+	int n = vrp.D.VertexCount();
+	int max_iter = 30;
+	int delta = 14;
+	Stopwatch rolex(true);
+	log->iteration_count = 0;
+	log->iterations = vector<nlohmann::json>();
+	for (int it = 0; it < max_iter; ++it)
+	{
+		clog << "\tIteration: " << it << "\tLB: " << LB << endl;
+		
+		// Run NGL.
+		MLBExecutionLog iteration_log(true);
+		auto R = run_ngl(vrp, NG, lambda, &iteration_log, nullptr, LB);
+		log->iteration_count++;
+		log->iterations->push_back(iteration_log);
+		
+		// Find cycles.
+		auto& P = R.path;
+		vector<int> last(n, -1);
+		vector<pair<int, int>> C;
+		bool found_cycles = false;
+		int k = 0; // all vertices from k+1 to i have |N(.)| < Delta.
+		for (int i = 1; i < (int)P.size() - 1; ++i)
+		{
+			// If we have already visited vertex P[i], then we have a cycle.
+			found_cycles |= last[P[i]] > -1;
+			
+			// If the last appearance of P[i] was after the last enhanceable
+			if (last[P[i]] >= k) C.push_back({last[P[i]], i});
+			
+			// Set the last time we visited P[i].
+			last[P[i]] = i;
+			
+			if (NG.N[P[i]].count() >= delta) k = i;
+		}
+		
+		// If no cycles were found, we have the optimum.
+		if (!found_cycles)
+		{
+			return R;
+		}
+		// If no breakable cycles are found, we must stop.
+		if (C.empty())
+		{
+			clog << "\tReached NG neighbour size limit." << endl;
+			break;
+		}
+		
+		// Remove vertex-disjoint cycles from NG.
+		VertexSet V;
+		for (auto& c: C)
+		{
+			bool disjoint = true;
+			for (int j = c.first + 1; j < c.second; ++j)
+			{
+				if (V.test(P[j]))
+				{
+					disjoint = false;
+					break;
+				}
+			}
+			if (!disjoint) continue;
+			for (int j = c.first + 1; j < c.second; ++j)
+			{
+				NG.N[P[j]].set(P[c.first]);
+				V.set(P[j]);
+			}
+		}
+	}
+	log->time = rolex.Peek();
+	log->incumbent_value = LB;
+	
+	return Route({}, -1, INFTY);
+}
+
+Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double>& lambda, MLBExecutionLog* log, Bounding* B, double& LB)
 {
 	int n = vrp.D.VertexCount();
 	auto& N = NG.N;
@@ -418,8 +505,8 @@ double run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<doubl
 	auto& V = NG.V;
 	
 	// Init structures.
-	auto D = vector<vector<vector<unordered_map<VertexSet, State>>>>(n, vector<vector<unordered_map<VertexSet, State>>>(L.size(), vector<unordered_map<VertexSet, State>>(n)));
-	double LB = INFTY;
+	auto D = vector<vector<vector<spp::sparse_hash_map<VertexSet, State>>>>(n, vector<vector<spp::sparse_hash_map<VertexSet, State>>>(L.size(), vector<spp::sparse_hash_map<VertexSet, State>>(n)));
+	double OPT_end = INFTY, OPT_dur = INFTY;
 	
 	Stopwatch rolex(true), rolex_domination(false), rolex_extension(false), rolex_bounding(false);
 	State::Piece p0(-1, {{vrp.a[vrp.o], -lambda[vrp.o]}, {vrp.b[vrp.o], -lambda[vrp.o]}});
@@ -447,12 +534,13 @@ double run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<doubl
 						if (S2 == S || !is_subset(S2, S)) continue;
 						Delta.DominateBy(Delta2);
 					}
+					
 					rolex_domination.Pause();
 					
 					if (Delta.F.empty()) continue;
 					
 					// Add bound to the bounding structure.
-					B->AddBound(k, r, v, S, Delta);
+					if (B) B->AddBound(k, r, v, S, Delta);
 					
 					log->processed_count++;
 					log->extended_count += Delta.F.size();
@@ -477,6 +565,7 @@ double run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<doubl
 							auto& p_i = p.f;
 							if (epsilon_bigger(min(dom(p_i)), LDTw_at_v)) break;
 							if (epsilon_bigger(min(dom(vrp.tau[v][w][j])), max(dom(p_i)))) break;
+							
 							for (; j < vrp.tau[v][w].PieceCount(); ++j)
 							{
 								auto& tau_j = vrp.tau[v][w][j];
@@ -486,15 +575,26 @@ double run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<doubl
 								if (epsilon_bigger(min(dom(tau_j)), max(dom(p_i)))) break;
 								
 								// Find intersection of pieces.
-								double t1 = max(min(dom(tau_j)), min(dom(p_i)));
+								double t1 = min(LDTw_at_v, max(min(dom(tau_j)), min(dom(p_i))));
 								double t2 = min(LDTw_at_v, min(max(dom(tau_j)), max(dom(p_i))));
+								t2 = max(t1, t2); // We must avoid numerical errors where (t1 > t2 but t1 <=eps t2).
 								
 								// Extend.
 								LinearFunction pp({t1 + tau_j(t1), p_i(t1) + tau_j(t1) - lambda[w]},
 												  {t2 + tau_j(t2), p_i(t2) + tau_j(t2) - lambda[w]});
+								
 								if (k == n - 1) // If complete tour, add it to the solution.
 								{
-									LB = min(LB, min(img(pp)));
+									if (epsilon_smaller(pp(min(dom(pp))), OPT_dur))
+									{
+										OPT_dur = pp(min(dom(pp)));
+										OPT_end = min(dom(pp));
+									}
+									if (epsilon_smaller(pp(max(dom(pp))), OPT_dur))
+									{
+										OPT_dur = pp(max(dom(pp)));
+										OPT_end = max(dom(pp));
+									}
 								}
 								else // Otherwise, add it to the queue.
 								{
@@ -524,7 +624,50 @@ double run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<doubl
 		}
 	}
 	
-	return LB+sum(lambda);
+	// Rebuild solution.
+	GraphPath P = {vrp.d};
+	double t = OPT_end, d = OPT_dur;
+	int r = L.size()-2;
+	VertexSet NGP;
+	NGP.set(vrp.d);
+	for (Vertex w = P.back(); P.size() < n; w = P.back())
+	{
+		int k = n-P.size();
+		for (Vertex v: vrp.D.Predecessors(w))
+		{
+			double t_v = vrp.DepartureTime({v,w}, t);
+			if (t_v == INFTY) continue;
+			double d_v = d - (t - t_v) + lambda[w];
+			bool found = false;
+			for (auto& S_Delta: D[k][r][v])
+			{
+				auto& S = S_Delta.first;
+				auto& Delta = S_Delta.second;
+				auto Sw = S & N[w];
+				Sw.set(w);
+				if (S.test(w)) continue;
+				if (Sw != NGP) continue;
+				for (auto& p: Delta.F)
+				{
+					found = p.f.domain.Includes(t_v) && epsilon_equal(p.f(t_v), d_v)
+						|| epsilon_smaller(p.f.domain.right, t_v) && epsilon_equal(p.f(max(dom(p.f)))+t_v-max(dom(p.f)), d_v);
+					if (found)
+					{
+						NGP = S;
+						P.push_back(v);
+						t = t_v;
+						d = d_v;
+						r = r - (v == L[r]);
+						break;
+					}
+				}
+				if (found) break;
+			}
+			if (found) break;
+		}
+	}
+	LB = max(LB, OPT_dur+sum(lambda));
+	return vrp.BestDurationRoute(reverse(P));
 }
 
 Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vector<double>& lambda,
@@ -534,27 +677,28 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 	int BASE = floor(LB), TOP = ceil(UB);
 	
 	// Init structures.
-	auto D = vector<vector<unordered_map<VertexSet, State>>>(n, vector<unordered_map<VertexSet, State>>(n));
+	auto D = vector<spp::sparse_hash_map<VertexSet, State>>(n);
 	vector<LinearFunction> R;
 
 	Stopwatch rolex(true), rolex_domination(false), rolex_extension(false), rolex_bounding(false);
 	State::Piece p0(LB, {{vrp.a[vrp.o], -lambda[vrp.o]}, {vrp.b[vrp.o], -lambda[vrp.o]}});
 	vector<State::Piece> P0 = {p0};
-	D[1][vrp.o].insert({create_bitset<MAX_N>({vrp.o}), State()}).first->second.Merge(P0);
+	D[vrp.o].insert({create_bitset<MAX_N>({vrp.o}), State()}).first->second.Merge(P0);
+	
+	vector<vector<vector<spp::sparse_hash_set<VertexSet>>>> q(TOP-BASE+1, vector<vector<spp::sparse_hash_set<VertexSet>>>(n, vector<spp::sparse_hash_set<VertexSet>>(n)));
+	q[0][1][vrp.o].insert(create_bitset<MAX_N>({vrp.o}));
 	for (int lb = 0; lb <= TOP-BASE; ++lb)
 	{
 		for (int k = 1; k < n; ++k)
 		{
 			for (int v = 0; v < n; ++v)
 			{
-				// All labels in D[k][v] are non dominated for lower bound lb.
-				for (auto& S_Delta: D[k][v])
+				for (auto& S: q[lb][k][v])
 				{
 					rolex_extension.Resume();
+					auto& Delta = D[v][S];
 					
 					// Get non dominated pieces.
-					auto& S = S_Delta.first;
-					auto& Delta = S_Delta.second;
 					log->processed_count++;
 					
 					// Apply bounds.
@@ -564,8 +708,16 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 					for (auto& p: Delta.F) if (p.lb == -1) log->enumerated_count++;
 					if (B) B->Bound(v, S, Delta);
 					for (auto& p: Delta.F)
-						if (floor(p.lb) == lb+BASE || !B)
+					{
+						if (floor(p.lb) == lb + BASE || !B)
+						{
 							EXT.push_back(p.f);
+						}
+						else if (floor(p.lb) > lb + BASE && epsilon_smaller(p.lb, UB))
+						{
+							q[floor(p.lb)-BASE][k][v].insert(S);
+						}
+					}
 					rolex_bounding.Pause();
 					rolex_extension.Resume();
 					log->extended_count += EXT.size();
@@ -596,8 +748,9 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 								if (epsilon_bigger(min(dom(tau_j)), max(dom(p_i)))) break;
 								
 								// Find intersection of pieces.
-								double t1 = max(min(dom(tau_j)), min(dom(p_i)));
+								double t1 = min(LDTw_at_v, max(min(dom(tau_j)), min(dom(p_i))));
 								double t2 = min(LDTw_at_v, min(max(dom(tau_j)), max(dom(p_i))));
+								t2 = max(t1, t2); // We must avoid numerical errors where (t1 > t2 but t1 <=eps t2).
 								
 								// Extend.
 								LinearFunction pp({t1+tau_j(t1), p_i(t1)+tau_j(t1)-lambda[w]}, {t2+tau_j(t2), p_i(t2)+tau_j(t2)-lambda[w]});
@@ -619,7 +772,8 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 						{
 							rolex_extension.Pause();
 							rolex_domination.Resume();
-							D[k + 1][w].insert({S_w, State()}).first->second.Merge(EXT_P);
+							D[w].insert({S_w, State()}).first->second.Merge(EXT_P);
+							q[lb][k+1][w].insert(S_w);
 							rolex_domination.Pause();
 							rolex_extension.Resume();
 						}
@@ -627,7 +781,9 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 					rolex_extension.Pause();
 				}
 			}
+			q[lb][k].clear();
 		}
+		q[lb].clear();
 		if (!R.empty()) break;
 	}
 	log->bounded_count = log->enumerated_count - log->extended_count;
