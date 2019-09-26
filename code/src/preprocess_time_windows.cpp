@@ -150,7 +150,7 @@ void preprocess_time_windows(json& instance)
 		for (Arc ij: vrp.D.Arcs())
 		{
 			int i = ij.tail, j = ij.head;
-			if (vrp.ArrivalTime({i, j}, a(i)) == INFTY)
+			if (epsilon_bigger(vrp.ArrivalTime({i, j}, a(i)), b(j)))
 			{
 				instance["precedence_matrix"][j][i] = true;
 				remove_arc(instance, i, j);

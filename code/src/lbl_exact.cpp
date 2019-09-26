@@ -282,10 +282,10 @@ void State::Merge(vector<Piece>& P)
 
 	// Checks.
 	// Assert is increasing in domain.
-	for (int i = 0; i < (int)F.size()-1; ++i)
-	{
-		assert(epsilon_smaller_equal(max(dom(F[i].f)), min(dom(F[i+1].f))));
-	}
+//	for (int i = 0; i < (int)F.size()-1; ++i)
+//	{
+//		assert(epsilon_smaller_equal(max(dom(F[i].f)), min(dom(F[i+1].f))));
+//	}
 }
 	
 void State::DominateBy(const State& s2)
@@ -337,10 +337,10 @@ void State::DominateBy(const State& s2)
 	
 	// Checks.
 	// Assert is increasing in domain.
-	for (int i = 0; i < (int)F.size()-1; ++i)
-	{
-		assert(epsilon_smaller_equal(max(dom(F[i].f)), min(dom(F[i+1].f))));
-	}
+//	for (int i = 0; i < (int)F.size()-1; ++i)
+//	{
+//		assert(epsilon_smaller_equal(max(dom(F[i].f)), min(dom(F[i+1].f))));
+//	}
 }
 
 Bounding::Bounding(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda)
@@ -649,8 +649,8 @@ Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double
 				if (Sw != NGP) continue;
 				for (auto& p: Delta.F)
 				{
-					found = p.f.domain.Includes(t_v) && epsilon_equal(p.f(t_v), d_v)
-						|| epsilon_smaller(p.f.domain.right, t_v) && epsilon_equal(p.f(max(dom(p.f)))+t_v-max(dom(p.f)), d_v);
+					found = (p.f.domain.Includes(t_v) && epsilon_smaller_equal(p.f(t_v), d_v))
+						|| (epsilon_smaller(p.f.domain.right, t_v) && epsilon_smaller_equal(p.f(max(dom(p.f)))+t_v-max(dom(p.f)), d_v));
 					if (found)
 					{
 						NGP = S;
@@ -676,14 +676,14 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 	int n = vrp.D.VertexCount();
 	int BASE = floor(LB), TOP = ceil(UB);
 	
-	// Init structures.
-	auto D = vector<spp::sparse_hash_map<VertexSet, State>>(n);
-	vector<LinearFunction> R;
+	// Init structures (D[k][v] -> S -> State)
+	auto D = vector<vector<spp::sparse_hash_map<VertexSet, State>>>(n, vector<spp::sparse_hash_map<VertexSet, State>>(n));
+	double OPT_end = INFTY, OPT_dur = INFTY;
 
 	Stopwatch rolex(true), rolex_domination(false), rolex_extension(false), rolex_bounding(false);
 	State::Piece p0(LB, {{vrp.a[vrp.o], -lambda[vrp.o]}, {vrp.b[vrp.o], -lambda[vrp.o]}});
 	vector<State::Piece> P0 = {p0};
-	D[vrp.o].insert({create_bitset<MAX_N>({vrp.o}), State()}).first->second.Merge(P0);
+	D[1][vrp.o].insert({create_bitset<MAX_N>({vrp.o}), State()}).first->second.Merge(P0);
 	
 	vector<vector<vector<spp::sparse_hash_set<VertexSet>>>> q(TOP-BASE+1, vector<vector<spp::sparse_hash_set<VertexSet>>>(n, vector<spp::sparse_hash_set<VertexSet>>(n)));
 	q[0][1][vrp.o].insert(create_bitset<MAX_N>({vrp.o}));
@@ -696,7 +696,7 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 				for (auto& S: q[lb][k][v])
 				{
 					rolex_extension.Resume();
-					auto& Delta = D[v][S];
+					auto& Delta = D[k][v][S];
 					
 					// Get non dominated pieces.
 					log->processed_count++;
@@ -709,11 +709,12 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 					if (B) B->Bound(v, S, Delta);
 					for (auto& p: Delta.F)
 					{
+						if (epsilon_bigger_equal(p.lb, UB)) continue;
 						if (floor(p.lb) == lb + BASE || !B)
 						{
 							EXT.push_back(p.f);
 						}
-						else if (floor(p.lb) > lb + BASE && epsilon_smaller(p.lb, UB))
+						else if (floor(p.lb) > lb + BASE)
 						{
 							q[floor(p.lb)-BASE][k][v].insert(S);
 						}
@@ -756,7 +757,16 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 								LinearFunction pp({t1+tau_j(t1), p_i(t1)+tau_j(t1)-lambda[w]}, {t2+tau_j(t2), p_i(t2)+tau_j(t2)-lambda[w]});
 								if (k == n-1) // If complete tour, add it to the solution.
 								{
-									R.push_back(pp);
+									if (epsilon_smaller(pp(min(dom(pp))), OPT_dur))
+									{
+										OPT_dur = pp(min(dom(pp)));
+										OPT_end = min(dom(pp));
+									}
+									if (epsilon_smaller(pp(max(dom(pp))), OPT_dur))
+									{
+										OPT_dur = pp(max(dom(pp)));
+										OPT_end = max(dom(pp));
+									}
 								}
 								else // Otherwise, add it to the queue.
 								{
@@ -772,7 +782,7 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 						{
 							rolex_extension.Pause();
 							rolex_domination.Resume();
-							D[w].insert({S_w, State()}).first->second.Merge(EXT_P);
+							D[k+1][w].insert({S_w, State()}).first->second.Merge(EXT_P);
 							q[lb][k+1][w].insert(S_w);
 							rolex_domination.Pause();
 							rolex_extension.Resume();
@@ -784,7 +794,7 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 			q[lb][k].clear();
 		}
 		q[lb].clear();
-		if (!R.empty()) break;
+		if (OPT_dur < INFTY) break;
 	}
 	log->bounded_count = log->enumerated_count - log->extended_count;
 	log->extension_time = rolex_extension.Peek();
@@ -793,9 +803,52 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 	log->time = rolex.Peek();
 	
 	// Rebuild solution.
-	double best_t = INFTY;
-	for (auto& p: R) best_t = min(best_t, p.image.left);
-	best_t += sum(lambda);
-	return Route({}, 0.0, best_t);
+	GraphPath P;
+	if (OPT_dur < INFTY)
+	{
+		P.push_back(vrp.d);
+		double t = OPT_end, d = OPT_dur;
+		int r = L.size() - 2;
+		VertexSet E;
+		E.set(vrp.d);
+		for (Vertex w = P.back(); P.size() < n; w = P.back())
+		{
+			int k = n - E.count();
+			for (Vertex v: vrp.D.Predecessors(w))
+			{
+				if (E.test(v)) continue;
+				double t_v = vrp.DepartureTime({v, w}, t);
+				if (t_v == INFTY) continue;
+				double d_v = d - (t - t_v) + lambda[w];
+				bool found = false;
+				for (auto& S_Delta: D[k][v])
+				{
+					auto& S = S_Delta.first;
+					auto& Delta = S_Delta.second;
+					if ((S & E) != 0) continue;
+					for (auto& p: Delta.F)
+					{
+						found = (p.f.domain.Includes(t_v) && epsilon_smaller_equal(p.f(t_v), d_v)) ||
+								(epsilon_smaller(p.f.domain.right, t_v) &&
+								 epsilon_smaller_equal(p.f(max(dom(p.f))) + t_v - max(dom(p.f)), d_v));
+						if (found)
+						{
+							E.set(v);
+							P.push_back(v);
+							t = t_v;
+							d = d_v;
+							r = r - (v == L[r]);
+							break;
+						}
+					}
+					if (found) break;
+				}
+				if (found) break;
+			}
+		}
+	}
+	
+	// Rebuild solution.
+	return P.empty() ? Route({}, 0.0, UB) : vrp.BestDurationRoute(reverse(P));
 }
 } // namespace tdtsptw

@@ -107,7 +107,7 @@ int main(int argc, char** argv)
 	clog << "Objective: " << objective << endl;
 	clog << "Relaxation: " << relaxation << endl;
 	clog << "Colgen: " << colgen << endl;
-	clog << "DSSR: " << colgen << endl;
+	clog << "DSSR: " << dssr << endl;
 	
 	// Set departing time from depot equal to 0 if makespan objective.
 	if (objective == "makespan") instance["time_windows"][0] = Interval(0, 0);
@@ -253,7 +253,7 @@ int main(int argc, char** argv)
 				auto r = run_exact_piecewise(rvrp, reverse(NG.L), penalties, LB, UB.duration, &log, relaxation == "None" ? nullptr : &B);
 				clog << "Exact: " << r.duration << "\t" << log.time << "\t" << log.processed_count << "\t" << log.enumerated_count << endl;
 				output["Exact"] = log;
-				UB = r;
+				if (r.duration < UB.duration) UB = vrp.BestDurationRoute(reverse(r.path));
 			}
 		}
 		LPExecutionLog lb_log;
