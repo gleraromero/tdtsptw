@@ -1,23 +1,59 @@
 {
-  "datasets": [{"name":  "guerriero_et_al_2014b", "select": "W50 !D95 !N15"}],
+  "datasets": [{"name":  "guerriero_et_al_2014b", "select": "W50"}],
   "experiments": [
     {
-      "name": "makespan",
+      "name": "None",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "makespan",
+      "colgen": false,
+      "dssr": false,
+      "relaxation": "None"
+    },
+    {
+      "name": "NGLTD",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "makespan",
+      "colgen": false,
+      "dssr": false,
+      "relaxation": "NGL-TD"
+    },
+    {
+      "name": "CG-NGLTI",
       "executable": "main",
       "time_limit": 3600,
       "objective": "makespan",
       "colgen": true,
-      "relaxation": "NGL",
-      "dssr": false
+      "dssr": false,
+      "relaxation": "NGL"
     },
     {
-      "name": "duration",
+      "name": "CG-NGLTD",
       "executable": "main",
       "time_limit": 3600,
-      "objective": "duration",
+      "objective": "makespan",
       "colgen": true,
-      "relaxation": "NGL",
-      "dssr": false
+      "dssr": false,
+      "relaxation": "NGL-TD"
+    },
+    {
+      "name": "CG-NGLTI-DNA",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "makespan",
+      "colgen": true,
+      "dssr": true,
+      "relaxation": "NGL"
+    },
+    {
+      "name": "CG-NGLTD-DNA",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "makespan",
+      "colgen": true,
+      "dssr": true,
+      "relaxation": "NGL-TD"
     }
   ]
 }
