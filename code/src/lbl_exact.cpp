@@ -397,14 +397,10 @@ void Bounding::Bound(goc::Vertex v, VertexSet S, State& Delta)
 			}
 			else if (epsilon_bigger(min(dom(p_j)), max(dom(p_i))))
 			{
-				// Case 2: p_j comes after p_i.
-				// Case 2a: if we do not have p_{i+1} which comes before p_j, then p_i is bounded by waiting.
-				if (i == Delta.F.size()-1 || epsilon_bigger(min(dom(Delta.F[i+1].f)), min(dom(p_j))))
-				{
-					double ti = p_i(max(dom(p_i))), tj = p_j(min(dom(p_j)));
-					double wait = min(dom(p_j)) - max(dom(p_i));
-					Delta.F[i].lb = min(Delta.F[i].lb, ti+wait+tj);
-				}
+				// Case 2: p_j comes after p_i then p_i is bounded by waiting.
+				double ti = p_i(max(dom(p_i))), tj = p_j(min(dom(p_j)));
+				double wait = min(dom(p_j)) - max(dom(p_i));
+				Delta.F[i].lb = min(Delta.F[i].lb, ti+wait+tj);
 				++i;
 			}
 			else
@@ -571,6 +567,7 @@ Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double
 								auto& tau_j = vrp.tau[v][w][j];
 								
 								// Check that tau_j \cap p_i \neq \emptyset.
+								if (epsilon_bigger(min(dom(tau_j)), LDTw_at_v)) break;
 								if (epsilon_smaller(max(dom(tau_j)), min(dom(p_i)))) continue;
 								if (epsilon_bigger(min(dom(tau_j)), max(dom(p_i)))) break;
 								
@@ -744,7 +741,8 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 							{
 								auto& tau_j = vrp.tau[v][w][j];
 								
-								// Check that tau_j \cap p_i \neq \emptyset.
+								// Check that tau_j \cap p_i \cap [-INFTY, LDTw_at_v] \neq \emptyset.
+								if (epsilon_bigger(min(dom(tau_j)), LDTw_at_v)) break;
 								if (epsilon_smaller(max(dom(tau_j)), min(dom(p_i)))) continue;
 								if (epsilon_bigger(min(dom(tau_j)), max(dom(p_i)))) break;
 								

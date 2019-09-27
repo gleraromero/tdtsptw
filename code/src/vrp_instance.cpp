@@ -54,6 +54,18 @@ TimeUnit VRPInstance::ReadyTime(const GraphPath& p, TimeUnit t0) const
 	return t;
 }
 
+TimeUnit VRPInstance::PathDepartureTime(const GraphPath& p, TimeUnit tf) const
+{
+	TimeUnit t = tf;
+	for (int k = (int)p.size()-1; k > 0; --k)
+	{
+		Vertex i = p[k-1], j = p[k];
+		t = DepartureTime({i,j}, t);
+		if (t == INFTY) return INFTY;
+	}
+	return t;
+}
+
 TimeUnit VRPInstance::MinimumTravelTime(Arc e, TimeUnit t0) const
 {
 	TimeUnit tmin = INFTY;

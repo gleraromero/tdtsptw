@@ -59,6 +59,10 @@ public:
 	// If infeasible, returns a route with empty path and INFTY duration.
 	TimeUnit ReadyTime(const goc::GraphPath& p, TimeUnit t0=0) const;
 	
+	// Returns: the time we depart from the first vertex if arriving at t0.
+	// If infeasible, returns a route with empty path and INFTY duration.
+	TimeUnit PathDepartureTime(const goc::GraphPath& p, TimeUnit tf) const;
+	
 	// @return the minimum travel time for arc e if departing at or after t0.
 	// @details if departing at or after t0 is infeasible it returns INFTY.
 	TimeUnit MinimumTravelTime(goc::Arc e, TimeUnit t0=0.0) const;
