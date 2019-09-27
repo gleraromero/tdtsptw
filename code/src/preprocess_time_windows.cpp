@@ -72,7 +72,7 @@ bool includes_arc(json& instance, Arc ij)
 
 void preprocess_time_windows(json& instance)
 {
-	for (int iter = 0; iter < 10; ++iter)
+	for (int iter = 0; iter < 2; ++iter)
 	{
 		VRPInstance vrp = instance;
 		int n = vrp.D.VertexCount();

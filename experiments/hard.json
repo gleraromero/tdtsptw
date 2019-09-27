@@ -5,13 +5,19 @@
       "name": "makespan",
       "executable": "main",
       "time_limit": 3600,
-      "objective": "makespan"
+      "objective": "makespan",
+      "colgen": true,
+      "relaxation": "NGL",
+      "dssr": false
     },
     {
       "name": "duration",
       "executable": "main",
       "time_limit": 3600,
-      "objective": "duration"
+      "objective": "duration",
+      "colgen": true,
+      "relaxation": "NGL",
+      "dssr": false
     }
   ]
 }
