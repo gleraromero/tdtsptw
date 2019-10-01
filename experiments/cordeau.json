@@ -1,0 +1,14 @@
+{
+  "datasets": [{"name": "cordeau_et_al_2014", "select":"!N15 !N20"}],
+  "experiments": [
+    {
+      "name": "makespan",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "makespan",
+      "colgen": true,
+      "relaxation": "NGL",
+      "dssr": false
+    }
+  ]
+}

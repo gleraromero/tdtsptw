@@ -15,22 +15,10 @@
 
 #include "vrp_instance.h"
 #include "pricing_problem.h"
-#include "dssr.h"
+#include "lbl_ng.h"
 
 namespace tdtsptw
 {
-// Runs an NG labeling algorithm to find negative cost routes.
-// @param vrp: VRP Instance
-// @param NG: structure with NG information.
-// @param B: bounding structure for completion bounds.
-// @param lambda: penalties for vertices.
-// @param UB: upper bound on the duration of the optimal route.
-// @param [out] best_route: route with best cost.
-// @param [out] log: output log to save the execution information.
-// @returns the optimal tour.
-goc::Route run_exact(const VRPInstance& vrp, const NGStructure& NG, BoundingStructure& B,
-					 const std::vector<double>& lambda, const goc::Route& UB, double lb, goc::MLBExecutionLog* log);
-
 struct State
 {
 public:
@@ -75,12 +63,12 @@ private:
 	std::vector<double> lambda;
 };
 
-goc::Route run_dssr(const VRPInstance& vrp, NGStructure& NG, const std::vector<double>& lambda, goc::CGExecutionLog* log, double& LB);
+goc::Route run_dssr(const VRPInstance& vrp, NGStructure& NG, const std::vector<double>& lambda, goc::CGExecutionLog* log, double& LB, goc::Duration time_limit);
 
-goc::Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda, goc::MLBExecutionLog* log, Bounding* B, double& LB);
+goc::Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda, goc::MLBExecutionLog* log, Bounding* B, double& LB, goc::Duration time_limit);
 
 goc::Route run_exact_piecewise(const VRPInstance& vrp, const goc::GraphPath& L, const std::vector<double>& lambda,
-						  double LB, double UB, goc::MLBExecutionLog* log, Bounding* B);
+						  double LB, double UB, goc::MLBExecutionLog* log, Bounding* B, goc::Duration time_limit);
 } // namespace tdtsptw
 
 #endif //TDTSPTW_LBL_EXACT_H

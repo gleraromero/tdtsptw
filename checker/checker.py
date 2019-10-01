@@ -132,7 +132,7 @@ def main():
 			dataset_name = output["dataset_name"]
 			instance_name = output["instance_name"]
 			experiment_name = output["experiment_name"]
-			if output["exit_code"] == -6:
+			if output["exit_code"] == 3:
 				mlim += 1
 				print(F"Checking {experiment_name} - {dataset_name} {instance_name}: {purple('Memory limit.')}")
 				continue
