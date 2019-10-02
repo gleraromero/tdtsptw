@@ -38,7 +38,8 @@
       "objective": "duration",
       "colgen": true,
       "dssr": false,
-      "relaxation": "NGL-TD"
+      "relaxation": "NGL-TD",
+      "time_independent": true
     },
     {
       "name": "CG-NGLTI-DNA",
@@ -47,7 +48,8 @@
       "objective": "duration",
       "colgen": true,
       "dssr": true,
-      "relaxation": "NGL"
+      "relaxation": "NGL",
+      "time_independent": true
     },
     {
       "name": "CG-NGLTD-DNA",
@@ -56,7 +58,8 @@
       "objective": "duration",
       "colgen": true,
       "dssr": true,
-      "relaxation": "NGL-TD"
+      "relaxation": "NGL-TD",
+      "time_independent": true
     }
   ]
 }

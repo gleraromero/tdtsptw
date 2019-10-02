@@ -125,7 +125,7 @@ NGStructure::NGStructure(const VRPInstance& vrp, const std::vector<VertexSet>& N
 	}
 }
 
-NGLabel::NGLabel(NGLabel* prev, Vertex v, int S, double Tdur, double Thelp, double lambda) : prev(prev), v(v), S(S), Tdur(Tdur), Thelp(Thelp), lambda(lambda)
+NGLabel::NGLabel(NGLabel* prev, Vertex v, int S, double Ttime, double Tdur, double Thelp, double lambda) : prev(prev), v(v), S(S), Ttime(Ttime), Tdur(Tdur), Thelp(Thelp), lambda(lambda)
 {}
 
 GraphPath NGLabel::Path() const
@@ -141,7 +141,7 @@ void NGLabel::Print(ostream& os) const
 	os << "{P:" << Path() << ", S: " << S << ", Tdur: " << Tdur << ", Thelp: " << Thelp << ", lambda: " << lambda << "}";
 }
 
-vector<Route> run_ng(const VRPInstance& vrp, const NGStructure& NG, const vector<double>& lambda, double UB,
+vector<Route> run_ngl2res(const VRPInstance& vrp, const NGStructure& NG, const vector<double>& lambda, double UB,
 					 Route* best_route, double* best_cost, MLBExecutionLog* log)
 {
 	// Return set of negative cost routes in NEG.
@@ -157,7 +157,7 @@ vector<Route> run_ng(const VRPInstance& vrp, const NGStructure& NG, const vector
 	
 	// Initialize queue.
 	Matrix<vector<vector<NGLabel>>> q(n, R, vector<vector<NGLabel>>(n));
-	q[1][0][vrp.o].push_back(NGLabel(nullptr, vrp.o, 0, -lambda[vrp.o], -vrp.b[vrp.o]-lambda[vrp.o], lambda[vrp.o]));
+	q[1][0][vrp.o].push_back(NGLabel(nullptr, vrp.o, 0, 0.0, -lambda[vrp.o], -vrp.b[vrp.o]-lambda[vrp.o], lambda[vrp.o]));
 	for (int k = 1; k < n; ++k)
 	{
 		for (int r = 0; r < R-1; ++r)
@@ -211,6 +211,142 @@ vector<Route> run_ng(const VRPInstance& vrp, const NGStructure& NG, const vector
 						if (!NG.V[r].test(w)) continue;
 						double d_vw = vrp.MinimumTravelTime({v,w});
 						NGLabel lw(&l, w, Sw,
+								   0.0,
+								   max(l.Tdur+d_vw, l.Thelp+vrp.a[w])-lambda[w], // Tdur(lw)
+								   max(l.Tdur+d_vw-vrp.b[w], l.Thelp)-lambda[w], // Thelp(lw)
+								   l.lambda + lambda[w]
+						);
+						
+						// Process tour.
+						if (w == vrp.d)
+						{
+							(*log->count_by_length)[k+1]++;
+							if (lw.Tdur < *best_cost)
+							{
+								*best_cost = lw.Tdur;
+								*best_route = Route(lw.Path(), -lw.Thelp + lw.lambda, lw.Tdur + lw.lambda);
+							}
+							if (epsilon_smaller(lw.Tdur, 0.0))
+							{
+								NEG.emplace_back(Route(lw.Path(), -lw.Thelp + lw.lambda, lw.Tdur + lw.lambda));
+							}
+							continue;
+						}
+						
+						log->extended_count++;
+						q[k+1][r + (w == NG.L[r+1])][w].push_back(lw);
+					}
+					rolex_extension.Pause();
+				}
+			}
+		}
+	}
+	log->queuing_time = rolex_queuing.Peek();
+	log->domination_time = rolex_domination.Peek();
+	log->extension_time = rolex_extension.Peek();
+	log->time = rolex.Peek();
+	if (*best_cost == INFTY)
+	{
+		clog << "penalties: " << lambda << endl;
+		fail("Should always be a best cost");
+	}
+	return NEG;
+}
+
+vector<Route> run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double>& lambda, double UB,
+						  Route* best_route, double* best_cost, MLBExecutionLog* log)
+{
+	// Return set of negative cost routes in NEG.
+	vector<Route> NEG;
+	
+	int n = vrp.D.VertexCount();
+	int R = NG.L.size();
+	*best_route = Route({}, 0.0, INFTY);
+	*best_cost = INFTY;
+	
+	stretch_to_size(*log->count_by_length, n+1, 0);
+	Stopwatch rolex(true), rolex_domination(false), rolex_extension(false), rolex_queuing(false);
+	
+	// Initialize queue.
+	Matrix<vector<vector<NGLabel>>> q(n, R, vector<vector<NGLabel>>(n));
+	q[1][0][vrp.o].push_back(NGLabel(nullptr, vrp.o, 0, vrp.a[vrp.o], -lambda[vrp.o], -vrp.b[vrp.o]-lambda[vrp.o], lambda[vrp.o]));
+	for (int k = 1; k < n; ++k)
+	{
+		for (int r = 0; r < R-1; ++r)
+		{
+			for (int v = 0; v < n; ++v)
+			{
+				rolex_queuing.Resume();
+				sort(q[k][r][v].begin(), q[k][r][v].end(), [] (NGLabel& l1, NGLabel& l2) { return make_tuple(l1.Ttime, l1.Tdur, l1.Thelp, l1.S) < make_tuple(l2.Ttime, l2.Tdur, l2.Thelp, l2.S); });
+				rolex_queuing.Pause();
+				
+				// D[i] = pareto optimal (Tdur, Thelp).
+				vector<vector<pair<double, double>>> D(NG.NGSet[v].size());
+				for (NGLabel& l: q[k][r][v])
+				{
+					bool is_dominated = false;
+					rolex_domination.Resume();
+					for (auto& TdurThelp: D[l.S])
+					{
+						if (epsilon_smaller_equal(TdurThelp.first, l.Tdur) && epsilon_smaller_equal(TdurThelp.second, l.Thelp))
+						{
+							is_dominated = true;
+							break;
+						}
+					}
+					
+					if (!is_dominated)
+					{
+						for (int sub: NG.NGSub[v][l.S])
+						{
+							for (auto& TdurThelp: D[sub])
+							{
+								if (epsilon_smaller_equal(TdurThelp.first, l.Tdur) &&
+									epsilon_smaller_equal(TdurThelp.second, l.Thelp))
+								{
+									is_dominated = true;
+									break;
+								}
+							}
+							if (is_dominated) break;
+						}
+					}
+					if (!is_dominated)
+					{
+						D[l.S].push_back({l.Tdur, l.Thelp});
+						int i = D[l.S].size()-1;
+						while (i > 0 && D[l.S][i] < D[l.S][i-1])
+						{
+							swap(D[l.S][i], D[l.S][i - 1]);
+							--i;
+						}
+					}
+					rolex_domination.Pause();
+					if (is_dominated)
+					{
+						log->dominated_count++;
+						continue;
+					}
+					
+					// Extension.
+					log->processed_count++;
+					rolex_extension.Resume();
+					(*log->count_by_length)[k]++;
+					
+					for (pair<Vertex, int> w_Sw: NG.NGArc[v][l.S])
+					{
+						Vertex w = w_Sw.first;
+						int Sw = w_Sw.second;
+						
+						// Feasibility check.
+						if (k < vrp.prec_count[w]) continue;
+						if (n-k-1 < vrp.suc_count[w]) continue;
+						if (w != NG.L[r + 1] && vrp.suc_count[NG.L[r + 1]] > n - k - 2) continue;
+						if (!NG.V[r].test(w)) continue;
+						if (epsilon_smaller(vrp.LDT[v][w], l.Ttime)) continue;
+						double d_vw = vrp.MinimumTravelTime({v,w}, l.Ttime);
+						NGLabel lw(&l, w, Sw,
+								   l.Ttime + vrp.TravelTime({v,w}, l.Ttime),
 								   max(l.Tdur+d_vw, l.Thelp+vrp.a[w])-lambda[w], // Tdur(lw)
 								   max(l.Tdur+d_vw-vrp.b[w], l.Thelp)-lambda[w], // Thelp(lw)
 								   l.lambda + lambda[w]

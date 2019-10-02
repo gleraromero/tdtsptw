@@ -47,9 +47,9 @@ public:
 	NGLabel* prev;
 	goc::Vertex v;
 	int S;
-	double Tdur, Thelp, lambda;
+	double Tdur, Thelp, Ttime, lambda;
 	
-	NGLabel(NGLabel* prev, goc::Vertex v, int S, double Tdur, double Thelp, double lambda);
+	NGLabel(NGLabel* prev, goc::Vertex v, int S, double Ttime, double Tdur, double Thelp, double lambda);
 	
 	goc::GraphPath Path() const;
 	
@@ -65,8 +65,11 @@ public:
 // @param [out] best_cost: cost of best_route.
 // @param [out] log: output log to save the execution information.
 // @returns a set of negative cost routes.
-std::vector<goc::Route> run_ng(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda,
+std::vector<goc::Route> run_ngl2res(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda,
 							   double UB, goc::Route* best_route, double* best_cost, goc::MLBExecutionLog* log);
+
+std::vector<goc::Route> run_ngl(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda,
+									double UB, goc::Route* best_route, double* best_cost, goc::MLBExecutionLog* log);
 } // namespace tdtsptw
 
 #endif //TDTSPTW_LBL_NG_H

@@ -52,7 +52,7 @@ vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, bool us
 		}
 		else
 		{
-			Routes = run_ng(vrp, NG, lambda, UB.duration, &best, &best_LB, &it_log);
+			Routes = run_ngl2res(vrp, NG, lambda, UB.duration, &best, &best_LB, &it_log);
 		}
 		if (best_LB + Lambda > LB)
 		{

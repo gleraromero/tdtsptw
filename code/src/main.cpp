@@ -161,9 +161,9 @@ int main(int argc, char** argv)
 			// Run subgradient.
 			Stopwatch rolex(true);
 			vector<Route> sg_routes;
-			CGExecutionLog subgradient_log;
-			sg_routes = subgradient(vrp, NG, relaxation == "NGL", 10, UB, LB, penalties, &subgradient_log);
-			output["Subgradient"] = subgradient_log;
+//			CGExecutionLog subgradient_log;
+//			sg_routes = subgradient(vrp, NG, relaxation == "NGL", 10, UB, LB, penalties, &subgradient_log);
+//			output["Subgradient"] = subgradient_log;
 			
 			// Solve CG to obtain best penalties.
 			if (epsilon_smaller(LB, UB.duration))
@@ -194,7 +194,7 @@ int main(int argc, char** argv)
 						vector <Route> R;
 						if (relaxation == "NGL")
 						{
-							R = run_ng(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
+							R = run_ngl(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
 						}
 						else if (relaxation == "NGL-TD")
 						{
