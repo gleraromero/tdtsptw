@@ -8,7 +8,7 @@ speed_profiles = [
 zone_count = 5
 cluster_count = 3
 
-instance_files = ["n100w120.001.txt", "n100w120.002.txt", "n100w120.003.txt", "n100w120.004.txt", "n100w120.005.txt", "n100w140.001.txt", "n100w140.002.txt", "n100w140.003.txt", "n100w140.004.txt", "n100w140.005.txt", "n100w160.001.txt", "n100w160.002.txt", "n100w160.003.txt", "n100w160.004.txt", "n100w160.005.txt", "n20w120.001.txt", "n20w120.002.txt", "n20w120.003.txt", "n20w120.004.txt", "n20w120.005.txt", "n20w140.001.txt", "n20w140.002.txt", "n20w140.003.txt", "n20w140.004.txt", "n20w140.005.txt", "n20w160.001.txt", "n20w160.002.txt", "n20w160.003.txt", "n20w160.004.txt", "n20w160.005.txt", "n20w180.001.txt", "n20w180.002.txt", "n20w180.003.txt", "n20w180.004.txt", "n20w180.005.txt", "n20w200.001.txt", "n20w200.002.txt", "n20w200.003.txt", "n20w200.004.txt", "n20w200.005.txt", "n40w120.001.txt", "n40w120.002.txt", "n40w120.003.txt", "n40w120.004.txt", "n40w120.005.txt", "n40w140.001.txt", "n40w140.002.txt", "n40w140.003.txt", "n40w140.004.txt", "n40w140.005.txt", "n40w160.001.txt", "n40w160.002.txt", "n40w160.003.txt", "n40w160.004.txt", "n40w160.005.txt", "n40w180.001.txt", "n40w180.002.txt", "n40w180.003.txt", "n40w180.004.txt", "n40w180.005.txt", "n40w200.001.txt", "n40w200.002.txt", "n40w200.003.txt", "n40w200.004.txt", "n40w200.005.txt", "n60w120.001.txt", "n60w120.002.txt", "n60w120.003.txt", "n60w120.004.txt", "n60w120.005.txt", "n60w140.001.txt", "n60w140.002.txt", "n60w140.003.txt", "n60w140.004.txt", "n60w140.005.txt", "n60w160.001.txt", "n60w160.002.txt", "n60w160.003.txt", "n60w160.004.txt", "n60w160.005.txt", "n60w180.001.txt", "n60w180.002.txt", "n60w180.003.txt", "n60w180.004.txt", "n60w180.005.txt", "n60w200.001.txt", "n60w200.002.txt", "n60w200.003.txt", "n60w200.004.txt", "n60w200.005.txt", "n80w120.001.txt", "n80w120.002.txt", "n80w120.003.txt", "n80w120.004.txt", "n80w120.005.txt", "n80w140.001.txt", "n80w140.002.txt", "n80w140.003.txt", "n80w140.004.txt", "n80w140.005.txt", "n80w160.001.txt", "n80w160.002.txt", "n80w160.003.txt", "n80w160.004.txt", "n80w160.005.txt", "n80w180.001.txt", "n80w180.002.txt", "n80w180.003.txt", "n80w180.004.txt", "n80w180.005.txt", "n80w200.001.txt", "n80w200.002.txt", "n80w200.003.txt", "n80w200.004.txt", "n80w200.005.txt"]
+instance_files = ["n150w120.001.txt", "n150w140.003.txt", "n150w160.005.txt", "n200w140.002.txt", "n150w120.002.txt", "n150w140.004.txt", "n200w120.001.txt", "n200w140.003.txt", "n150w120.003.txt", "n150w140.005.txt", "n200w120.002.txt", "n200w140.004.txt", "n150w120.004.txt", "n150w160.001.txt", "n200w120.003.txt", "n200w140.005.txt", "n150w120.005.txt", "n150w160.002.txt", "n200w120.004.txt", "n150w140.001.txt", "n150w160.003.txt", "n200w120.005.txt", "n150w140.002.txt", "n150w160.004.txt", "n200w140.001.txt"]
 
 def dist(x1, x2, y1, y2):
 	return math.sqrt((x1-x2)**2 + (y1-y2)**2)
@@ -80,7 +80,7 @@ for file_name in instance_files:
 	index.append({"instance_name": instance_name, "file_name": F"{instance_name}.json", "tags": [instance_name, F"N{n}"], "n": n})
 
 def sort_key(item):
-	return item["n"]
+	return (item["n"], item["instance_name"])
 
 index.sort(key = sort_key)
 

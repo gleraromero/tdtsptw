@@ -152,7 +152,6 @@ void preprocess_time_windows(json& instance)
 			int i = ij.tail, j = ij.head;
 			if (epsilon_bigger(vrp.ArrivalTime({i, j}, a(i)), b(j)))
 			{
-				instance["precedence_matrix"][j][i] = true;
 				remove_arc(instance, i, j);
 			}
 		}
@@ -171,7 +170,10 @@ void preprocess_time_windows(json& instance)
 					if (k == i || k == j || i == j) continue;
 					if (epsilon_bigger(EAT[k][i], LDT[i][j]) && epsilon_bigger(EAT[i][j], LDT[j][k]))
 					{
-						instance["predecence_matrix"][i][k] = instance["predecence_matrix"][k][j] = true;
+						if (instance["precedence_matrix"][i][j])
+						{
+							instance["precedence_matrix"][i][k] = instance["precedence_matrix"][k][j] = true;
+						}
 						remove_arc(instance, i, j);
 						break;
 					}
