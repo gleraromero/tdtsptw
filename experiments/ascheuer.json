@@ -1,29 +1,31 @@
 {
-  "datasets": [{"name":  "lms_2019"}],
+  "datasets": [{"name":  "td-ascheuer"}],
   "experiments": [
     {
       "name": "None",
       "executable": "main",
       "time_limit": 3600,
-      "objective": "makespan",
+      "objective": "duration",
       "colgen": false,
       "dssr": false,
-      "relaxation": "None"
+      "relaxation": "None",
+      "time_independent": true
     },
     {
       "name": "NGLTD",
       "executable": "main",
       "time_limit": 3600,
-      "objective": "makespan",
+      "objective": "duration",
       "colgen": false,
       "dssr": false,
-      "relaxation": "NGL-TD"
+      "relaxation": "NGL-TD",
+      "time_independent": true
     },
     {
       "name": "CG-NGLTI",
       "executable": "main",
       "time_limit": 3600,
-      "objective": "makespan",
+      "objective": "duration",
       "colgen": true,
       "dssr": false,
       "relaxation": "NGL"
@@ -32,7 +34,7 @@
       "name": "CG-NGLTD",
       "executable": "main",
       "time_limit": 3600,
-      "objective": "makespan",
+      "objective": "duration",
       "colgen": true,
       "dssr": false,
       "relaxation": "NGL-TD"
@@ -41,7 +43,7 @@
       "name": "CG-NGLTI-DNA",
       "executable": "main",
       "time_limit": 3600,
-      "objective": "makespan",
+      "objective": "duration",
       "colgen": true,
       "dssr": true,
       "relaxation": "NGL"
@@ -50,7 +52,7 @@
       "name": "CG-NGLTD-DNA",
       "executable": "main",
       "time_limit": 3600,
-      "objective": "makespan",
+      "objective": "duration",
       "colgen": true,
       "dssr": true,
       "relaxation": "NGL-TD"

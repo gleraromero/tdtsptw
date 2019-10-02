@@ -91,7 +91,7 @@ int main(int argc, char** argv)
 	{
 		json output; // STDOUT output will go into this JSON.
 		
-		simulate_runner_input("instances/cordeau_et_al_2014", "15_70_A_A1", "experiments/cordeau.json", "CG-NGLTD");
+		simulate_runner_input("instances/td-gendreau", "n20w120.001", "experiments/gendreau.json", "None");
 		
 		json experiment, instance, solutions;
 		cin >> experiment >> instance >> solutions;
@@ -109,6 +109,13 @@ int main(int argc, char** argv)
 		string relaxation = value_or_default(experiment, "relaxation", "NGL-TD");
 		bool colgen = value_or_default(experiment, "colgen", true);
 		bool dssr = value_or_default(experiment, "dssr", false);
+		bool time_independent = value_or_default(experiment, "time_independent", false);
+
+		// Time-independentize instance.
+		if (time_independent)
+			for (auto& cluster_row: instance["cluster_speeds"])
+				for (auto& speed: cluster_row)
+					speed = 1.0;
 		
 		// Show experiment details.
 		clog << "Time limit: " << time_limit << "sec." << endl;
@@ -148,18 +155,19 @@ int main(int argc, char** argv)
 			clog << "Building NG structure..." << endl;
 			auto rvrp = reverse_instance(vrp);
 			NGStructure NG(vrp, 3);
-			
+
+			vector<double> penalties(vrp.D.VertexCount(), 0.0); // Keep best set of penalties.
+
 			// Run subgradient.
 			Stopwatch rolex(true);
-			vector <Route> sg_routes;
+			vector<Route> sg_routes;
 			CGExecutionLog subgradient_log;
-			sg_routes = subgradient(vrp, NG, relaxation == "NGL", 10, UB, LB, &subgradient_log);
+			sg_routes = subgradient(vrp, NG, relaxation == "NGL", 10, UB, LB, penalties, &subgradient_log);
 			output["Subgradient"] = subgradient_log;
 			
 			// Solve CG to obtain best penalties.
 			if (epsilon_smaller(LB, UB.duration))
 			{
-				vector<double> penalties(vrp.D.VertexCount(), 0.0); // Keep best set of penalties.
 				if (colgen)
 				{
 					clog << "Running CG algorithm..." << endl;
@@ -196,13 +204,16 @@ int main(int argc, char** argv)
 						}
 						
 						// Compute new LB.
-						LB = max(LB, best_cost + sum(pp.penalties));
+						if (best_cost + sum(pp.penalties) > LB)
+						{
+							LB = best_cost + sum(pp.penalties);
+							penalties = pp.penalties;
+						}
 						
 						// If LB=UB, we know that UB is optimum, we can stop.
 						if (epsilon_equal(LB, UB.duration))
 						{
 							early_stop = true;
-							penalties = pp.penalties;
 							clog << "Stop CG (LB = UB)" << endl;
 							return false;
 						}
@@ -212,9 +223,7 @@ int main(int argc, char** argv)
 						
 						// Log iteration.
 						cg_execution_log->iterations->push_back(iteration_log);
-						
-						// Keep best penalties if it is the last iteration.
-						if (R.empty()) penalties = pp.penalties;
+
 						return !R.empty();
 					};
 					

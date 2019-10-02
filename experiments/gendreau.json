@@ -1,0 +1,65 @@
+{
+  "datasets": [{"name":  "td-gendreau"}],
+  "experiments": [
+    {
+      "name": "None",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "makespan",
+      "colgen": false,
+      "dssr": false,
+      "relaxation": "None",
+      "time_independent": true
+    },
+    {
+      "name": "NGLTD",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "makespan",
+      "colgen": false,
+      "dssr": false,
+      "relaxation": "NGL-TD",
+      "time_independent": true
+    },
+    {
+      "name": "CG-NGLTI",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "makespan",
+      "colgen": true,
+      "dssr": false,
+      "relaxation": "NGL",
+      "time_independent": true
+    },
+    {
+      "name": "CG-NGLTD",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "makespan",
+      "colgen": true,
+      "dssr": false,
+      "relaxation": "NGL-TD",
+      "time_independent": true
+    },
+    {
+      "name": "CG-NGLTI-DNA",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "makespan",
+      "colgen": true,
+      "dssr": true,
+      "relaxation": "NGL",
+      "time_independent": true
+    },
+    {
+      "name": "CG-NGLTD-DNA",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "makespan",
+      "colgen": true,
+      "dssr": true,
+      "relaxation": "NGL-TD",
+      "time_independent": true
+    }
+  ]
+}

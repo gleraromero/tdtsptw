@@ -232,6 +232,8 @@ void Bounding::Bound(goc::Vertex v, VertexSet S, State& Delta)
 		int i = 0, j = 0;
 		while (i < Delta.F.size() && j < Delta2.size())
 		{
+			if (Delta.F[i].lb == -INFTY) { ++i; continue; }
+
 			auto& p_i = Delta.F[i].f;
 			auto& p_j = Delta2[j];
 			
@@ -472,7 +474,7 @@ Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double
 			}
 		}
 	}
-	
+
 	log->extension_time = rolex_extension.Peek();
 	log->bounding_time = rolex_bounding.Peek();
 	log->domination_time = rolex_domination.Peek();
@@ -505,9 +507,9 @@ Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double
 					if (Sw != NGP) continue;
 					for (auto& p: Delta.F)
 					{
-						found = (p.f.domain.Includes(t_v) && epsilon_smaller_equal(p.f(t_v), d_v)) ||
+						found = (p.f.domain.Includes(t_v) && epsilon_smaller_equal(p.f(t_v)-EPS, d_v)) ||
 								(epsilon_smaller(p.f.domain.right, t_v) &&
-								 epsilon_smaller_equal(p.f(max(dom(p.f))) + t_v - max(dom(p.f)), d_v));
+								 epsilon_smaller_equal(p.f(max(dom(p.f))) + t_v - max(dom(p.f))-EPS, d_v));
 						if (found)
 						{
 							NGP = S;
@@ -546,7 +548,7 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 	State::Piece p0(LB, {{vrp.a[vrp.o], -lambda[vrp.o]}, {vrp.b[vrp.o], -lambda[vrp.o]}});
 	vector<State::Piece> P0 = {p0};
 	D[1][vrp.o].insert({create_bitset<MAX_N>({vrp.o}), State()}).first->second.Merge(P0);
-	
+
 	vector<vector<vector<spp::sparse_hash_set<VertexSet>>>> q(TOP-BASE+1, vector<vector<spp::sparse_hash_set<VertexSet>>>(n, vector<spp::sparse_hash_set<VertexSet>>(n)));
 	q[0][1][vrp.o].insert(create_bitset<MAX_N>({vrp.o}));
 	for (int lb = 0; lb <= TOP-BASE; ++lb)
@@ -560,7 +562,7 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 					if (rolex.Peek() >= time_limit) { log->status = MLBStatus::TimeLimitReached; break; }
 					rolex_extension.Resume();
 					auto& Delta = D[k][v][S];
-					
+
 					// Get non dominated pieces.
 					log->processed_count++;
 					
@@ -568,21 +570,26 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 					vector<LinearFunction> EXT; // Pieces with lb = lb that must be extended.
 					rolex_extension.Pause();
 					rolex_bounding.Resume();
-					for (auto& p: Delta.F) if (p.lb == -1) log->enumerated_count++;
 					if (B) B->Bound(v, S, Delta);
+					int next_lb = TOP;
 					for (auto& p: Delta.F)
 					{
 						if (epsilon_bigger_equal(p.lb, UB)) continue;
-						if (floor(p.lb) == lb + BASE || !B)
+						if (p.lb == -INFTY) continue;
+						if (epsilon_smaller_equal(floor(p.lb), lb + BASE) || !B)
 						{
+							log->enumerated_count++;
 							EXT.push_back(p.f);
+							p.lb = -INFTY; // LB = -INFTY means it was already processed.
 						}
-						else if (floor(p.lb) > lb + BASE)
+						else
 						{
-							q[floor(p.lb)-BASE][k][v].insert(S);
+							next_lb = min(next_lb, (int)floor(p.lb)-BASE);
 						}
 					}
+					if (next_lb < UB) q[next_lb][k][v].insert(S);
 					rolex_bounding.Pause();
+					if (EXT.empty()) continue;
 					rolex_extension.Resume();
 					log->extended_count += EXT.size();
 					(*log->count_by_length)[k] += EXT.size();
@@ -678,16 +685,24 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 			int r = L.size() - 2;
 			VertexSet E;
 			E.set(vrp.d);
+			int last_k = n+1;
 			for (Vertex w = P.back(); P.size() < n; w = P.back())
 			{
 				int k = n - E.count();
+				if (last_k == k)
+				{
+					fail("Could not rebuild solution.");
+				}
+				last_k = k;
+
 				for (Vertex v: vrp.D.Predecessors(w))
 				{
 					if (E.test(v)) continue;
 					double t_v = vrp.DepartureTime({v, w}, t);
 					if (t_v == INFTY) continue;
-					double d_v = d - (t - t_v) + lambda[w];
+					double d_v = d + lambda[w] - (t - t_v);
 					bool found = false;
+
 					for (auto& S_Delta: D[k][v])
 					{
 						auto& S = S_Delta.first;
@@ -695,9 +710,9 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 						if ((S & E) != 0) continue;
 						for (auto& p: Delta.F)
 						{
-							found = (p.f.domain.Includes(t_v) && epsilon_smaller_equal(p.f(t_v), d_v)) ||
+							found = (p.f.domain.Includes(t_v) && epsilon_smaller_equal(p.f(t_v)-EPS, d_v)) ||
 									(epsilon_smaller(p.f.domain.right, t_v) &&
-									 epsilon_smaller_equal(p.f(max(dom(p.f))) + t_v - max(dom(p.f)), d_v));
+									 epsilon_smaller_equal(p.f(max(dom(p.f))) + t_v - max(dom(p.f))-EPS, d_v));
 							if (found)
 							{
 								E.set(v);

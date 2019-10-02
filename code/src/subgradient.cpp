@@ -28,7 +28,7 @@ bool is_feasible_solution(const VRPInstance& vrp, const GraphPath& path)
 }
 }
 
-vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, bool use_td_relaxation, int max_iter, Route& UB, double& LB, CGExecutionLog* log)
+vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, bool use_td_relaxation, int max_iter, Route& UB, double& LB, vector<double>& penalties, CGExecutionLog* log)
 {
 	vector<double> lambda(vrp.D.VertexCount(), 0.0);
 	map<GraphPath, Route> route_set; // To avoid returning multiple times the same solution, we index them by the route.
@@ -54,7 +54,11 @@ vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, bool us
 		{
 			Routes = run_ng(vrp, NG, lambda, UB.duration, &best, &best_LB, &it_log);
 		}
-		LB = max(LB, best_LB + Lambda);
+		if (best_LB + Lambda > LB)
+		{
+			LB = best_LB + Lambda;
+			penalties = lambda;
+		}
 		
 		// Log iteration information.
 		log->iteration_count++;
