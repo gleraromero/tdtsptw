@@ -269,7 +269,7 @@ vector<Route> run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vecto
 	
 	// Initialize queue.
 	Matrix<vector<vector<NGLabel>>> q(n, R, vector<vector<NGLabel>>(n));
-	q[1][0][vrp.o].push_back(NGLabel(nullptr, vrp.o, 0, vrp.a[vrp.o], -lambda[vrp.o], -vrp.b[vrp.o]-lambda[vrp.o], lambda[vrp.o]));
+	q[1][0][vrp.o].push_back(NGLabel(nullptr, vrp.o, 0, vrp.a[vrp.o], 0.0, -vrp.b[vrp.o], lambda[vrp.o]));
 	for (int k = 1; k < n; ++k)
 	{
 		for (int r = 0; r < R-1; ++r)
@@ -277,32 +277,27 @@ vector<Route> run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vecto
 			for (int v = 0; v < n; ++v)
 			{
 				rolex_queuing.Resume();
-				sort(q[k][r][v].begin(), q[k][r][v].end(), [] (NGLabel& l1, NGLabel& l2) { return make_tuple(l1.Ttime, l1.Tdur, l1.Thelp, l1.S) < make_tuple(l2.Ttime, l2.Tdur, l2.Thelp, l2.S); });
+				sort(q[k][r][v].begin(), q[k][r][v].end(), [] (NGLabel& l1, NGLabel& l2) { return make_tuple(l1.Tdur-l1.lambda, l1.Ttime, l1.Thelp, l1.S) < make_tuple(l2.Tdur-l2.lambda, l2.Ttime, l2.Thelp, l2.S); });
 				rolex_queuing.Pause();
 				
-				// D[i] = pareto optimal (Tdur, Thelp).
-				vector<vector<pair<double, double>>> D(NG.NGSet[v].size());
+				// D[i] = pareto optimal labels with S(l) = i.
+				vector<vector<NGLabel*>> D(NG.NGSet[v].size());
 				for (NGLabel& l: q[k][r][v])
 				{
+					double t = -INFTY; // Prefix [Ttime, t) is dominated at the end of domination.
+					double Tlast = -l.Thelp + l.Tdur;
 					bool is_dominated = false;
 					rolex_domination.Resume();
-					for (auto& TdurThelp: D[l.S])
-					{
-						if (epsilon_smaller_equal(TdurThelp.first, l.Tdur) && epsilon_smaller_equal(TdurThelp.second, l.Thelp))
-						{
-							is_dominated = true;
-							break;
-						}
-					}
 					
 					if (!is_dominated)
 					{
 						for (int sub: NG.NGSub[v][l.S])
 						{
-							for (auto& TdurThelp: D[sub])
+							for (NGLabel* m: D[sub])
 							{
-								if (epsilon_smaller_equal(TdurThelp.first, l.Tdur) &&
-									epsilon_smaller_equal(TdurThelp.second, l.Thelp))
+								if (epsilon_bigger(m->Ttime, max(t, l.Ttime))) break;
+								t = max(t, -m->Thelp+m->Tdur + (l.Tdur - l.lambda) - (m->Tdur - m->lambda));
+								if (epsilon_bigger_equal(t, Tlast))
 								{
 									is_dominated = true;
 									break;
@@ -311,11 +306,21 @@ vector<Route> run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vecto
 							if (is_dominated) break;
 						}
 					}
+					for (NGLabel* m: D[l.S])
+					{
+						if (epsilon_bigger(m->Ttime, max(t, l.Ttime))) break;
+						t = max(t, -m->Thelp+m->Tdur + (l.Tdur - l.lambda) - (m->Tdur - m->lambda));
+						if (epsilon_bigger_equal(t, Tlast))
+						{
+							is_dominated = true;
+							break;
+						}
+					}
 					if (!is_dominated)
 					{
-						D[l.S].push_back({l.Tdur, l.Thelp});
+						D[l.S].push_back(&l);
 						int i = D[l.S].size()-1;
-						while (i > 0 && D[l.S][i] < D[l.S][i-1])
+						while (i > 0 && D[l.S][i]->Ttime < D[l.S][i-1]->Ttime)
 						{
 							swap(D[l.S][i], D[l.S][i - 1]);
 							--i;
@@ -343,12 +348,13 @@ vector<Route> run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vecto
 						if (n-k-1 < vrp.suc_count[w]) continue;
 						if (w != NG.L[r + 1] && vrp.suc_count[NG.L[r + 1]] > n - k - 2) continue;
 						if (!NG.V[r].test(w)) continue;
-						if (epsilon_smaller(vrp.LDT[v][w], l.Ttime)) continue;
+						if (vrp.TravelTime({v,w}, l.Ttime) == INFTY) continue;
 						double d_vw = vrp.MinimumTravelTime({v,w}, l.Ttime);
+						double Ttimew = vrp.ArrivalTime({v,w}, l.Ttime);
 						NGLabel lw(&l, w, Sw,
-								   l.Ttime + vrp.TravelTime({v,w}, l.Ttime),
-								   max(l.Tdur+d_vw, l.Thelp+vrp.a[w])-lambda[w], // Tdur(lw)
-								   max(l.Tdur+d_vw-vrp.b[w], l.Thelp)-lambda[w], // Thelp(lw)
+								   Ttimew,
+								   max(l.Tdur+d_vw, l.Thelp+Ttimew), // Tdur(lw)
+								   max(l.Tdur+d_vw-vrp.b[w], l.Thelp), // Thelp(lw)
 								   l.lambda + lambda[w]
 						);
 						
@@ -356,14 +362,14 @@ vector<Route> run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vecto
 						if (w == vrp.d)
 						{
 							(*log->count_by_length)[k+1]++;
-							if (lw.Tdur < *best_cost)
+							if (lw.Tdur - lw.lambda < *best_cost)
 							{
-								*best_cost = lw.Tdur;
-								*best_route = Route(lw.Path(), -lw.Thelp + lw.lambda, lw.Tdur + lw.lambda);
+								*best_cost = lw.Tdur - lw.lambda;
+								*best_route = Route(lw.Path(), -lw.Thelp, lw.Tdur);
 							}
-							if (epsilon_smaller(lw.Tdur, 0.0))
+							if (epsilon_smaller(lw.Tdur - lw.lambda, 0.0))
 							{
-								NEG.emplace_back(Route(lw.Path(), -lw.Thelp + lw.lambda, lw.Tdur + lw.lambda));
+								NEG.emplace_back(Route(lw.Path(), -lw.Thelp, lw.Tdur));
 							}
 							continue;
 						}

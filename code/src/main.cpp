@@ -91,7 +91,7 @@ int main(int argc, char** argv)
 	{
 		json output; // STDOUT output will go into this JSON.
 		
-		simulate_runner_input("instances/td-ascheuer", "rbg010a", "experiments/ascheuer.json", "None");
+		simulate_runner_input("instances/td-ascheuer", "rbg016a", "experiments/ascheuer.json", "CG-NGLTI-DNA");
 		
 		json experiment, instance, solutions;
 		cin >> experiment >> instance >> solutions;
@@ -106,7 +106,7 @@ int main(int argc, char** argv)
 		// Parse experiment.
 		Duration time_limit = Duration(value_or_default(experiment, "time_limit", 7200), DurationUnit::Seconds);
 		string objective = value_or_default(experiment, "objective", "duration");
-		string relaxation = value_or_default(experiment, "relaxation", "NGL-TD");
+		string relaxation = value_or_default(experiment, "relaxation", "NGLTD");
 		bool colgen = value_or_default(experiment, "colgen", true);
 		bool dssr = value_or_default(experiment, "dssr", false);
 		bool time_independent = value_or_default(experiment, "time_independent", false);
@@ -136,6 +136,17 @@ int main(int argc, char** argv)
 		// Parse instance.
 		clog << "Parsing instance..." << endl;
 		VRPInstance vrp = instance;
+		for (Arc e: vrp.D.Arcs())
+		{
+			double t = vrp.ArrivalTime(e, 0.0);
+			double tt_e = vrp.MinimumTravelTime(e);
+			double tprev = t-tt_e;
+			PWLFunction tau_e;
+			tau_e.AddPiece({{0.0, t}, {tprev, tt_e}});
+			tau_e.AddPiece({{tprev, tt_e}, {vrp.tau[e.tail][e.head].Domain().right, tt_e}});
+			instance["travel_times"][e.tail][e.head] = tau_e;
+		}
+		VRPInstance lb_vrp = instance;
 		
 		// Get UB.
 		double LB = 0.0;
@@ -179,7 +190,7 @@ int main(int argc, char** argv)
 					// Configure CG algorithm.
 					CGSolver cg_solver;
 					LPSolver lp_solver;
-					cg_solver.time_limit = time_limit;
+					cg_solver.time_limit = 1000.0_sec;
 					cg_solver.lp_solver = &lp_solver;
 					cg_solver.screen_output = &clog;
 					
@@ -192,11 +203,15 @@ int main(int argc, char** argv)
 						Route best;
 						double best_cost;
 						vector <Route> R;
-						if (relaxation == "NGL")
+						if (relaxation == "NGLTI2RES")
+						{
+							R = run_ngl2res(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
+						}
+						else if (relaxation == "NGLTI")
 						{
 							R = run_ngl(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
 						}
-						else if (relaxation == "NGL-TD")
+						else if (relaxation == "NGLTD")
 						{
 							best = run_ngl(vrp, NG, pp.penalties, &iteration_log, nullptr, LB, time_limit);
 							best_cost = best.duration - sum<Vertex>(best.path, [&](Vertex v) { return pp.penalties[v]; });

@@ -1,5 +1,5 @@
 {
-  "datasets": [{"name":  "guerriero_et_al_2014b", "select": "W50"}],
+  "datasets": [{"name":  "guerriero_et_al_2014b", "select": "W50 N30"}],
   "experiments": [
     {
       "name": "None",
@@ -17,25 +17,16 @@
       "objective": "makespan",
       "colgen": false,
       "dssr": false,
-      "relaxation": "NGL-TD"
+      "relaxation": "NGLTD"
     },
     {
-      "name": "CG-NGLTI",
+      "name": "CG-NGLTI2RES-DNA",
       "executable": "main",
       "time_limit": 3600,
       "objective": "makespan",
       "colgen": true,
-      "dssr": false,
-      "relaxation": "NGL"
-    },
-    {
-      "name": "CG-NGLTD",
-      "executable": "main",
-      "time_limit": 3600,
-      "objective": "makespan",
-      "colgen": true,
-      "dssr": false,
-      "relaxation": "NGL-TD"
+      "dssr": true,
+      "relaxation": "NGLTI2RES"
     },
     {
       "name": "CG-NGLTI-DNA",
@@ -44,7 +35,7 @@
       "objective": "makespan",
       "colgen": true,
       "dssr": true,
-      "relaxation": "NGL"
+      "relaxation": "NGLTI"
     },
     {
       "name": "CG-NGLTD-DNA",
@@ -53,7 +44,7 @@
       "objective": "makespan",
       "colgen": true,
       "dssr": true,
-      "relaxation": "NGL-TD"
+      "relaxation": "NGLTD"
     }
   ]
 }

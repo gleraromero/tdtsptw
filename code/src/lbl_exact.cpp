@@ -100,7 +100,9 @@ void State::Merge(vector<Piece>& P)
 	{
 		if (k++ > 10000)
 		{
+			clog.precision(17);
 			clog << "Merge: " << k << endl;
+			clog << P1[i].f << " " << P2[j].f << endl;
 			fail("Merge");
 		}
 		if (epsilon_smaller_equal(min(dom(P1[i].f)), min(dom(P2[j].f))) && P1[i].Dominate(P2[j])) { ++j; continue; }
@@ -406,7 +408,7 @@ Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double
 						if (vrp.suc_count[w] > n - k - 1) continue;
 						if (w != L[r + 1] && vrp.suc_count[L[r + 1]] > n - k - 2) continue;
 						
-						double LDTw_at_v = vrp.LDT[v][w];
+						double LDTw_at_v = vrp.DepartureTime({v,w}, vrp.b[w]);
 						
 						vector<State::Piece> EXT_P; // Extended pieces.
 						int j = 0;
