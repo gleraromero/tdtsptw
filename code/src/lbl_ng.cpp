@@ -253,144 +253,287 @@ vector<Route> run_ngl2res(const VRPInstance& vrp, const NGStructure& NG, const v
 	return NEG;
 }
 
-vector<Route> run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double>& lambda, double UB,
-						  Route* best_route, double* best_cost, MLBExecutionLog* log)
+class TIState : public Printable
 {
-	// Return set of negative cost routes in NEG.
-	vector<Route> NEG;
-	
+public:
+	class Piece : public Printable
+	{
+	public:
+		double l, r;
+		double cost;
+
+		Piece(double l, double r, double cost) : l(l), r(r), cost(cost)
+		{ }
+
+		virtual void Print(ostream& os) const
+		{
+			os << "(" << l << ", " << r << ", " << cost << ")";
+		}
+
+		bool Dominate(Piece& p)
+		{
+			if (epsilon_smaller(p.cost, cost)) return false;
+			double ll = l;
+			double rr = r + p.cost - cost;
+			if (epsilon_bigger(ll, p.l) && epsilon_smaller(rr, p.r)) return false;
+			if (epsilon_smaller_equal(ll, p.l) && epsilon_bigger_equal(rr, p.r)) return true;
+			else if (epsilon_smaller_equal(ll, p.l)) p.l = max(p.l, rr);
+			else if (epsilon_bigger_equal(rr, p.r)) p.r = min(p.r, ll);
+			return false;
+		}
+	};
+
+	void Merge(vector<Piece>& L2)
+	{
+		auto L1 = L;
+		L.clear();
+
+		// Sweep pieces.
+		int i = 0, j = 0, k = 0;
+		while (i < L1.size() && j < L2.size())
+		{
+			if (k++ > 10000)
+			{
+				clog.precision(17);
+				clog << "Merge: " << k << endl;
+				clog << L1[i] << " " << L2[j] << endl;
+//				fail("Merge");
+			}
+			auto& p1 = L1[i];
+			auto& p2 = L2[j];
+			if (epsilon_smaller_equal(p1.l, p2.l) && p1.Dominate(p2)) { ++j; continue; }
+			if (epsilon_smaller_equal(p2.l, p1.l) && p2.Dominate(p1)) { ++i; continue; }
+			if (epsilon_smaller(p1.l, p2.l))
+			{
+				if (epsilon_smaller_equal(p1.r, p2.l))
+				{
+					L.push_back(p1);
+					++i;
+				}
+				else
+				{
+					L.push_back(Piece(p1.l, p2.l, p1.cost));
+					p1.l = p2.l+EPS;
+				}
+			}
+			else
+			{
+				if (epsilon_smaller_equal(p2.r, p1.l))
+				{
+					L.push_back(p2);
+					++j;
+				}
+				else
+				{
+					L.push_back(Piece(p2.l, p1.l, p2.cost));
+					p2.l = p1.l+EPS;
+				}
+			}
+		}
+		// Add remaining pieces.
+		L.insert(L.end(), L1.begin()+i, L1.end());
+		L.insert(L.end(), L2.begin()+j, L2.end());
+	}
+
+	void DominateBy(const vector<Piece>& P)
+	{
+		auto L1 = P;
+		auto L2 = L;
+		L.clear();
+
+		// Sweep pieces.
+		int i = 0, j = 0, k = 0;
+		while (i < L1.size() && j < L2.size())
+		{
+			if (k++ > 10000)
+			{
+				clog.precision(17);
+				clog << "DominateBy: " << k << endl;
+				clog << L1[i] << " " << L2[j] << endl;
+				fail("DominateBy");
+			}
+			auto& p1 = L1[i];
+			auto& p2 = L2[j];
+			if (epsilon_smaller_equal(p1.l, p2.l) && p1.Dominate(p2)) { ++j; continue; }
+			if (epsilon_smaller_equal(p2.l, p1.l) && p2.Dominate(p1)) { ++i; continue; }
+			if (epsilon_smaller(p1.l, p2.l))
+			{
+				if (epsilon_smaller_equal(p1.r, p2.l))
+				{
+					++i;
+				}
+				else
+				{
+					p1.l = p2.l+EPS;
+				}
+			}
+			else
+			{
+				if (epsilon_smaller_equal(p2.r, p1.l))
+				{
+					L.push_back(p2);
+					++j;
+				}
+				else
+				{
+					L.push_back(Piece(p2.l, p1.l, p2.cost));
+					p2.l = p1.l+EPS;
+				}
+			}
+		}
+		// Add remaining pieces.
+		L.insert(L.end(), L2.begin()+j, L2.end());
+	}
+
+	virtual void Print(ostream& os) const
+	{
+		os << L;
+	}
+
+	vector<Piece> L;
+};
+
+double run_nglti(const VRPInstance& vrp, const NGStructure& NG, const vector<double>& lambda, double UB,
+		Route& best_route, double& best_cost, MLBExecutionLog* log)
+{
 	int n = vrp.D.VertexCount();
 	int R = NG.L.size();
-	*best_route = Route({}, 0.0, INFTY);
-	*best_cost = INFTY;
-	
+	best_route = Route({}, 0.0, INFTY);
+	best_cost = INFTY;
+	double best_arrival = INFTY;
+
 	stretch_to_size(*log->count_by_length, n+1, 0);
 	Stopwatch rolex(true), rolex_domination(false), rolex_extension(false), rolex_queuing(false);
-	
+
+	Matrix<double> tt(n, n);
+	for (int i = 0; i < n; ++i)
+		for (int j = 0; j < n; ++j)
+			tt[i][j] = vrp.MinimumTravelTime({i,j});
+
 	// Initialize queue.
-	Matrix<vector<vector<NGLabel>>> q(n, R, vector<vector<NGLabel>>(n));
-	q[1][0][vrp.o].push_back(NGLabel(nullptr, vrp.o, 0, vrp.a[vrp.o], 0.0, -vrp.b[vrp.o], lambda[vrp.o]));
+	Matrix<vector<vector<TIState>>> D(n, R, vector<vector<TIState>>(n, vector<TIState>(8))); // TODO: Change 8 by actual value.
+	vector<TIState::Piece> initial_state = {TIState::Piece(vrp.a[vrp.o], vrp.b[vrp.o], -lambda[vrp.o])};
+	D[1][0][vrp.o][0].Merge(initial_state);
 	for (int k = 1; k < n; ++k)
 	{
 		for (int r = 0; r < R-1; ++r)
 		{
 			for (int v = 0; v < n; ++v)
 			{
-				rolex_queuing.Resume();
-				sort(q[k][r][v].begin(), q[k][r][v].end(), [] (NGLabel& l1, NGLabel& l2) { return make_tuple(l1.Tdur-l1.lambda, l1.Ttime, l1.Thelp, l1.S) < make_tuple(l2.Tdur-l2.lambda, l2.Ttime, l2.Thelp, l2.S); });
-				rolex_queuing.Pause();
-				
-				// D[i] = pareto optimal labels with S(l) = i.
-				vector<vector<NGLabel*>> D(NG.NGSet[v].size());
-				for (NGLabel& l: q[k][r][v])
+				for (int S = 0; S < NG.NGSet[v].size(); ++S)
 				{
-					double t = -INFTY; // Prefix [Ttime, t) is dominated at the end of domination.
-					double Tlast = -l.Thelp + l.Tdur;
-					bool is_dominated = false;
-					rolex_domination.Resume();
-					
-					if (!is_dominated)
+					auto& Delta = D[k][r][v][S];
+					if (Delta.L.empty()) continue;
+
+					// Dominate by subsets.
+					for (int sub: NG.NGSub[v][S])
 					{
-						for (int sub: NG.NGSub[v][l.S])
-						{
-							for (NGLabel* m: D[sub])
-							{
-								if (epsilon_bigger(m->Ttime, max(t, l.Ttime))) break;
-								t = max(t, -m->Thelp+m->Tdur + (l.Tdur - l.lambda) - (m->Tdur - m->lambda));
-								if (epsilon_bigger_equal(t, Tlast))
-								{
-									is_dominated = true;
-									break;
-								}
-							}
-							if (is_dominated) break;
-						}
+						Delta.DominateBy(D[k][r][v][sub].L);
+						if (Delta.L.empty()) continue;
 					}
-					for (NGLabel* m: D[l.S])
+
+					double Ttimel = Delta.L.front().l;
+
+					// Extend.
+					for (pair<Vertex, int> w_Sw: NG.NGArc[v][S])
 					{
-						if (epsilon_bigger(m->Ttime, max(t, l.Ttime))) break;
-						t = max(t, -m->Thelp+m->Tdur + (l.Tdur - l.lambda) - (m->Tdur - m->lambda));
-						if (epsilon_bigger_equal(t, Tlast))
-						{
-							is_dominated = true;
-							break;
-						}
-					}
-					if (!is_dominated)
-					{
-						D[l.S].push_back(&l);
-						int i = D[l.S].size()-1;
-						while (i > 0 && D[l.S][i]->Ttime < D[l.S][i-1]->Ttime)
-						{
-							swap(D[l.S][i], D[l.S][i - 1]);
-							--i;
-						}
-					}
-					rolex_domination.Pause();
-					if (is_dominated)
-					{
-						log->dominated_count++;
-						continue;
-					}
-					
-					// Extension.
-					log->processed_count++;
-					rolex_extension.Resume();
-					(*log->count_by_length)[k]++;
-					
-					for (pair<Vertex, int> w_Sw: NG.NGArc[v][l.S])
-					{
-						Vertex w = w_Sw.first;
+						int w = w_Sw.first;
 						int Sw = w_Sw.second;
-						
+
 						// Feasibility check.
 						if (k < vrp.prec_count[w]) continue;
 						if (n-k-1 < vrp.suc_count[w]) continue;
 						if (w != NG.L[r + 1] && vrp.suc_count[NG.L[r + 1]] > n - k - 2) continue;
 						if (!NG.V[r].test(w)) continue;
-						if (vrp.TravelTime({v,w}, l.Ttime) == INFTY) continue;
-						double d_vw = vrp.MinimumTravelTime({v,w}, l.Ttime);
-						double Ttimew = vrp.ArrivalTime({v,w}, l.Ttime);
-						NGLabel lw(&l, w, Sw,
-								   Ttimew,
-								   max(l.Tdur+d_vw, l.Thelp+Ttimew), // Tdur(lw)
-								   max(l.Tdur+d_vw-vrp.b[w], l.Thelp), // Thelp(lw)
-								   l.lambda + lambda[w]
-						);
-						
-						// Process tour.
-						if (w == vrp.d)
+						double Ttimew = vrp.ArrivalTime({v,w}, Ttimel);
+						if (Ttimew == INFTY) continue;
+						vector<TIState::Piece> EXT;
+						for (auto& p: Delta.L)
 						{
-							(*log->count_by_length)[k+1]++;
-							if (lw.Tdur - lw.lambda < *best_cost)
+							if (epsilon_bigger(p.l + tt[v][w], vrp.b[w])) break;
+							double ll = max(p.l + tt[v][w], Ttimew);
+							double rr = min(max(p.r + tt[v][w], Ttimew), vrp.b[w]);
+							double cost = p.cost + (epsilon_equal(rr, Ttimew) ? Ttimew - p.r : tt[v][w]) - lambda[w];
+
+							if (w == vrp.d)
 							{
-								*best_cost = lw.Tdur - lw.lambda;
-								*best_route = Route(lw.Path(), -lw.Thelp, lw.Tdur);
+								(*log->count_by_length)[k+1]++;
+								if (cost < best_cost)
+								{
+									best_cost = min(best_cost, cost);
+									best_arrival = ll;
+								}
+								continue;
 							}
-							if (epsilon_smaller(lw.Tdur - lw.lambda, 0.0))
-							{
-								NEG.emplace_back(Route(lw.Path(), -lw.Thelp, lw.Tdur));
-							}
-							continue;
+							EXT.emplace_back(TIState::Piece(ll, rr, cost));
 						}
-						
-						log->extended_count++;
-						q[k+1][r + (w == NG.L[r+1])][w].push_back(lw);
+
+						if (!EXT.empty())
+						{
+							D[k + 1][r + (NG.L[r + 1] == w)][w][Sw].Merge(EXT);
+						}
 					}
-					rolex_extension.Pause();
 				}
 			}
 		}
 	}
+
+	GraphPath P = {vrp.d};
+	int S = 0;
+	int r = (int)NG.L.size()-2;
+	Vertex w = vrp.d;
+	double t = best_arrival;
+	double c = best_cost;
+	for (int k = n-1; k >= 0; --k)
+	{
+		bool found = false;
+		for (Vertex v: vrp.D.Predecessors(w))
+		{
+			for (int Sv = 0; Sv < NG.NGSet[v].size(); Sv++)
+			{
+				if (NG.NGArc[v][Sv].at(w) != S) continue;
+				for (auto& p: D[k][r][v][Sv].L)
+				{
+					found |= epsilon_smaller(p.r + tt[v][w], t) && epsilon_smaller_equal(p.cost+t-p.r-lambda[w], c);
+					found |= epsilon_smaller_equal(p.l + tt[v][w], t) && epsilon_bigger_equal(p.r + tt[v][w], t) && epsilon_smaller_equal(p.cost+tt[v][w]-lambda[w], c);
+					if (found)
+					{
+						t = min(p.r, t - tt[v][w]);
+						c = p.cost;
+						S = Sv;
+						P.push_back(v);
+						w = v;
+						if (v == NG.L[r-1]) r--;
+						break;
+					}
+				}
+				if (found) break;
+			}
+			if (found) break;
+		}
+		if (!found) fail("Could not rebuild path in NGLTI.");
+	}
+	P = reverse(P);
+
+	// Calculate path departure.
+	double P_t0 = best_arrival;
+	for (int k = n-1; k > 0; --k)
+		P_t0 = min(vrp.b[P[k-1]], P_t0 - tt[P[k-1]][P[k]]);
+	double P_duration = best_arrival - P_t0;
+	double P_lambda = sum<Vertex>(P, [&](Vertex v) { return lambda[v]; });
+	if (epsilon_bigger(P_duration - P_lambda, best_cost)) fail("Wrong cost");
+	best_cost = P_duration - P_lambda;
+	best_route = Route(P, P_t0, P_duration);
+
 	log->queuing_time = rolex_queuing.Peek();
 	log->domination_time = rolex_domination.Peek();
 	log->extension_time = rolex_extension.Peek();
 	log->time = rolex.Peek();
-	if (*best_cost == INFTY)
+	if (best_cost == INFTY)
 	{
 		clog << "penalties: " << lambda << endl;
 		fail("Should always be a best cost");
 	}
-	return NEG;
+	return best_cost + sum(lambda);
 }
 } // namespace tdtsptw

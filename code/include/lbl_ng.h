@@ -68,8 +68,8 @@ public:
 std::vector<goc::Route> run_ngl2res(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda,
 							   double UB, goc::Route* best_route, double* best_cost, goc::MLBExecutionLog* log);
 
-std::vector<goc::Route> run_ngl(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda,
-									double UB, goc::Route* best_route, double* best_cost, goc::MLBExecutionLog* log);
+double run_nglti(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda, double UB,
+				 goc::Route& best_route, double& best_cost, goc::MLBExecutionLog* log);
 } // namespace tdtsptw
 
 #endif //TDTSPTW_LBL_NG_H

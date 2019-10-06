@@ -91,7 +91,7 @@ int main(int argc, char** argv)
 	{
 		json output; // STDOUT output will go into this JSON.
 		
-		simulate_runner_input("instances/td-ascheuer", "rbg016a", "experiments/ascheuer.json", "CG-NGLTI-DNA");
+		simulate_runner_input("instances/td-ascheuer", "rbg010a", "experiments/ascheuer.json", "CG-NGLTI-DNA");
 		
 		json experiment, instance, solutions;
 		cin >> experiment >> instance >> solutions;
@@ -202,14 +202,15 @@ int main(int argc, char** argv)
 						MLBExecutionLog iteration_log(true);
 						Route best;
 						double best_cost;
-						vector <Route> R;
+						vector<Route> R;
 						if (relaxation == "NGLTI2RES")
 						{
 							R = run_ngl2res(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
 						}
 						else if (relaxation == "NGLTI")
 						{
-							R = run_ngl(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
+							run_nglti(vrp, NG, pp.penalties, UB.duration, best, best_cost, &iteration_log);
+							if (epsilon_smaller(best_cost, 0.0)) R = {best};
 						}
 						else if (relaxation == "NGLTD")
 						{
