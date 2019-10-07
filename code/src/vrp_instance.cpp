@@ -66,16 +66,26 @@ TimeUnit VRPInstance::PathDepartureTime(const GraphPath& p, TimeUnit tf) const
 	return t;
 }
 
-TimeUnit VRPInstance::MinimumTravelTime(Arc e, TimeUnit t0) const
+TimeUnit VRPInstance::MinimumTravelTime(Arc e, TimeUnit t0, TimeUnit tf) const
 {
 	TimeUnit tmin = INFTY;
-	for (auto& p: tau[e.tail][e.head].Pieces())
+	int j = 0;
+	int v = e.tail, w = e.head;
+	while (j < tau[v][w].PieceCount())
 	{
-		if (p.domain.Includes(t0))
-			tmin = min(min(tmin, p.Value(t0)), p.Value(p.domain.right));
-		else if (epsilon_smaller_equal(t0, p.domain.left))
-			tmin = min(tmin, p.image.left);
+		if (epsilon_bigger(tau[v][w][j].domain.left, tf)) break;
+		if (tau[v][w][j].domain.Intersects({t0, tf}))
+			tmin = min(tmin, tau[v][w][j].image.left);
+		if (epsilon_bigger_equal(tau[v][w][j].domain.right,tf)) break;
+		++j;
 	}
+//	for (auto& p: tau[e.tail][e.head].Pieces())
+//	{
+//		if (epsilon_bigger(p.domain.left, tf)) break;
+//		if (p.domain.Intersects({t0, tf}))
+//			tmin = min(tmin, p.image.left);
+//		if (epsilon_bigger_equal(p.domain.right, tf)) break;
+//	}
 	return tmin;
 }
 

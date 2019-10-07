@@ -1,5 +1,5 @@
 {
-  "datasets": [{"name":  "guerriero_et_al_2014b", "select": "W50 N30"}],
+  "datasets": [{"name":  "guerriero_et_al_2014b", "select": "W50"}],
   "experiments": [
     {
       "name": "None",

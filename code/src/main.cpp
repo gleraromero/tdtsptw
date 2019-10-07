@@ -91,7 +91,7 @@ int main(int argc, char** argv)
 	{
 		json output; // STDOUT output will go into this JSON.
 		
-		simulate_runner_input("instances/td-ascheuer", "rbg010a", "experiments/ascheuer.json", "CG-NGLTI-DNA");
+		simulate_runner_input("instances/guerriero_et_al_2014b", "30_90_B_50_C9", "experiments/arigliano_w50.json", "CG-NGLTI-DNA");
 		
 		json experiment, instance, solutions;
 		cin >> experiment >> instance >> solutions;

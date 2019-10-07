@@ -7,8 +7,8 @@
       "time_limit": 3600,
       "objective": "makespan",
       "colgen": true,
-      "relaxation": "NGL",
-      "dssr": false
+      "relaxation": "NGLTI",
+      "dssr": true
     }
   ]
 }

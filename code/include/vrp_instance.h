@@ -65,7 +65,7 @@ public:
 	
 	// @return the minimum travel time for arc e if departing at or after t0.
 	// @details if departing at or after t0 is infeasible it returns INFTY.
-	TimeUnit MinimumTravelTime(goc::Arc e, TimeUnit t0=0.0) const;
+	TimeUnit MinimumTravelTime(goc::Arc e, TimeUnit t0=0.0, TimeUnit tf=goc::INFTY) const;
 
 	goc::Route BestDurationRoute(const goc::GraphPath& p) const;
 	
