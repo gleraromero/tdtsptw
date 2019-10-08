@@ -1,5 +1,5 @@
 {
-  "datasets": [{"name": "cordeau_et_al_2014", "select":"!N15 !N20"}],
+  "datasets": [{"name": "cordeau_et_al_2014"}],
   "experiments": [
     {
       "name": "makespan",

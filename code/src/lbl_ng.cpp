@@ -490,8 +490,9 @@ double run_nglti(const VRPInstance& vrp, const NGStructure& NG, const vector<dou
 								ll = max(ll, EXT.back().r);
 								rr = max(rr, EXT.back().r);
 							}
-//							tt = max(tt, ll - p.r);
+							tt = max(tt, ll - p.r);
 							double cost = p.cost + (epsilon_equal(rr, Ttimew) ? Ttimew - min(p.r, vrp.b[w]-tt) : tt) - lambda[w];
+							if (!EXT.empty() && epsilon_smaller_equal(EXT.back().cost, cost) && epsilon_bigger_equal(EXT.back().r, rr)) continue;
 							if (w == vrp.d)
 							{
 								if (cost < best_cost)
