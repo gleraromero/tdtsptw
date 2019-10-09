@@ -11,8 +11,8 @@ using namespace goc;
 
 namespace tdtsptw
 {
-State::Piece::Piece(double lb, const LinearFunction& f)
-	: lb(lb), f(f)
+State::Piece::Piece(double lb, const LinearFunction& f, Piece* prev, Vertex v)
+	: lb(lb), f(f), prev(prev), v(v)
 { }
 
 bool State::Piece::Dominate(Piece& p2)
@@ -82,6 +82,14 @@ bool State::Piece::Dominate(Piece& p2)
 	return false;
 }
 
+GraphPath State::Piece::Path() const
+{
+	if (!prev) return {v};
+	auto P = prev->Path();
+	P.push_back(v);
+	return P;
+}
+
 void State::Piece::Print(ostream& os) const
 {
 	os << f;
@@ -110,7 +118,6 @@ void State::Merge(vector<Piece>& P)
 		
 		if (epsilon_smaller(min(dom(P1[i].f)), min(dom(P2[j].f))))
 		{
-			if (P1[i].Dominate(P2[j])) { ++j; continue; }
 			if (epsilon_smaller_equal(max(dom(P1[i].f)), min(dom(P2[j].f))))
 			{
 				F.push_back(P1[i]);
@@ -118,13 +125,12 @@ void State::Merge(vector<Piece>& P)
 			}
 			else
 			{
-				F.push_back(Piece(P1[i].lb, P1[i].f.RestrictDomain({min(dom(P1[i].f)), min(dom(P2[j].f))})));
+				F.push_back(Piece(P1[i].lb, P1[i].f.RestrictDomain({min(dom(P1[i].f)), min(dom(P2[j].f))}), P1[i].prev, P1[i].v));
 				P1[i].f.domain.left = P2[j].f.domain.left+EPS;
 			}
 		}
 		else
 		{
-			if (P2[j].Dominate(P1[i])) { ++i; continue; }
 			if (epsilon_smaller_equal(max(dom(P2[j].f)), min(dom(P1[i].f))))
 			{
 				F.push_back(P2[j]);
@@ -132,7 +138,7 @@ void State::Merge(vector<Piece>& P)
 			}
 			else
 			{
-				F.push_back(Piece(P2[j].lb, P2[j].f.RestrictDomain({min(dom(P2[j].f)), min(dom(P1[i].f))})));
+				F.push_back(Piece(P2[j].lb, P2[j].f.RestrictDomain({min(dom(P2[j].f)), min(dom(P1[i].f))}), P2[j].prev, P2[j].v));
 				P2[j].f.domain.left = P1[i].f.domain.left+EPS;
 			}
 		}
@@ -181,13 +187,18 @@ void State::DominateBy(const State& s2)
 			}
 			else
 			{
-				F.push_back(Piece(P2[j].lb, P2[j].f.RestrictDomain({min(dom(P2[j].f)), min(dom(P1[i].f))})));
+				F.push_back(Piece(P2[j].lb, P2[j].f.RestrictDomain({min(dom(P2[j].f)), min(dom(P1[i].f))}), P2[j].prev, P2[j].v));
 				P2[j].f.domain.left = P1[i].f.domain.left+EPS;
 			}
 		}
 	}
 	// Add remaining pieces.
 	F.insert(F.end(), P2.begin()+j, P2.end());
+}
+
+void State::Print(ostream& os) const
+{
+	os << F << endl;
 }
 
 Bounding::Bounding(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda)
@@ -265,7 +276,7 @@ void Bounding::Bound(goc::Vertex v, VertexSet S, State& Delta)
 	}
 }
 
-Route run_dssr(const VRPInstance& vrp, NGStructure& NG, const vector<double>& lambda, CGExecutionLog* log, double& LB, Duration time_limit)
+Route run_dna(const VRPInstance& vrp, const VRPInstance& rvrp, NGStructure& NG, NGStructure& rNG, const vector<double>& lambda, CGExecutionLog* log, double& LB, Duration time_limit, bool bidirectional)
 {
 	int n = vrp.D.VertexCount();
 	int max_iter = 30;
@@ -278,12 +289,22 @@ Route run_dssr(const VRPInstance& vrp, NGStructure& NG, const vector<double>& la
 		clog << "\tIteration: " << it << "\tLB: " << LB << endl;
 		
 		// Run NGL.
-		MLBExecutionLog iteration_log(true);
-		auto R = run_ngl(vrp, NG, lambda, &iteration_log, nullptr, LB, time_limit - rolex.Peek());
+		Route R;
+		if (!bidirectional)
+		{
+			MLBExecutionLog iteration_log(true);
+			R = run_ngltd(vrp, NG, lambda, &iteration_log, nullptr, LB, time_limit - rolex.Peek());
+			log->iterations->push_back(iteration_log);
+			if (iteration_log.status == MLBStatus::TimeLimitReached) { log->status = CGStatus::TimeLimitReached; break; }
+		}
+		else
+		{
+			BLBExecutionLog iteration_log(true);
+			R = run_ngltd_bidirectional(vrp, rvrp, NG, rNG, lambda, &iteration_log, LB, time_limit - rolex.Peek());
+			log->iterations->push_back(iteration_log);
+			if (iteration_log.status == BLBStatus::TimeLimitReached) { log->status = CGStatus::TimeLimitReached; break; }
+		}
 		log->iteration_count++;
-		log->iterations->push_back(iteration_log);
-		
-		if (iteration_log.status == MLBStatus::TimeLimitReached) { log->status = CGStatus::TimeLimitReached; break; }
 		
 		// Find cycles.
 		auto& P = R.path;
@@ -334,6 +355,7 @@ Route run_dssr(const VRPInstance& vrp, NGStructure& NG, const vector<double>& la
 			for (int j = c.first + 1; j < c.second; ++j)
 			{
 				NG.N[P[j]].set(P[c.first]);
+				rNG.N[P[j]].set(P[c.first]);
 				V.set(P[j]);
 			}
 		}
@@ -344,7 +366,267 @@ Route run_dssr(const VRPInstance& vrp, NGStructure& NG, const vector<double>& la
 	return Route({}, -1, INFTY);
 }
 
-Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double>& lambda, MLBExecutionLog* log, Bounding* B, double& LB, Duration time_limit)
+struct Merger
+{
+	vector<double> lambda;
+	GraphPath L;
+	Matrix<vector<pair<VertexSet, State>>> F;
+	
+	Merger(int n, const vector<double>& lambda, const GraphPath& L) : lambda(lambda), L(L)
+	{
+		F = Matrix<vector<pair<VertexSet, State>>>(n, n);
+	}
+	
+	void AddForward(const VertexSet& S, State& s, Vertex v, int r)
+	{
+		F[r][v].push_back({S, s});
+	}
+	
+	void MergeBackward(const VertexSet& S, State& s, Vertex v, int r, double& min_cost, GraphPath& min_path)
+	{
+		if (s.F.empty()) return;
+		int F_r = L.size() - 1 - r;
+		if (L[F_r] != v) F_r--;
+		vector<LinearFunction> Delta2;
+		for (int i = s.F.size()-1; i >= 0; --i) Delta2.push_back(LinearFunction({-s.F[i].f.domain.right, s.F[i].f(s.F[i].f.domain.right)+lambda[v]}, {-s.F[i].f.domain.left, s.F[i].f(s.F[i].f.domain.left)+lambda[v]}));
+		for (auto& S_s: F[F_r][v])
+		{
+			auto& Sf = S_s.first;
+			auto& Delta = S_s.second;
+			if ((Sf & S) != create_bitset<MAX_N>({v})) continue;
+			int i = 0, j = 0;
+			while (i < Delta.F.size() && j < Delta2.size())
+			{
+				auto& p_i = Delta.F[i].f;
+				auto& p_j = Delta2[j];
+				
+				if (epsilon_bigger(min(dom(p_i)), max(dom(p_j))))
+				{
+					// Case 1: p_i can not be extended with p_j, skip p_j.
+					++j;
+				}
+				else if (epsilon_bigger(min(dom(p_j)), max(dom(p_i))))
+				{
+					// Case 2: p_j comes after p_i then p_i is bounded by waiting.
+					double ti = p_i(max(dom(p_i))), tj = p_j(min(dom(p_j)));
+					double wait = min(dom(p_j)) - max(dom(p_i));
+					if (ti+wait+tj < min_cost)
+					{
+						min_cost = ti + wait + tj;
+						min_path = Delta.F[i].Path();
+						auto Pb = s.F[s.F.size()-j-1].Path();
+						Pb.pop_back();
+						Pb = reverse(Pb);
+						min_path.insert(min_path.end(), Pb.begin(), Pb.end());
+					}
+					++i;
+				}
+				else
+				{
+					// Case 3: p_i overlaps p_j, we must get the best bound.
+					double t0 = max(min(dom(p_i)), min(dom(p_j)));
+					double t1 = min(max(dom(p_i)), max(dom(p_j)));
+					if (min_cost > min(p_i(t0)+p_j(t0), p_i(t1)+p_j(t1)))
+					{
+						min_cost = min(p_i(t0)+p_j(t0), p_i(t1)+p_j(t1));
+						min_path = Delta.F[i].Path();
+						auto Pb = s.F[s.F.size()-j-1].Path();
+						Pb.pop_back();
+						Pb = reverse(Pb);
+						min_path.insert(min_path.end(), Pb.begin(), Pb.end());
+					}
+					if (epsilon_smaller(max(dom(p_i)), max(dom(p_j)))) ++i;
+					else ++j;
+				}
+			}
+		}
+	}
+};
+
+Route run_ngltd_bidirectional(const VRPInstance& fvrp, const VRPInstance& bvrp, const NGStructure& fNG, const NGStructure& bNG, const vector<double>& lambda, BLBExecutionLog* blb_log, double& LB, Duration time_limit)
+{
+	Stopwatch rolex_blb(true);
+	int n = fvrp.D.VertexCount();
+	auto& N = fNG.N;
+	vector<vector<vector<spp::sparse_hash_map<VertexSet, State>>>> DS[2] = {
+		vector<vector<vector<spp::sparse_hash_map<VertexSet, State>>>>(n, vector<vector<spp::sparse_hash_map<VertexSet, State>>>(fNG.L.size(), vector<spp::sparse_hash_map<VertexSet, State>>(n))),
+		vector<vector<vector<spp::sparse_hash_map<VertexSet, State>>>>(n, vector<vector<spp::sparse_hash_map<VertexSet, State>>>(fNG.L.size(), vector<spp::sparse_hash_map<VertexSet, State>>(n)))
+	};
+	int nn[] = {n / 2+1, n - n/2};
+	const NGStructure* NGS[] = {&fNG, &bNG};
+	const VRPInstance* vrps[] = {&fvrp, &bvrp};
+	for (int d: {0, 1})
+	{
+		MLBExecutionLog log(true);
+		auto& vrp = *vrps[d];
+		auto& NG = *NGS[d];
+		auto& L = NG.L;
+		auto& V = NG.V;
+		auto& D = DS[d];
+		
+		// Init structures.
+		double OPT_end = INFTY, OPT_dur = INFTY;
+		
+		Stopwatch rolex(true), rolex_domination(false), rolex_extension(false), rolex_bounding(false), rolex_queuing(false);
+		stretch_to_size(*log.count_by_length, n+1, 0);
+		log.status = MLBStatus::Finished;
+		
+		State::Piece p0(-1, {{vrp.a[vrp.o], -lambda[vrp.o]}, {vrp.b[vrp.o], -lambda[vrp.o]}}, nullptr, vrp.o);
+		vector<State::Piece> P0 = {p0};
+		D[1][0][vrp.o].insert({create_bitset<MAX_N>({vrp.o}), State()}).first->second.Merge(P0);
+		
+		for (int k = 1; k <= nn[d]; ++k)
+		{
+			for (int r = 0; r < (int)L.size(); ++r)
+			{
+				for (int v = 0; v < n; ++v)
+				{
+					for (auto& S_Delta: D[k][r][v])
+					{
+						if (rolex.Peek() >= time_limit) { log.status = MLBStatus::TimeLimitReached; break; }
+						rolex_domination.Resume();
+						// Get non dominated pieces (by the same S).
+						auto& S = S_Delta.first;
+						auto& Delta = S_Delta.second;
+						
+						// Dominate pieces by subsets of S.
+						for (auto& S2_Delta2: D[k][r][v])
+						{
+							auto& S2 = S2_Delta2.first;
+							auto& Delta2 = S2_Delta2.second;
+							if (S2 == S || !is_subset(S2, S)) continue;
+							Delta.DominateBy(Delta2);
+						}
+						
+						rolex_domination.Pause();
+						
+						if (Delta.F.empty()) continue;
+						
+						log.processed_count++;
+						log.extended_count += Delta.F.size();
+						log.enumerated_count += Delta.F.size();
+						(*log.count_by_length)[k] += Delta.F.size();
+						
+						// Extension of pieces.
+						rolex_extension.Resume();
+						for (Vertex w: vrp.D.Successors(v))
+						{
+							if (S.test(w)) continue;
+							if (!V[r].test(w)) continue;
+							if (vrp.prec_count[w] > k) continue;
+							if (vrp.suc_count[w] > n - k - 1) continue;
+							if (w != L[r + 1] && vrp.suc_count[L[r + 1]] > n - k - 2) continue;
+							
+							double LDTw_at_v = vrp.DepartureTime({v,w}, NG.tw[k+1][w].right);
+							
+							vector<State::Piece> EXT_P; // Extended pieces.
+							int j = 0;
+							for (auto& p: Delta.F)
+							{
+								auto& p_i = p.f;
+								if (epsilon_bigger(min(dom(p_i)), LDTw_at_v)) break;
+								if (epsilon_bigger(min(dom(vrp.tau[v][w][j])), max(dom(p_i)))) break;
+								
+								for (; j < vrp.tau[v][w].PieceCount(); ++j)
+								{
+									auto& tau_j = vrp.tau[v][w][j];
+									
+									// Check that tau_j \cap p_i \neq \emptyset.
+									if (epsilon_bigger(min(dom(tau_j)), LDTw_at_v)) break;
+									if (epsilon_smaller(max(dom(tau_j)), min(dom(p_i)))) continue;
+									if (epsilon_bigger(min(dom(tau_j)), max(dom(p_i)))) break;
+									
+									// Find intersection of pieces.
+									double t1 = min(LDTw_at_v, max(min(dom(tau_j)), min(dom(p_i))));
+									double t2 = min(LDTw_at_v, min(max(dom(tau_j)), max(dom(p_i))));
+									t2 = max(t1, t2); // We must avoid numerical errors where (t1 > t2 but t1 <=eps t2).
+									
+									// Extend.
+									LinearFunction pp({t1 + tau_j(t1), p_i(t1) + tau_j(t1) - lambda[w]},
+													  {t2 + tau_j(t2), p_i(t2) + tau_j(t2) - lambda[w]});
+									
+									if (k == n - 1) // If complete tour, add it to the solution.
+									{
+										if (epsilon_smaller(pp(min(dom(pp))), OPT_dur))
+										{
+											OPT_dur = pp(min(dom(pp)));
+											OPT_end = min(dom(pp));
+										}
+										if (epsilon_smaller(pp(max(dom(pp))), OPT_dur))
+										{
+											OPT_dur = pp(max(dom(pp)));
+											OPT_end = max(dom(pp));
+										}
+									}
+									else // Otherwise, add it to the queue.
+									{
+										if (!EXT_P.empty() && epsilon_equal(min(dom(EXT_P.back().f)), min(dom(pp))))
+											EXT_P.pop_back(); // Remove waiting time piece.
+										EXT_P.push_back(State::Piece(-1, pp, &p, w));
+									}
+									
+									// Stop if tau_vw exceeds the latest departure time.
+									if (epsilon_bigger_equal(max(dom(tau_j)), max(dom(p_i)))) break;
+								}
+							}
+							if (!EXT_P.empty())
+							{
+								rolex_extension.Pause();
+								rolex_queuing.Resume();
+								auto S_w = S & N[w];
+								S_w.set(w);
+								D[k + 1][r + (w == L[r + 1])][w].insert({S_w, State()}).first->second.Merge(EXT_P);
+								rolex_queuing.Pause();
+								rolex_extension.Resume();
+							}
+						}
+						rolex_extension.Pause();
+					}
+				}
+			}
+		}
+		
+		log.extension_time = rolex_extension.Peek();
+		log.bounding_time = rolex_bounding.Peek();
+		log.domination_time = rolex_domination.Peek();
+		log.queuing_time = rolex_queuing.Peek();
+		log.time = rolex.Peek();
+		if (d == 0) blb_log->forward_log = log;
+		else blb_log->backward_log = log;
+		if (rolex.Peek() >= time_limit) { blb_log->status = BLBStatus::TimeLimitReached; break; }
+	}
+	
+	// Merge.
+	Stopwatch rolex_merge(true);
+	Merger M(n, lambda, fNG.L);
+	int R = fNG.L.size();
+	double min_cost = INFTY;
+	for (int r = 0; r < R-1; ++r)
+		for (Vertex v: fvrp.D.Vertices())
+			for (auto& S: DS[0][nn[0]][r][v])
+				M.AddForward(S.first, S.second, v, r);
+	
+	GraphPath min_path;
+	for (int r = 0; r < R-1; ++r)
+		for (Vertex v: fvrp.D.Vertices())
+			for (auto& S: DS[1][nn[1]][r][v])
+				M.MergeBackward(S.first, S.second, v, r, min_cost, min_path);
+			
+	VertexSet NGSet;
+	for (auto& v: min_path)
+	{
+		NGSet = (NGSet & fNG.N[v]);
+		NGSet.set(v);
+	}
+	blb_log->merge_time = rolex_merge.Peek();
+	blb_log->time = rolex_blb.Peek();
+	
+	LB = max(LB, min_cost + sum(lambda));
+	
+	return fvrp.BestDurationRoute(min_path);
+}
+
+Route run_ngltd(const VRPInstance& vrp, const NGStructure& NG, const vector<double>& lambda, MLBExecutionLog* log, Bounding* B, double& LB, Duration time_limit)
 {
 	int n = vrp.D.VertexCount();
 	auto& N = NG.N;
@@ -353,13 +635,14 @@ Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double
 	
 	// Init structures.
 	auto D = vector<vector<vector<spp::sparse_hash_map<VertexSet, State>>>>(n, vector<vector<spp::sparse_hash_map<VertexSet, State>>>(L.size(), vector<spp::sparse_hash_map<VertexSet, State>>(n)));
-	double OPT_end = INFTY, OPT_dur = INFTY;
+	double opt_cost = INFTY;
+	GraphPath opt_path;
 	
-	Stopwatch rolex(true), rolex_domination(false), rolex_extension(false), rolex_bounding(false);
+	Stopwatch rolex(true), rolex_domination(false), rolex_extension(false), rolex_bounding(false), rolex_queuing(false);
 	stretch_to_size(*log->count_by_length, n+1, 0);
 	log->status = MLBStatus::Finished;
 	
-	State::Piece p0(-1, {{vrp.a[vrp.o], -lambda[vrp.o]}, {vrp.b[vrp.o], -lambda[vrp.o]}});
+	State::Piece p0(-1, {{vrp.a[vrp.o], -lambda[vrp.o]}, {vrp.b[vrp.o], -lambda[vrp.o]}}, nullptr, vrp.o);
 	vector<State::Piece> P0 = {p0};
 	D[1][0][vrp.o].insert({create_bitset<MAX_N>({vrp.o}), State()}).first->second.Merge(P0);
 	
@@ -408,7 +691,7 @@ Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double
 						if (vrp.suc_count[w] > n - k - 1) continue;
 						if (w != L[r + 1] && vrp.suc_count[L[r + 1]] > n - k - 2) continue;
 						
-						double LDTw_at_v = vrp.DepartureTime({v,w}, vrp.b[w]);
+						double LDTw_at_v = vrp.DepartureTime({v,w}, NG.tw[k+1][w].right);
 						
 						vector<State::Piece> EXT_P; // Extended pieces.
 						int j = 0;
@@ -438,22 +721,24 @@ Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double
 								
 								if (k == n - 1) // If complete tour, add it to the solution.
 								{
-									if (epsilon_smaller(pp(min(dom(pp))), OPT_dur))
+									if (epsilon_smaller(pp(min(dom(pp))), opt_cost))
 									{
-										OPT_dur = pp(min(dom(pp)));
-										OPT_end = min(dom(pp));
+										opt_cost = pp(min(dom(pp)));
+										opt_path = p.Path();
+										opt_path.push_back(vrp.d);
 									}
-									if (epsilon_smaller(pp(max(dom(pp))), OPT_dur))
+									if (epsilon_smaller(pp(max(dom(pp))), opt_cost))
 									{
-										OPT_dur = pp(max(dom(pp)));
-										OPT_end = max(dom(pp));
+										opt_cost = pp(max(dom(pp)));
+										opt_path = p.Path();
+										opt_path.push_back(vrp.d);
 									}
 								}
 								else // Otherwise, add it to the queue.
 								{
 									if (!EXT_P.empty() && epsilon_equal(min(dom(EXT_P.back().f)), min(dom(pp))))
 										EXT_P.pop_back(); // Remove waiting time piece.
-									EXT_P.push_back(State::Piece(-1, pp));
+									EXT_P.push_back(State::Piece(-1, pp, &p, w));
 								}
 								
 								// Stop if tau_vw exceeds the latest departure time.
@@ -463,11 +748,11 @@ Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double
 						if (!EXT_P.empty())
 						{
 							rolex_extension.Pause();
-							rolex_domination.Resume();
+							rolex_queuing.Resume();
 							auto S_w = S & N[w];
 							S_w.set(w);
 							D[k + 1][r + (w == L[r + 1])][w].insert({S_w, State()}).first->second.Merge(EXT_P);
-							rolex_domination.Pause();
+							rolex_queuing.Pause();
 							rolex_extension.Resume();
 						}
 					}
@@ -480,57 +765,11 @@ Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const vector<double
 	log->extension_time = rolex_extension.Peek();
 	log->bounding_time = rolex_bounding.Peek();
 	log->domination_time = rolex_domination.Peek();
+	log->queuing_time = rolex_queuing.Peek();
 	log->time = rolex.Peek();
 	
-	// Rebuild solution.
-	if (log->status == MLBStatus::Finished)
-	{
-		GraphPath P = {vrp.d};
-		double t = OPT_end, d = OPT_dur;
-		int r = L.size() - 2;
-		VertexSet NGP;
-		NGP.set(vrp.d);
-		for (Vertex w = P.back(); P.size() < n; w = P.back())
-		{
-			int k = n - P.size();
-			for (Vertex v: vrp.D.Predecessors(w))
-			{
-				double t_v = vrp.DepartureTime({v, w}, t);
-				if (t_v == INFTY) continue;
-				double d_v = d - (t - t_v) + lambda[w];
-				bool found = false;
-				for (auto& S_Delta: D[k][r][v])
-				{
-					auto& S = S_Delta.first;
-					auto& Delta = S_Delta.second;
-					auto Sw = S & N[w];
-					Sw.set(w);
-					if (S.test(w)) continue;
-					if (Sw != NGP) continue;
-					for (auto& p: Delta.F)
-					{
-						found = (p.f.domain.Includes(t_v) && epsilon_smaller_equal(p.f(t_v)-EPS, d_v)) ||
-								(epsilon_smaller(p.f.domain.right, t_v) &&
-								 epsilon_smaller_equal(p.f(max(dom(p.f))) + t_v - max(dom(p.f))-EPS, d_v));
-						if (found)
-						{
-							NGP = S;
-							P.push_back(v);
-							t = t_v;
-							d = d_v;
-							r = r - (v == L[r]);
-							break;
-						}
-					}
-					if (found) break;
-				}
-				if (found) break;
-			}
-		}
-		LB = max(LB, OPT_dur + sum(lambda));
-		return vrp.BestDurationRoute(reverse(P));
-	}
-	return Route({}, INFTY, INFTY);
+	LB = max(LB, opt_cost + sum(lambda));
+	return vrp.BestDurationRoute(opt_path);
 }
 
 Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vector<double>& lambda,
@@ -547,7 +786,7 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 	stretch_to_size(*log->count_by_length, n+1, 0);
 	log->status = MLBStatus::Finished;
 	
-	State::Piece p0(LB, {{vrp.a[vrp.o], -lambda[vrp.o]}, {vrp.b[vrp.o], -lambda[vrp.o]}});
+	State::Piece p0(LB, {{vrp.a[vrp.o], -lambda[vrp.o]}, {vrp.b[vrp.o], -lambda[vrp.o]}}, nullptr, vrp.o);
 	vector<State::Piece> P0 = {p0};
 	D[1][vrp.o].insert({create_bitset<MAX_N>({vrp.o}), State()}).first->second.Merge(P0);
 
@@ -645,7 +884,7 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 								else // Otherwise, add it to the queue.
 								{
 									if (!EXT_P.empty() && epsilon_equal(min(dom(EXT_P.back().f)) , min(dom(pp)))) EXT_P.pop_back(); // Remove waiting time piece.
-									EXT_P.push_back(State::Piece(-1, pp));
+									EXT_P.push_back(State::Piece(-1, pp, nullptr, w));
 								}
 								
 								// Stop if tau_vw exceeds the latest departure time.

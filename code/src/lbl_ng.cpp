@@ -106,11 +106,15 @@ NGStructure::NGStructure(const VRPInstance& vrp, int delta) : delta(delta)
 			}
 		}
 	}
+	
+	AdjustTimeWindows(vrp);
 }
 
 NGStructure::NGStructure(const VRPInstance& vrp, const std::vector<VertexSet>& N, const goc::GraphPath& L, int delta)
-	: N(N), L(L), delta(delta)
+	: L(L), delta(delta), N(N)
 {
+	int n = vrp.D.VertexCount();
+	
 	VertexSet V_L;
 	for (Vertex v: L) V_L.set(v);
 	
@@ -123,6 +127,63 @@ NGStructure::NGStructure(const VRPInstance& vrp, const std::vector<VertexSet>& N
 			if (!V_L.test(v) && !vrp.prec[v][L[i]] && !vrp.prec[L[i+1]][v])
 				V[i].set(v);
 	}
+	
+	vector<vector<Vertex>> N_list(vrp.D.VertexCount());
+	for (Vertex i: vrp.D.Vertices())
+		for (Vertex j: vrp.D.Vertices())
+			if (N[i].test(j))
+				N_list[i].push_back(j);
+		
+	// Compute NGSets.
+	NGSet = vector<vector<VertexSet>>(n);
+	for (Vertex v: vrp.D.Vertices()) generate_subsets(N_list[v], NGSet[v], create_bitset<MAX_N>({v}));
+	
+	// Compute NGSub.
+	NGSub = vector<vector<vector<int>>>(n);
+	for (Vertex v: vrp.D.Vertices())
+	{
+		for (int i = 0; i < NGSet[v].size(); ++i)
+		{
+			NGSub[v].push_back(vector<int>());
+			for (int j = 0; j < NGSet[v].size(); ++j)
+				if (i != j && is_subset(NGSet[v][j], NGSet[v][i]))
+					NGSub[v][i].push_back(j);
+		}
+	}
+	
+	// Compute NGArc.
+	NGArc = vector<vector<unordered_map<Vertex, int>>>(n);
+	for (Vertex v: vrp.D.Vertices())
+	{
+		NGArc[v] = vector<unordered_map<Vertex, int>>(NGSet[v].size());
+		for (int i = 0; i < NGSet[v].size(); ++i)
+		{
+			for (Vertex w: vrp.D.Successors(v))
+			{
+				if (NGSet[v][i].test(w)) continue;
+				VertexSet NGw = unite(intersection(NGSet[v][i], N[w]), {w});
+				for (int j = 0; j < NGSet[w].size(); ++j)
+				{
+					if (NGSet[w][j] == NGw)
+					{
+						NGArc[v][i].insert({w, j});
+						break;
+					}
+				}
+			}
+		}
+	}
+	
+	AdjustTimeWindows(vrp);
+}
+
+void NGStructure::AdjustTimeWindows(const VRPInstance& vrp)
+{
+	int n = vrp.D.VertexCount();
+	tw = Matrix<Interval>(n+1, n);
+	for (int k = 1; k <= n; ++k)
+		for (Vertex v: vrp.D.Vertices())
+			tw[k][v] = vrp.tw[v];
 }
 
 NGLabel::NGLabel(NGLabel* prev, Vertex v, int S, double Ttime, double Tdur, double Thelp, double lambda) : prev(prev), v(v), S(S), Ttime(Ttime), Tdur(Tdur), Thelp(Thelp), lambda(lambda)
@@ -207,13 +268,14 @@ vector<Route> run_ngl2res(const VRPInstance& vrp, const NGStructure& NG, const v
 						// Feasibility check.
 						if (k < vrp.prec_count[w]) continue;
 						if (n-k-1 < vrp.suc_count[w]) continue;
-						if (n-k-1 < vrp.suc_count[NG.L[r+1]]) continue;
+						if (w != NG.L[r + 1] && vrp.suc_count[NG.L[r + 1]] > n - k - 2) continue;
 						if (!NG.V[r].test(w)) continue;
 						double d_vw = vrp.MinimumTravelTime({v,w});
+						double b_w = NG.tw[k+1][w].right;
 						NGLabel lw(&l, w, Sw,
 								   0.0,
 								   max(l.Tdur+d_vw, l.Thelp+vrp.a[w])-lambda[w], // Tdur(lw)
-								   max(l.Tdur+d_vw-vrp.b[w], l.Thelp)-lambda[w], // Thelp(lw)
+								   max(l.Tdur+d_vw-b_w, l.Thelp)-lambda[w], // Thelp(lw)
 								   l.lambda + lambda[w]
 						);
 						
@@ -282,6 +344,14 @@ public:
 			else if (epsilon_smaller_equal(ll, p.l)) p.l = max(p.l, rr);
 			else if (epsilon_bigger_equal(rr, p.r)) p.r = min(p.r, ll);
 			return false;
+		}
+		
+		GraphPath Path() const
+		{
+			if (!prev) return {v};
+			auto P = prev->Path();
+			P.push_back(v);
+			return P;
 		}
 	};
 
@@ -468,7 +538,8 @@ double run_nglti(const VRPInstance& vrp, const NGStructure& NG, const vector<dou
 						if (w != NG.L[r + 1] && vrp.suc_count[NG.L[r + 1]] > n - k - 2) continue;
 						if (!NG.V[r].test(w)) continue;
 						double Ttimew = vrp.ArrivalTime({v,w}, Ttimel);
-						if (Ttimew == INFTY) continue;
+						double b_w = NG.tw[k+1][w].right;
+						if (epsilon_bigger(Ttimew, b_w)) continue;
 						vector<TIState::Piece> EXT;
 						int j = 0;
 						for (auto& p: Delta.L)
@@ -482,16 +553,16 @@ double run_nglti(const VRPInstance& vrp, const NGStructure& NG, const vector<dou
 								if (epsilon_bigger_equal(vrp.tau[v][w][j].domain.right, p.r)) break;
 								++j;
 							}
-							if (epsilon_bigger(p.l + tt, vrp.b[w])) break;
+							if (epsilon_bigger(p.l + tt, b_w)) break;
 							double ll = max(p.l + tt, Ttimew);
-							double rr = min(max(p.r + tt, Ttimew), vrp.b[w]);
+							double rr = min(max(p.r + tt, Ttimew), b_w);
 							if (!EXT.empty())
 							{
 								ll = max(ll, EXT.back().r);
 								rr = max(rr, EXT.back().r);
 							}
 							tt = max(tt, ll - p.r);
-							double cost = p.cost + (epsilon_equal(rr, Ttimew) ? Ttimew - min(p.r, vrp.b[w]-tt) : tt) - lambda[w];
+							double cost = p.cost + (epsilon_equal(rr, Ttimew) ? Ttimew - min(p.r, b_w-tt) : tt) - lambda[w];
 							if (!EXT.empty() && epsilon_smaller_equal(EXT.back().cost, cost) && epsilon_bigger_equal(EXT.back().r, rr)) continue;
 							if (w == vrp.d)
 							{
@@ -548,5 +619,240 @@ double run_nglti(const VRPInstance& vrp, const NGStructure& NG, const vector<dou
 		fail("Should always be a best cost");
 	}
 	return best_cost + sum(lambda);
+}
+
+struct Merger
+{
+	vector<double> lambda;
+	GraphPath L;
+	Matrix<vector<pair<VertexSet, TIState>>> F;
+	
+	Merger(int n, const vector<double>& lambda, const GraphPath& L) : lambda(lambda), L(L)
+	{
+		F = Matrix<vector<pair<VertexSet, TIState>>>(n, n);
+	}
+	
+	void AddForward(const VertexSet& S, TIState& s, Vertex v, int r)
+	{
+		F[r][v].push_back({S, s});
+	}
+	
+	void MergeBackward(const VertexSet& S, TIState& s, Vertex v, int r, double& min_cost, GraphPath& min_path)
+	{
+		if (s.L.empty()) return;
+		int F_r = L.size() - 1 - r;
+		if (L[F_r] != v) F_r--;
+		vector<LinearFunction> Delta2;
+		for (int i = s.L.size()-1; i >= 0; --i) Delta2.push_back(LinearFunction({-s.L[i].r, s.L[i].cost+lambda[v]}, {-s.L[i].l, s.L[i].cost+lambda[v]}));
+		for (auto& S_s: F[F_r][v])
+		{
+			auto& Sf = S_s.first;
+			auto& Delta = S_s.second;
+			if ((Sf & S) != create_bitset<MAX_N>({v})) continue;
+			int i = 0, j = 0;
+			while (i < Delta.L.size() && j < Delta2.size())
+			{
+				auto& p_i = Delta.L[i];
+				auto& p_j = Delta2[j];
+				
+				if (epsilon_bigger(p_i.l, max(dom(p_j))))
+				{
+					// Case 1: p_i can not be extended with p_j, skip p_j.
+					++j;
+				}
+				else if (epsilon_bigger(min(dom(p_j)), p_i.r))
+				{
+					// Case 2: p_j comes after p_i then p_i is bounded by waiting.
+					double ti = p_i.cost, tj = p_j(min(dom(p_j)));
+					double wait = min(dom(p_j)) - p_i.r;
+					if (ti+wait+tj < min_cost)
+					{
+						min_cost = ti + wait + tj;
+						min_path = Delta.L[i].Path();
+						auto Pb = s.L[s.L.size()-j-1].Path();
+						Pb.pop_back();
+						Pb = reverse(Pb);
+						min_path.insert(min_path.end(), Pb.begin(), Pb.end());
+					}
+					++i;
+				}
+				else
+				{
+					// Case 3: p_i overlaps p_j, we must get the best bound.
+					double t0 = max(p_i.l, min(dom(p_j)));
+					double t1 = min(p_i.r, max(dom(p_j)));
+					if (min_cost > min(p_i.cost+p_j(t0), p_i.cost+p_j(t1)))
+					{
+						min_cost = min(p_i.cost+p_j(t0), p_i.cost+p_j(t1));
+						min_path = Delta.L[i].Path();
+						auto Pb = s.L[s.L.size()-j-1].Path();
+						Pb.pop_back();
+						Pb = reverse(Pb);
+						min_path.insert(min_path.end(), Pb.begin(), Pb.end());
+					}
+					if (epsilon_smaller(p_i.r, max(dom(p_j)))) ++i;
+					else ++j;
+				}
+			}
+		}
+	}
+};
+
+double bidirectional_run_nglti(const VRPInstance& fvrp, const VRPInstance& bvrp, const NGStructure& fNG, const NGStructure& bNG, const vector<double>& lambda, double UB,
+				 Route& best_route, double& best_cost, BLBExecutionLog* blb_log)
+{
+	best_route = Route({}, 0.0, INFTY);
+	best_cost = INFTY;
+	Stopwatch rolex_blb(true);
+	int n = fvrp.D.VertexCount();
+	int R = fNG.L.size();
+	auto& N = fNG.N;
+	Matrix<vector<vector<TIState>>> DS[2] = {
+		Matrix<vector<vector<TIState>>>(n, R, vector<vector<TIState>>(n, vector<TIState>(8))),
+		Matrix<vector<vector<TIState>>>(n, R, vector<vector<TIState>>(n, vector<TIState>(8)))
+	};
+	int nn[] = {n / 2+1, n - n/2};
+	const NGStructure* NGS[] = {&fNG, &bNG};
+	const VRPInstance* vrps[] = {&fvrp, &bvrp};
+	for (int d: {0, 1})
+	{
+		MLBExecutionLog log(true);
+		auto& vrp = *vrps[d];
+		auto& NG = *NGS[d];
+		auto& L = NG.L;
+		auto& V = NG.V;
+		auto& D = DS[d];
+		
+		stretch_to_size(*log.count_by_length, n + 1, 0);
+		Stopwatch rolex(true), rolex_domination(false), rolex_extension(false), rolex_queuing(false);
+		
+		// Initialize queue.
+		vector<TIState::Piece> initial_state = {
+			TIState::Piece(vrp.a[vrp.o], vrp.b[vrp.o], -lambda[vrp.o], nullptr, vrp.o)};
+		D[1][0][vrp.o][0].Merge(initial_state);
+		for (int k = 1; k <= nn[d]; ++k)
+		{
+			for (int r = 0; r < R - 1; ++r)
+			{
+				for (int v = 0; v < n; ++v)
+				{
+					for (int S = 0; S < NG.NGSet[v].size(); ++S)
+					{
+						auto& Delta = D[k][r][v][S];
+						if (Delta.L.empty()) continue;
+						log.processed_count++;
+						
+						// Dominate by subsets.
+						rolex_domination.Resume();
+						for (int sub: NG.NGSub[v][S])
+						{
+							if (Delta.L.empty()) break;
+							Delta.DominateBy(D[k][r][v][sub].L);
+						}
+						Delta.Normalize();
+						rolex_domination.Pause();
+						if (Delta.L.empty()) continue;
+						log.extended_count++;
+						log.enumerated_count += Delta.L.size();
+						(*log.count_by_length)[k] += Delta.L.size();
+						
+						// Extend.
+						rolex_extension.Resume();
+						double Ttimel = Delta.L.front().l;
+						for (pair<Vertex, int> w_Sw: NG.NGArc[v][S])
+						{
+							int w = w_Sw.first;
+							int Sw = w_Sw.second;
+							
+							// Feasibility check.
+							if (k < vrp.prec_count[w]) continue;
+							if (n - k - 1 < vrp.suc_count[w]) continue;
+							if (w != NG.L[r + 1] && vrp.suc_count[NG.L[r + 1]] > n - k - 2) continue;
+							if (!NG.V[r].test(w)) continue;
+							double Ttimew = vrp.ArrivalTime({v, w}, Ttimel);
+							double b_w = NG.tw[k + 1][w].right;
+							if (epsilon_bigger(Ttimew, b_w)) continue;
+							vector<TIState::Piece> EXT;
+							int j = 0;
+							for (auto& p: Delta.L)
+							{
+								double tt = INFTY;
+								while (j < vrp.tau[v][w].PieceCount())
+								{
+									if (epsilon_bigger(vrp.tau[v][w][j].domain.left, p.r)) break;
+									if (vrp.tau[v][w][j].domain.Intersects({p.l, p.r}))
+										tt = min(tt, vrp.tau[v][w][j].image.left);
+									if (epsilon_bigger_equal(vrp.tau[v][w][j].domain.right, p.r)) break;
+									++j;
+								}
+								if (epsilon_bigger(p.l + tt, b_w)) break;
+								double ll = max(p.l + tt, Ttimew);
+								double rr = min(max(p.r + tt, Ttimew), b_w);
+								if (!EXT.empty())
+								{
+									ll = max(ll, EXT.back().r);
+									rr = max(rr, EXT.back().r);
+								}
+								tt = max(tt, ll - p.r);
+								double cost =
+									p.cost + (epsilon_equal(rr, Ttimew) ? Ttimew - min(p.r, b_w - tt) : tt) - lambda[w];
+								if (!EXT.empty() && epsilon_smaller_equal(EXT.back().cost, cost) &&
+									epsilon_bigger_equal(EXT.back().r, rr))
+									continue;
+								if (!EXT.empty() && epsilon_equal(EXT.back().l, ll) &&
+									epsilon_bigger_equal(EXT.back().cost, cost))
+									EXT.pop_back();
+								EXT.emplace_back(TIState::Piece(ll, rr, cost, &p, w));
+							}
+							
+							if (!EXT.empty())
+							{
+								rolex_extension.Pause();
+								rolex_domination.Resume();
+								D[k + 1][r + (NG.L[r + 1] == w)][w][Sw].Merge(EXT);
+								rolex_domination.Pause();
+								rolex_extension.Resume();
+							}
+						}
+						rolex_extension.Pause();
+					}
+				}
+			}
+		}
+		
+		log.queuing_time = rolex_queuing.Peek();
+		log.domination_time = rolex_domination.Peek();
+		log.extension_time = rolex_extension.Peek();
+		log.time = rolex.Peek();
+		if (d == 0) blb_log->forward_log = log;
+		else blb_log->backward_log = log;
+	}
+	
+	// Merge.
+	Stopwatch rolex_merge(true);
+	Merger M(n, lambda, fNG.L);
+	double min_cost = INFTY;
+	for (int r = 0; r < R-1; ++r)
+		for (Vertex v: fvrp.D.Vertices())
+			for (int S = 0; S < DS[0][nn[0]][r][v].size(); ++S)
+				M.AddForward(fNG.NGSet[v][S], DS[0][nn[0]][r][v][S], v, r);
+	
+	GraphPath min_path;
+	for (int r = 0; r < R-1; ++r)
+		for (Vertex v: fvrp.D.Vertices())
+			for (int S = 0; S < DS[1][nn[1]][r][v].size(); ++S)
+				M.MergeBackward(bNG.NGSet[v][S], DS[1][nn[1]][r][v][S], v, r, min_cost, min_path);
+	
+	VertexSet NGSet;
+	for (auto& v: min_path)
+	{
+		NGSet = (NGSet & fNG.N[v]);
+		NGSet.set(v);
+	}
+	blb_log->merge_time = rolex_merge.Peek();
+	blb_log->time = rolex_blb.Peek();
+	best_cost = min_cost;
+	best_route = Route(min_path, 0.0, min_cost + sum<Vertex>(min_path, [&](Vertex v) { return lambda[v]; }));
+	return min_cost + sum(lambda);
 }
 } // namespace tdtsptw

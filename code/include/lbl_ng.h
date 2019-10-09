@@ -34,11 +34,14 @@ struct NGStructure
 	std::vector<std::vector<VertexSet>> NGSet;
 	std::vector<std::vector<std::vector<int>>> NGSub;
 	std::vector<std::vector<std::unordered_map<goc::Vertex, int>>> NGArc;
+	goc::Matrix<goc::Interval> tw; // tw[k][v] is the smallest time window of vertex v if path length is k.
 	
 	// Builds the NGStructure with respect to vrp and delta.
 	NGStructure(const VRPInstance& vrp, int delta);
 	
 	NGStructure(const VRPInstance& vrp, const std::vector<VertexSet>& N, const goc::GraphPath& L, int delta);
+	
+	void AdjustTimeWindows(const VRPInstance& vrp);
 };
 
 class NGLabel : public goc::Printable
@@ -70,6 +73,9 @@ std::vector<goc::Route> run_ngl2res(const VRPInstance& vrp, const NGStructure& N
 
 double run_nglti(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda, double UB,
 				 goc::Route& best_route, double& best_cost, goc::MLBExecutionLog* log);
+
+double bidirectional_run_nglti(const VRPInstance& fvrp, const VRPInstance& bvrp, const NGStructure& fNG, const NGStructure& bNG, const std::vector<double>& lambda, double UB,
+							   goc::Route& best_route, double& best_cost, goc::BLBExecutionLog* blb_log);
 } // namespace tdtsptw
 
 #endif //TDTSPTW_LBL_NG_H

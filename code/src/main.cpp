@@ -91,7 +91,7 @@ int main(int argc, char** argv)
 	{
 		json output; // STDOUT output will go into this JSON.
 		
-		simulate_runner_input("instances/guerriero_et_al_2014b", "30_90_B_50_C9", "experiments/arigliano_w50.json", "CG-NGLTI-DNA");
+		simulate_runner_input("instances/cordeau_et_al_2014", "20_70_A_A3", "experiments/cordeau.json", "makespan");
 		
 		json experiment, instance, solutions;
 		cin >> experiment >> instance >> solutions;
@@ -110,6 +110,7 @@ int main(int argc, char** argv)
 		bool colgen = value_or_default(experiment, "colgen", true);
 		bool dssr = value_or_default(experiment, "dssr", false);
 		bool time_independent = value_or_default(experiment, "time_independent", false);
+		bool bidirectional = value_or_default(experiment, "bidirectional", false);
 
 		// Time-independentize instance.
 		if (time_independent)
@@ -123,6 +124,7 @@ int main(int argc, char** argv)
 		clog << "Relaxation: " << relaxation << endl;
 		clog << "Colgen: " << colgen << endl;
 		clog << "DSSR: " << dssr << endl;
+		clog << "Bidirectional: " << bidirectional << endl;
 		
 		// Set departing time from depot equal to 0 if makespan objective.
 		if (objective == "makespan") instance["time_windows"][0] = Interval(0, 0);
@@ -136,21 +138,10 @@ int main(int argc, char** argv)
 		// Parse instance.
 		clog << "Parsing instance..." << endl;
 		VRPInstance vrp = instance;
-		for (Arc e: vrp.D.Arcs())
-		{
-			double t = vrp.ArrivalTime(e, 0.0);
-			double tt_e = vrp.MinimumTravelTime(e);
-			double tprev = t-tt_e;
-			PWLFunction tau_e;
-			tau_e.AddPiece({{0.0, t}, {tprev, tt_e}});
-			tau_e.AddPiece({{tprev, tt_e}, {vrp.tau[e.tail][e.head].Domain().right, tt_e}});
-			instance["travel_times"][e.tail][e.head] = tau_e;
-		}
-		VRPInstance lb_vrp = instance;
 		
 		// Get UB.
 		double LB = 0.0;
-		vector <Vertex> P = {vrp.o};
+		vector<Vertex> P = {vrp.o};
 		Route UB = initial_heuristic(vrp, P, create_bitset<MAX_N>({vrp.o}), vrp.tw[vrp.o].left);
 		if (UB.duration == INFTY)
 		{
@@ -166,6 +157,7 @@ int main(int argc, char** argv)
 			clog << "Building NG structure..." << endl;
 			auto rvrp = reverse_instance(vrp);
 			NGStructure NG(vrp, 3);
+			NGStructure rNG(rvrp, NG.N, reverse(NG.L), NG.delta);
 
 			vector<double> penalties(vrp.D.VertexCount(), 0.0); // Keep best set of penalties.
 
@@ -210,17 +202,19 @@ int main(int argc, char** argv)
 						else if (relaxation == "NGLTI")
 						{
 							run_nglti(vrp, NG, pp.penalties, UB.duration, best, best_cost, &iteration_log);
+//							BLBExecutionLog blb_log(true);
+//							bidirectional_run_nglti(vrp, rvrp, NG, rNG, pp.penalties, UB.duration, best, best_cost, &blb_log);
 							if (epsilon_smaller(best_cost, 0.0)) R = {best};
 						}
 						else if (relaxation == "NGLTD")
 						{
-							best = run_ngl(vrp, NG, pp.penalties, &iteration_log, nullptr, LB, time_limit);
+							best = run_ngltd(vrp, NG, pp.penalties, &iteration_log, nullptr, LB, time_limit);
 							best_cost = best.duration - sum<Vertex>(best.path, [&](Vertex v) { return pp.penalties[v]; });
 							if (epsilon_smaller(best_cost, 0.0)) R = {best};
 						}
 						
 						// Compute new LB.
-						if (best_cost + sum(pp.penalties) > LB)
+						if (best_cost + sum(pp.penalties) >= LB)
 						{
 							LB = best_cost + sum(pp.penalties);
 							penalties = pp.penalties;
@@ -257,18 +251,19 @@ int main(int argc, char** argv)
 				
 				clog << "Penalties: " << penalties << endl;
 				
-				if (dssr)
+				if (dssr && !found_opt)
 				{
-					clog << "Running DSSR to improve bounds." << endl;
-					CGExecutionLog dssr_log;
-					auto R = run_dssr(vrp, NG, penalties, &dssr_log, LB, time_limit - rolex.Peek());
+					clog << "Running DNA to improve bounds." << endl;
+					CGExecutionLog dna_log;
+					auto R = run_dna(vrp, rvrp, NG, rNG, penalties, &dna_log, LB, time_limit - rolex.Peek(), bidirectional);
 					if (R.duration != INFTY)
 					{
 						UB = R;
 						clog << "\tFound solution " << UB.path << " " << UB.duration << endl;
-						dssr_log.status = CGStatus::Optimum;
+						dna_log.status = CGStatus::Optimum;
+						found_opt = true;
 					}
-					output["DNA"] = dssr_log;
+					output["DNA"] = dna_log;
 				}
 				
 				// If optimum was not found, run exact algorithm.
@@ -278,7 +273,7 @@ int main(int argc, char** argv)
 					Bounding B(vrp, NG, penalties);
 					if (relaxation != "None")
 					{
-						Route R_NG = run_ngl(vrp, NG, penalties, &log_ngl, &B, LB, time_limit - rolex.Peek());
+						Route R_NG = run_ngltd(vrp, NG, penalties, &log_ngl, &B, LB, time_limit - rolex.Peek());
 						output["NGL-TD"] = log_ngl;
 						clog << "NGL-TD:   " << LB << "\t" << log_ngl.time << "\t" << log_ngl.processed_count << "\t"
 							 << log_ngl.enumerated_count << endl;
@@ -308,7 +303,6 @@ int main(int argc, char** argv)
 				clog << "\tt0: " << best.t0 << endl;
 				clog << "\tduration: " << best.duration << endl;
 				output["Best solution"] = VRPSolution(best.duration, {best});
-				output["status"] = "Optimum";
 			}
 			output["status"] = rolex.Peek() < time_limit ? "Optimum" : "TimeLimitReached";
 		}

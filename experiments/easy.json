@@ -8,7 +8,8 @@
       "objective": "makespan",
       "colgen": true,
       "relaxation": "NGLTI",
-      "dssr": true
+      "dssr": true,
+      "bidirectional": true
     },
     {
       "name": "duration",
@@ -17,7 +18,8 @@
       "objective": "duration",
       "colgen": true,
       "relaxation": "NGLTI",
-      "dssr": true
+      "dssr": true,
+      "bidirectional": true
     }
   ]
 }

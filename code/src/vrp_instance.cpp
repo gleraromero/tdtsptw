@@ -79,13 +79,6 @@ TimeUnit VRPInstance::MinimumTravelTime(Arc e, TimeUnit t0, TimeUnit tf) const
 		if (epsilon_bigger_equal(tau[v][w][j].domain.right,tf)) break;
 		++j;
 	}
-//	for (auto& p: tau[e.tail][e.head].Pieces())
-//	{
-//		if (epsilon_bigger(p.domain.left, tf)) break;
-//		if (p.domain.Intersects({t0, tf}))
-//			tmin = min(tmin, p.image.left);
-//		if (epsilon_bigger_equal(p.domain.right, tf)) break;
-//	}
 	return tmin;
 }
 

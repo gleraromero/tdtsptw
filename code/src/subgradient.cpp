@@ -46,7 +46,7 @@ vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, bool us
 		vector<Route> Routes;
 		if (!use_td_relaxation)
 		{
-			best = run_ngl(vrp, NG, lambda, &it_log, nullptr, LB, Duration::Max());
+			best = run_ngltd(vrp, NG, lambda, &it_log, nullptr, LB, Duration::Max());
 			best_LB = best.duration - sum<Vertex>(best.path, [&](Vertex v) { return lambda[v]; });
 			Routes = {best};
 		}

@@ -19,7 +19,7 @@
 
 namespace tdtsptw
 {
-struct State
+class State : public goc::Printable
 {
 public:
 	class Piece : public goc::Printable
@@ -27,12 +27,16 @@ public:
 	public:
 		double lb;
 		goc::LinearFunction f;
+		Piece* prev;
+		goc::Vertex v;
 		
-		Piece(double lb, const goc::LinearFunction& f);
+		Piece(double lb, const goc::LinearFunction& f, Piece* prev, goc::Vertex v);
 		
 		// Reduces domain of p2 if any prefix or suffix is dominated (this(x) <= p2(x)).
 		// If p2 is fully dominated the function returns true.
 		bool Dominate(Piece& p2);
+		
+		goc::GraphPath Path() const;
 		
 		virtual void Print(std::ostream& os) const;
 	};
@@ -42,6 +46,8 @@ public:
 	void Merge(std::vector<Piece>& P);
 	
 	void DominateBy(const State& s2);
+	
+	virtual void Print(std::ostream& os) const;
 	
 	std::vector<Piece> F;
 };
@@ -63,11 +69,11 @@ private:
 	std::vector<double> lambda;
 };
 
-goc::Route run_dssr(const VRPInstance& vrp, NGStructure& NG, const std::vector<double>& lambda, goc::CGExecutionLog* log, double& LB, goc::Duration time_limit);
+goc::Route run_dna(const VRPInstance& vrp, const VRPInstance& rvrp, NGStructure& NG, NGStructure& rNG, const std::vector<double>& lambda, goc::CGExecutionLog* log, double& LB, goc::Duration time_limit, bool bidirectional);
 
-goc::Route run_nglti(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda, goc::MLBExecutionLog* log, Bounding* B, double& LB, goc::Duration time_limit);
+goc::Route run_ngltd_bidirectional(const VRPInstance& vrp, const VRPInstance& rvrp, const NGStructure& NG, const NGStructure& rNG, const std::vector<double>& lambda, goc::BLBExecutionLog* blb_log, double& LB, goc::Duration time_limit);
 
-goc::Route run_ngl(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda, goc::MLBExecutionLog* log, Bounding* B, double& LB, goc::Duration time_limit);
+goc::Route run_ngltd(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda, goc::MLBExecutionLog* log, Bounding* B, double& LB, goc::Duration time_limit);
 
 goc::Route run_exact_piecewise(const VRPInstance& vrp, const goc::GraphPath& L, const std::vector<double>& lambda,
 						  double LB, double UB, goc::MLBExecutionLog* log, Bounding* B, goc::Duration time_limit);

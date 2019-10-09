@@ -1,5 +1,5 @@
 {
-  "datasets": [{"name": "cordeau_et_al_2014"}],
+  "datasets": [{"name": "cordeau_et_al_2014", "select": "!N15 !D75 !D85 !D95 !D98"}],
   "experiments": [
     {
       "name": "makespan",
@@ -8,7 +8,8 @@
       "objective": "makespan",
       "colgen": true,
       "relaxation": "NGLTI",
-      "dssr": true
+      "dssr": true,
+      "bidirectional": true
     }
   ]
 }
