@@ -234,7 +234,7 @@ int main(int argc, char** argv)
 						}
 						
 						// Compute new LB.
-						if (best_cost + sum(pp.penalties) <= LB)
+						if (best_cost + sum(pp.penalties) >= LB)
 						{
 							LB = best_cost + sum(pp.penalties);
 							penalties = pp.penalties;
@@ -265,7 +265,7 @@ int main(int argc, char** argv)
 				
 				bool found_opt = epsilon_equal(LB, UB.duration);
 				if (found_opt) clog << "Optimality was closed in CG" << endl;
-				
+
 				clog << "Penalties: " << penalties << endl;
 				
 				if (dssr && !found_opt)

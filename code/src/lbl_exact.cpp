@@ -305,7 +305,7 @@ Route run_dna(const VRPInstance& vrp, const VRPInstance& rvrp, NGStructure& NG, 
 			if (iteration_log.status == BLBStatus::TimeLimitReached) { log->status = CGStatus::TimeLimitReached; break; }
 		}
 		log->iteration_count++;
-		
+
 		// Find cycles.
 		auto& P = R.path;
 		vector<int> last(n, -1);
@@ -622,7 +622,6 @@ Route run_ngltd_bidirectional(const VRPInstance& fvrp, const VRPInstance& bvrp, 
 	}
 	blb_log->merge_time = rolex_merge.Peek();
 	blb_log->time = rolex_blb.Peek();
-	
 	LB = max(LB, min_cost + sum(lambda));
 	
 	return fvrp.BestDurationRoute(min_path);
