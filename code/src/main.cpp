@@ -110,7 +110,8 @@ int main(int argc, char** argv)
 		bool colgen = value_or_default(experiment, "colgen", true);
 		bool dssr = value_or_default(experiment, "dssr", false);
 		bool time_independent = value_or_default(experiment, "time_independent", false);
-		bool bidirectional = value_or_default(experiment, "bidirectional", false);
+		bool bidirectional_dna = value_or_default(experiment, "bidirectional_dna", false);
+		bool bidirectional_cg = value_or_default(experiment, "bidirectional_cg", false);
 
 		// Time-independentize instance.
 		if (time_independent)
@@ -124,7 +125,8 @@ int main(int argc, char** argv)
 		clog << "Relaxation: " << relaxation << endl;
 		clog << "Colgen: " << colgen << endl;
 		clog << "DSSR: " << dssr << endl;
-		clog << "Bidirectional: " << bidirectional << endl;
+		clog << "Bidirectional DNA: " << bidirectional_dna << endl;
+		clog << "Bidirectional CG: " << bidirectional_cg << endl;
 		
 		// Set departing time from depot equal to 0 if makespan objective.
 		if (objective == "makespan") instance["time_windows"][0] = Interval(0, 0);
@@ -191,30 +193,48 @@ int main(int argc, char** argv)
 													 Duration time_limit, CGExecutionLog* cg_execution_log) {
 						if (!colgen) return false;
 						auto pp = spf.InterpretDuals(duals);
-						MLBExecutionLog iteration_log(true);
 						Route best;
 						double best_cost;
-						vector<Route> R;
 						if (relaxation == "NGLTI2RES")
 						{
-							R = run_ngl2res(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
+							MLBExecutionLog iteration_log(true);
+							run_ngl2res(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
+							cg_execution_log->iterations->push_back(iteration_log);
 						}
 						else if (relaxation == "NGLTI")
 						{
-							run_nglti(vrp, NG, pp.penalties, UB.duration, best, best_cost, &iteration_log);
-//							BLBExecutionLog blb_log(true);
-//							bidirectional_run_nglti(vrp, rvrp, NG, rNG, pp.penalties, UB.duration, best, best_cost, &blb_log);
-							if (epsilon_smaller(best_cost, 0.0)) R = {best};
+							if (!bidirectional_cg)
+							{
+								MLBExecutionLog iteration_log(true);
+								run_nglti(vrp, NG, pp.penalties, UB.duration, best, best_cost, &iteration_log);
+								cg_execution_log->iterations->push_back(iteration_log);
+							}
+							else
+							{
+								BLBExecutionLog blb_log(true);
+								bidirectional_run_nglti(vrp, rvrp, NG, rNG, pp.penalties, UB.duration, best, best_cost, &blb_log);
+							}
 						}
 						else if (relaxation == "NGLTD")
 						{
-							best = run_ngltd(vrp, NG, pp.penalties, &iteration_log, nullptr, LB, time_limit);
-							best_cost = best.duration - sum<Vertex>(best.path, [&](Vertex v) { return pp.penalties[v]; });
-							if (epsilon_smaller(best_cost, 0.0)) R = {best};
+							if (!bidirectional_cg)
+							{
+								MLBExecutionLog iteration_log(true);
+								best = run_ngltd(vrp, NG, pp.penalties, &iteration_log, nullptr, LB, time_limit);
+								best_cost = best.duration - sum<Vertex>(best.path, [&](Vertex v) { return pp.penalties[v]; });
+								cg_execution_log->iterations->push_back(iteration_log);
+							}
+							else
+							{
+								BLBExecutionLog iteration_log(true);
+								best = run_ngltd_bidirectional(vrp, rvrp, NG, rNG, pp.penalties, &iteration_log, LB, time_limit);
+								best_cost = best.duration - sum<Vertex>(best.path, [&](Vertex v) { return pp.penalties[v]; });
+								cg_execution_log->iterations->push_back(iteration_log);
+							}
 						}
 						
 						// Compute new LB.
-						if (best_cost + sum(pp.penalties) >= LB)
+						if (best_cost + sum(pp.penalties) <= LB)
 						{
 							LB = best_cost + sum(pp.penalties);
 							penalties = pp.penalties;
@@ -229,12 +249,9 @@ int main(int argc, char** argv)
 						}
 						
 						// Add the best solution to the RMP if it is not a feasible solution (otherwise it was already added).
-						if (!R.empty()) spf.AddRoute(best);
-						
-						// Log iteration.
-						cg_execution_log->iterations->push_back(iteration_log);
+						if (epsilon_smaller(best_cost, 0.0)) spf.AddRoute(best);
 
-						return !R.empty();
+						return epsilon_smaller(best_cost, 0.0);
 					};
 					
 					// Run CG.
@@ -255,7 +272,7 @@ int main(int argc, char** argv)
 				{
 					clog << "Running DNA to improve bounds." << endl;
 					CGExecutionLog dna_log;
-					auto R = run_dna(vrp, rvrp, NG, rNG, penalties, &dna_log, LB, time_limit - rolex.Peek(), bidirectional);
+					auto R = run_dna(vrp, rvrp, NG, rNG, penalties, &dna_log, LB, time_limit - rolex.Peek(), bidirectional_dna);
 					if (R.duration != INFTY)
 					{
 						UB = R;

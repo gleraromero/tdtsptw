@@ -329,6 +329,8 @@ Route run_dna(const VRPInstance& vrp, const VRPInstance& rvrp, NGStructure& NG, 
 		// If no cycles were found, we have the optimum.
 		if (!found_cycles)
 		{
+			log->time = rolex.Peek();
+			log->incumbent_value = LB;
 			return R;
 		}
 		// If no breakable cycles are found, we must stop.
