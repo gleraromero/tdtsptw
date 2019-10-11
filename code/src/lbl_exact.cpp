@@ -279,7 +279,7 @@ void Bounding::Bound(goc::Vertex v, VertexSet S, State& Delta)
 Route run_dna(const VRPInstance& vrp, const VRPInstance& rvrp, NGStructure& NG, NGStructure& rNG, const vector<double>& lambda, CGExecutionLog* log, double& LB, Duration time_limit, bool bidirectional)
 {
 	int n = vrp.D.VertexCount();
-	int max_iter = 30;
+	int max_iter = 200;
 	int delta = 14;
 	Stopwatch rolex(true);
 	log->iteration_count = 0;
@@ -597,34 +597,37 @@ Route run_ngltd_bidirectional(const VRPInstance& fvrp, const VRPInstance& bvrp, 
 		else blb_log->backward_log = log;
 		if (rolex.Peek() >= time_limit) { blb_log->status = BLBStatus::TimeLimitReached; break; }
 	}
-	
-	// Merge.
-	Stopwatch rolex_merge(true);
-	Merger M(n, lambda, fNG.L);
-	int R = fNG.L.size();
-	double min_cost = INFTY;
-	for (int r = 0; r < R-1; ++r)
-		for (Vertex v: fvrp.D.Vertices())
-			for (auto& S: DS[0][nn[0]][r][v])
-				M.AddForward(S.first, S.second, v, r);
-	
-	GraphPath min_path;
-	for (int r = 0; r < R-1; ++r)
-		for (Vertex v: fvrp.D.Vertices())
-			for (auto& S: DS[1][nn[1]][r][v])
-				M.MergeBackward(S.first, S.second, v, r, min_cost, min_path);
-			
-	VertexSet NGSet;
-	for (auto& v: min_path)
+
+	if (blb_log->status != BLBStatus::TimeLimitReached)
 	{
-		NGSet = (NGSet & fNG.N[v]);
-		NGSet.set(v);
+		// Merge.
+		Stopwatch rolex_merge(true);
+		Merger M(n, lambda, fNG.L);
+		int R = fNG.L.size();
+		double min_cost = INFTY;
+		for (int r = 0; r < R - 1; ++r)
+			for (Vertex v: fvrp.D.Vertices())
+				for (auto &S: DS[0][nn[0]][r][v])
+					M.AddForward(S.first, S.second, v, r);
+
+		GraphPath min_path;
+		for (int r = 0; r < R - 1; ++r)
+			for (Vertex v: fvrp.D.Vertices())
+				for (auto &S: DS[1][nn[1]][r][v])
+					M.MergeBackward(S.first, S.second, v, r, min_cost, min_path);
+
+		VertexSet NGSet;
+		for (auto &v: min_path)
+		{
+			NGSet = (NGSet & fNG.N[v]);
+			NGSet.set(v);
+		}
+		blb_log->merge_time = rolex_merge.Peek();
+		blb_log->time = rolex_blb.Peek();
+		LB = max(LB, min_cost + sum(lambda));
+		return fvrp.BestDurationRoute(min_path);
 	}
-	blb_log->merge_time = rolex_merge.Peek();
-	blb_log->time = rolex_blb.Peek();
-	LB = max(LB, min_cost + sum(lambda));
-	
-	return fvrp.BestDurationRoute(min_path);
+	return Route({}, 0.0, INFTY);
 }
 
 Route run_ngltd(const VRPInstance& vrp, const NGStructure& NG, const vector<double>& lambda, MLBExecutionLog* log, Bounding* B, double& LB, Duration time_limit)
@@ -768,6 +771,8 @@ Route run_ngltd(const VRPInstance& vrp, const NGStructure& NG, const vector<doub
 	log->domination_time = rolex_domination.Peek();
 	log->queuing_time = rolex_queuing.Peek();
 	log->time = rolex.Peek();
+
+	if (log->status == MLBStatus::TimeLimitReached) return Route({}, 0.0, INFTY);
 	
 	LB = max(LB, opt_cost + sum(lambda));
 	return vrp.BestDurationRoute(opt_path);

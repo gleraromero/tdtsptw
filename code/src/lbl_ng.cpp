@@ -537,32 +537,39 @@ double run_nglti(const VRPInstance& vrp, const NGStructure& NG, const vector<dou
 						if (n-k-1 < vrp.suc_count[w]) continue;
 						if (w != NG.L[r + 1] && vrp.suc_count[NG.L[r + 1]] > n - k - 2) continue;
 						if (!NG.V[r].test(w)) continue;
-						double Ttimew = vrp.ArrivalTime({v,w}, Ttimel);
+						double a_w = NG.tw[k+1][w].left;
 						double b_w = NG.tw[k+1][w].right;
+						double Ttimew = max(a_w, vrp.ArrivalTime({v, w}, Ttimel));
 						if (epsilon_bigger(Ttimew, b_w)) continue;
 						vector<TIState::Piece> EXT;
 						int j = 0;
 						for (auto& p: Delta.L)
 						{
+							if (epsilon_bigger(p.l, vrp.tau[v][w].Domain().right)) continue;
 							double tt = INFTY;
+							double ll = INFTY;
 							while (j < vrp.tau[v][w].PieceCount())
 							{
+								if (epsilon_smaller(vrp.tau[v][w][j].domain.right, p.l)) { ++j; continue; }
 								if (epsilon_bigger(vrp.tau[v][w][j].domain.left, p.r)) break;
-								if (vrp.tau[v][w][j].domain.Intersects({p.l, p.r}))
+								if (vrp.tau[v][w][j].domain.Includes(p.l)) ll = p.l + vrp.tau[v][w][j](p.l);
+								if (epsilon_smaller_equal(p.l, vrp.tau[v][w][j].domain.left) && epsilon_bigger_equal(p.r, vrp.tau[v][w][j].domain.right))
+								{
 									tt = min(tt, vrp.tau[v][w][j].image.left);
+								}
+								else
+								{
+									double tl = max(vrp.tau[v][w][j].domain.left, p.l);
+									double tr = min(vrp.tau[v][w][j].domain.right, p.r);
+									tt = min(tt, vrp.tau[v][w][j](tl));
+									tt = min(tt, vrp.tau[v][w][j](tr));
+								}
 								if (epsilon_bigger_equal(vrp.tau[v][w][j].domain.right, p.r)) break;
 								++j;
 							}
-							if (epsilon_bigger(p.l + tt, b_w)) break;
-							double ll = max(p.l + tt, Ttimew);
-							double rr = min(max(p.r + tt, Ttimew), b_w);
-							if (!EXT.empty())
-							{
-								ll = max(ll, EXT.back().r);
-								rr = max(rr, EXT.back().r);
-							}
-							tt = max(tt, ll - p.r);
-							double cost = p.cost + (epsilon_equal(rr, Ttimew) ? Ttimew - min(p.r, b_w-tt) : tt) - lambda[w];
+							if (epsilon_bigger(ll, b_w)) break;
+							double rr = min(b_w, p.r + tt);
+							double cost = p.cost + tt - lambda[w];
 							if (!EXT.empty() && epsilon_smaller_equal(EXT.back().cost, cost) && epsilon_bigger_equal(EXT.back().r, rr)) continue;
 							if (w == vrp.d)
 							{

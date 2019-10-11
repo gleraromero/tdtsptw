@@ -2,53 +2,15 @@
   "datasets": [{"name":  "td-gendreau"}],
   "experiments": [
     {
-      "name": "None",
-      "executable": "main",
-      "time_limit": 3600,
-      "objective": "duration",
-      "colgen": false,
-      "dssr": false,
-      "relaxation": "None",
-      "time_independent": true
-    },
-    {
-      "name": "NGLTD",
-      "executable": "main",
-      "time_limit": 3600,
-      "objective": "duration",
-      "colgen": false,
-      "dssr": false,
-      "relaxation": "NGLTD",
-      "time_independent": true
-    },
-    {
-      "name": "CG-NGLTI2RES-DNA",
+      "name": "duration",
       "executable": "main",
       "time_limit": 3600,
       "objective": "duration",
       "colgen": true,
-      "dssr": true,
-      "relaxation": "NGLTI2RES",
-      "time_independent": true
-    },
-    {
-      "name": "CG-NGLTI-DNA",
-      "executable": "main",
-      "time_limit": 3600,
-      "objective": "duration",
-      "colgen": true,
-      "dssr": true,
       "relaxation": "NGLTI",
-      "time_independent": true
-    },
-    {
-      "name": "CG-NGLTD-DNA",
-      "executable": "main",
-      "time_limit": 3600,
-      "objective": "duration",
-      "colgen": true,
       "dssr": true,
-      "relaxation": "NGLTD",
+      "bidirectional_cg": false,
+      "bidirectional_dna": true,
       "time_independent": true
     }
   ]

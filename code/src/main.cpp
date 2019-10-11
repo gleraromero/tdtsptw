@@ -272,7 +272,7 @@ int main(int argc, char** argv)
 				{
 					clog << "Running DNA to improve bounds." << endl;
 					CGExecutionLog dna_log;
-					auto R = run_dna(vrp, rvrp, NG, rNG, penalties, &dna_log, LB, time_limit - rolex.Peek(), bidirectional_dna);
+					auto R = run_dna(vrp, rvrp, NG, rNG, penalties, &dna_log, LB, 200.0_sec, bidirectional_dna);
 					if (R.duration != INFTY)
 					{
 						UB = R;
