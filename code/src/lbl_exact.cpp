@@ -95,7 +95,7 @@ void State::Piece::Print(ostream& os) const
 	os << f;
 }
 
-void State::Merge(vector<Piece>& P)
+bool State::Merge(vector<Piece>& P)
 {
 	auto P1 = F;
 	auto& P2 = P;
@@ -104,6 +104,7 @@ void State::Merge(vector<Piece>& P)
 	// Sweep pieces.
 	int i = 0, j = 0;
 	int k = 0;
+	bool any_p2 = false;
 	while (i < P1.size() && j < P2.size())
 	{
 		if (k++ > 10000)
@@ -131,6 +132,7 @@ void State::Merge(vector<Piece>& P)
 		}
 		else
 		{
+			any_p2 = true;
 			if (epsilon_smaller_equal(max(dom(P2[j].f)), min(dom(P1[i].f))))
 			{
 				F.push_back(P2[j]);
@@ -143,9 +145,11 @@ void State::Merge(vector<Piece>& P)
 			}
 		}
 	}
+	any_p2 |= j < P2.size();
 	// Add remaining pieces.
 	F.insert(F.end(), P1.begin()+i, P1.end());
 	F.insert(F.end(), P2.begin()+j, P2.end());
+	return any_p2;
 }
 	
 void State::DominateBy(const State& s2)
@@ -788,7 +792,7 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 	auto D = vector<vector<spp::sparse_hash_map<VertexSet, State>>>(n, vector<spp::sparse_hash_map<VertexSet, State>>(n));
 	double OPT_end = INFTY, OPT_dur = INFTY;
 
-	Stopwatch rolex(true), rolex_domination(false), rolex_extension(false), rolex_bounding(false);
+	Stopwatch rolex(true), rolex_domination(false), rolex_extension(false), rolex_bounding(false), rolex_queuing(false);
 	stretch_to_size(*log->count_by_length, n+1, 0);
 	log->status = MLBStatus::Finished;
 	
@@ -818,12 +822,12 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 					rolex_extension.Pause();
 					rolex_bounding.Resume();
 					if (B) B->Bound(v, S, Delta);
-					int next_lb = TOP;
+					int next_lb = TOP-BASE+1;
 					for (auto& p: Delta.F)
 					{
 						if (epsilon_bigger_equal(p.lb, UB)) continue;
 						if (p.lb == -INFTY) continue;
-						if (epsilon_smaller_equal(floor(p.lb), lb + BASE) || !B)
+						if (epsilon_equal((int)floor(p.lb+EPS), lb + BASE) || !B)
 						{
 							log->enumerated_count++;
 							EXT.push_back(p.f);
@@ -831,10 +835,16 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 						}
 						else
 						{
-							next_lb = min(next_lb, (int)floor(p.lb)-BASE);
+							next_lb = min(next_lb, (int)floor(p.lb+EPS)-BASE);
+						}
+						if (epsilon_smaller(floor(p.lb+EPS), lb + BASE) && p.lb != -INFTY)
+						{
+							clog.precision(17);
+							clog << p.lb+EPS << " " << lb + BASE << endl;
+							fail("NOOO");
 						}
 					}
-					if (next_lb < UB) q[next_lb][k][v].insert(S);
+					if (next_lb <= TOP-BASE) q[next_lb][k][v].insert(S);
 					rolex_bounding.Pause();
 					if (EXT.empty()) continue;
 					rolex_extension.Resume();
@@ -900,10 +910,14 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 						if (!EXT_P.empty())
 						{
 							rolex_extension.Pause();
-							rolex_domination.Resume();
-							D[k+1][w].insert({S_w, State()}).first->second.Merge(EXT_P);
-							q[lb][k+1][w].insert(S_w);
-							rolex_domination.Pause();
+							rolex_queuing.Resume();
+							*log->positive_domination_time += 1.0_sec;
+							if (D[k + 1][w].insert({S_w, State()}).first->second.Merge(EXT_P))
+							{
+								q[lb][k + 1][w].insert(S_w);
+								*log->negative_domination_time += 1.0_sec;
+							}
+							rolex_queuing.Pause();
 							rolex_extension.Resume();
 						}
 					}
@@ -919,6 +933,7 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 	log->extension_time = rolex_extension.Peek();
 	log->bounding_time = rolex_bounding.Peek();
 	log->domination_time = rolex_domination.Peek();
+	log->queuing_time = rolex_queuing.Peek();
 	log->time = rolex.Peek();
 	
 	if (log->status == MLBStatus::Finished)

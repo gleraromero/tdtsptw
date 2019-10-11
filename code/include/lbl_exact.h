@@ -43,7 +43,7 @@ public:
 	
 	// Merges pieces in F with pieces with P, preserving pieces in F when matches occur.
 	// Precondition: pieces in P are disjunt and sorted by domain.
-	void Merge(std::vector<Piece>& P);
+	bool Merge(std::vector<Piece>& P);
 	
 	void DominateBy(const State& s2);
 	
