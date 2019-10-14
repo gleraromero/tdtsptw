@@ -2,7 +2,7 @@
   "datasets": [{"name":  "td-gendreau"}],
   "experiments": [
     {
-      "name": "duration",
+      "name": "CG-NGLTI-DNA-BD",
       "executable": "main",
       "time_limit": 3600,
       "objective": "duration",

@@ -2,7 +2,7 @@
   "datasets": [{"name":  "td-ascheuer"}],
   "experiments": [
     {
-      "name": "CG-NGLTI-DNA",
+      "name": "CG-NGLTI-DNA-BD",
       "executable": "main",
       "time_limit": 3600,
       "objective": "duration",

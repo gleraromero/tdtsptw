@@ -1,8 +1,8 @@
 {
-  "datasets": [{"name": "cordeau_et_al_2014", "select": "N40 !D75 !D85 !D95 !D98"}],
+  "datasets": [{"name": "cordeau_et_al_2014", "select": "!D75 !D85 !D95 !D98"}],
   "experiments": [
     {
-      "name": "makespan",
+      "name": "CG-NGLTI-DNA-BD",
       "executable": "main",
       "time_limit": 3600,
       "objective": "makespan",
