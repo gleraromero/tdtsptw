@@ -14,6 +14,7 @@
 
 #include "vrp_instance.h"
 #include "lbl_ng.h"
+#include "spf.h"
 
 namespace tdtsptw
 {
@@ -25,7 +26,9 @@ namespace tdtsptw
 // @param [in/out] UB: upper bound on the duration of the optimal route.
 // @param [out] log: output log to save the execution information.
 // @returns the set of optimal routes for each iteration.
-std::vector<goc::Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, bool use_td_relaxation, int max_iter, goc::Route& UB, double& LB, std::vector<double>& penalties, goc::CGExecutionLog* log);
+std::vector<goc::Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, const std::string& relaxation, int max_iter, goc::Route& UB, double& LB, std::vector<double>& penalties, goc::CGExecutionLog* log);
+
+void dual_ascent(const VRPInstance& vrp, const NGStructure& NG, int max_iter, goc::Route& UB, double& LB, std::vector<double>& penalties, goc::CGExecutionLog* log);
 } // namespace tdtsptw
 
 #endif //TDTSPTW_SUBGRADIENT_H

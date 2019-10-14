@@ -167,7 +167,7 @@ int main(int argc, char** argv)
 			Stopwatch rolex(true);
 			vector<Route> sg_routes;
 //			CGExecutionLog subgradient_log;
-//			sg_routes = subgradient(vrp, NG, relaxation == "NGL", 10, UB, LB, penalties, &subgradient_log);
+//			sg_routes = subgradient(vrp, NG, relaxation, 20, UB, LB, penalties, &subgradient_log);
 //			output["Subgradient"] = subgradient_log;
 			
 			// Solve CG to obtain best penalties.
