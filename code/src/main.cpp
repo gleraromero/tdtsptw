@@ -280,6 +280,7 @@ int main(int argc, char** argv)
 						dna_log.status = CGStatus::Optimum;
 						found_opt = true;
 					}
+					clog << "Finished DNA in " << dna_log.time << "s, with LB: " << LB << endl;
 					output["DNA"] = dna_log;
 				}
 				

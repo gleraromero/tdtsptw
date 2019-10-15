@@ -273,7 +273,7 @@ void Bounding::Bound(goc::Vertex v, VertexSet S, State& Delta)
 				double t0 = max(min(dom(p_i)), min(dom(p_j)));
 				double t1 = min(max(dom(p_i)), max(dom(p_j)));
 				Delta.F[i].lb = min(Delta.F[i].lb, min(p_i(t0)+p_j(t0), p_i(t1)+p_j(t1)));
-				if (epsilon_smaller(max(dom(p_i)), max(dom(p_j)))) ++i;
+				if (epsilon_smaller_equal(max(dom(p_i)), max(dom(p_j)))) ++i;
 				else ++j;
 			}
 		}
@@ -841,7 +841,7 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 						{
 							clog.precision(17);
 							clog << p.lb+EPS << " " << lb + BASE << endl;
-							fail("NOOO");
+							fail("Bounds are not increasing.");
 						}
 					}
 					if (next_lb <= TOP-BASE) q[next_lb][k][v].insert(S);
