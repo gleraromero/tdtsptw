@@ -441,7 +441,7 @@ struct Merger
 						Pb = reverse(Pb);
 						min_path.insert(min_path.end(), Pb.begin(), Pb.end());
 					}
-					if (epsilon_smaller(max(dom(p_i)), max(dom(p_j)))) ++i;
+					if (epsilon_smaller_equal(max(dom(p_i)), max(dom(p_j)))) ++i;
 					else ++j;
 				}
 			}
