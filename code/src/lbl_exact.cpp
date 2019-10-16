@@ -147,8 +147,8 @@ bool State::Merge(vector<Piece>& P)
 	}
 	any_p2 |= j < P2.size();
 	// Add remaining pieces.
-	F.insert(F.end(), P1.begin()+i, P1.end());
-	F.insert(F.end(), P2.begin()+j, P2.end());
+	for (; i < P1.size(); ++i) F.push_back(P1[i]);
+	for (; j < P2.size(); ++j) F.push_back(P2[j]);
 	return any_p2;
 }
 	
@@ -197,7 +197,7 @@ void State::DominateBy(const State& s2)
 		}
 	}
 	// Add remaining pieces.
-	F.insert(F.end(), P2.begin()+j, P2.end());
+	for (; j < P2.size(); ++j) F.push_back(P2[j]);
 }
 
 void State::Print(ostream& os) const

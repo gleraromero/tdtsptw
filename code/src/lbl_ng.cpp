@@ -179,8 +179,11 @@ NGStructure::NGStructure(const VRPInstance& vrp, const std::vector<VertexSet>& N
 
 void NGStructure::AdjustTimeWindows(const VRPInstance& vrp)
 {
+	// tw[k][v] should be the interval where a route of length k can arrive at vertex v.
 	int n = vrp.D.VertexCount();
 	tw = Matrix<Interval>(n+1, n);
+	
+	// Trivial implementation, tw[k][v] = tw[v].
 	for (int k = 1; k <= n; ++k)
 		for (Vertex v: vrp.D.Vertices())
 			tw[k][v] = vrp.tw[v];

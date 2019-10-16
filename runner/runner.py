@@ -75,6 +75,7 @@ arg_parser.add_argument("--instances", "-I", nargs="*", help="Only execute exper
 arg_parser.add_argument("--exps", "-E", nargs="*", help="Only execute selected experiment(s) (with these names).")
 arg_parser.add_argument("--callgrind", "-C", help="Runs the experiment(s) using callgrind.", action="store_true")
 arg_parser.add_argument("--valgrind", "-V", help="Runs the experiment(s) using valgrind.", action="store_true")
+arg_parser.add_argument("--heaptrack", "-H", help="Runs the experiment(s) using heaptrack.", action="store_true")
 arg_parser.add_argument("--memlimit", "-M", help="Sets a memory limit in GB (default 15GB).", default=15.0)
 arg_parser.add_argument("--silent", "-S", help="Do not print the stderr stream of the experiments to the screen.", action="store_true")
 
@@ -85,6 +86,7 @@ selected_instances = args["instances"]
 selected_experiments = args["exps"]
 use_callgrind = args["callgrind"]
 use_valgrind = args["valgrind"]
+use_heaptrack = args["heaptrack"]
 memlimit_gb = float(args["memlimit"])
 silent = args["silent"]
 
@@ -157,6 +159,7 @@ def run_experiment(experiment, instance, solutions):
 	executable = [executable_path]
 	if use_valgrind: executable = ["valgrind", "--track-origins=yes", executable_path]
 	elif use_callgrind: executable = ["valgrind", "--tool=callgrind", executable_path]
+	elif use_heaptrack: executable = ["heaptrack", executable_path]
 
 	# Execute experiment.
 	result = run_program(executable, F"{json.dumps(experiment)}{json.dumps(instance)}{json.dumps(solutions)}", memlimit_gb, silent)
