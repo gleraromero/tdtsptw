@@ -27,6 +27,7 @@ for file_name in instance_files:
 	b = []
 	x = []
 	y = []
+	p = []
 	n = int(lines[0])
 	for i in range(1, n+1):
 		line = [text for text in lines[i].replace("\t", " ").split(" ") if text != '']
@@ -34,14 +35,16 @@ for file_name in instance_files:
 		y.append(float(line[2]))
 		a.append(float(line[4]))
 		b.append(float(line[5]))
+		p.append(float(line[6]))
 	x.append(x[0])
 	y.append(y[0])
 	a.append(a[0])
 	b.append(b[0])
+	p.append(p[0])
 
-	T = b[0]
+	T = b[0] * 100.0
 	speed_zones = [[0.0, 0.2*T], [0.2*T,0.3*T], [0.3*T, 0.7*T], [0.7*T,0.8*T], [0.8*T, T]]
-
+	T = b[0]
 	n = len(x)
 	I = {
 		"digraph": {
@@ -61,6 +64,19 @@ for file_name in instance_files:
 		"end_depot": n-1,
 		"horizon": [0.0, T]
 	}
+	# Add process times to distances.
+	for i in range(0, n):
+		for j in range(0, n):
+			I["distances"][i][j] += p[i]
+
+	# Multiply all values by 100.00
+	for i in range(0, n):
+		I["time_windows"][i][0] = I["time_windows"][i][0] * 100.0
+		I["time_windows"][i][1] = I["time_windows"][i][1] * 100.0
+		I["horizon"][0] = 0.0
+		I["horizon"][1] = b[0] * 100.0
+		for j in range(0, n):
+			I["distances"][i][j] = I["distances"][i][j] * 100.0
 
 	# Truncate distances and modify them to satisfy triangle inequality.
 	for i in range(0, n):
