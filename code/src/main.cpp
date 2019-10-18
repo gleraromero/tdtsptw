@@ -112,6 +112,7 @@ int main(int argc, char** argv)
 		bool time_independent = value_or_default(experiment, "time_independent", false);
 		bool bidirectional_dna = value_or_default(experiment, "bidirectional_dna", false);
 		bool bidirectional_cg = value_or_default(experiment, "bidirectional_cg", false);
+		bool tilk_ub = value_or_default(experiment, "tilk_ub", false);
 
 		// Time-independentize instance.
 		if (time_independent)
@@ -141,11 +142,31 @@ int main(int argc, char** argv)
 		clog << "Parsing instance..." << endl;
 		VRPInstance vrp = instance;
 		
-		// Get UB.
+		// Parse initial UB.
+		Route UB;
+		const string INIT_UB_TAG = tilk_ub ? "INIT_TILK" : "INIT_UB";
+		for (auto& solution: solutions)
+		{
+			set<string> tags = solution["tags"];
+			if (includes(tags, INIT_UB_TAG))
+				UB = vrp.BestDurationRoute(solution["routes"][0]["path"]);
+		}
+//		vector<Vertex> P = {vrp.o};
+//		UB = initial_heuristic(vrp, P, create_bitset<MAX_N>({vrp.o}), vrp.tw[vrp.o].left);
+//		UB.duration = vrp.ReadyTime(UB.path);
+//		UB.t0 = 0.0;
+////		solutions[0]["routes"][0] = UB;
+//		json bla;
+//		bla["instance_name"] = instance["instance_name"];
+//		bla["routes"] = vector<json>();
+//		bla["routes"].push_back(UB);
+//		bla["tags"] = vector<json>();
+//		bla["tags"].push_back("INIT_UB");
+//		clog << bla << endl;
+//		exit(0);
+		
 		double LB = 0.0;
-		vector<Vertex> P = {vrp.o};
-		Route UB = initial_heuristic(vrp, P, create_bitset<MAX_N>({vrp.o}), vrp.tw[vrp.o].left);
-		if (UB.duration == INFTY)
+		if (UB.path.empty())
 		{
 			output["status"] = "Infeasible";
 			clog << "Infeasible" << endl;
