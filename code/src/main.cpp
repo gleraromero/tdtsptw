@@ -152,19 +152,19 @@ int main(int argc, char** argv)
 				UB = tilk_ub ? (Route)solution["routes"][0] : vrp.BestDurationRoute(solution["routes"][0]["path"]);
 		}
 		
-		if (experiment["name"] != "None") return 0;
-		vector<Vertex> P = {vrp.o};
-		UB = initial_heuristic(vrp, P, create_bitset<MAX_N>({vrp.o}), vrp.tw[vrp.o].left);
-		UB.duration = vrp.ReadyTime(UB.path);
-		UB.t0 = 0.0;
-		json bla;
-		bla["instance_name"] = instance["instance_name"];
-		bla["routes"] = vector<json>();
-		bla["routes"].push_back(UB);
-		bla["tags"] = vector<json>();
-		bla["tags"].push_back("INIT_UB");
-		clog << bla << endl;
-		exit(0);
+//		if (experiment["name"] != "None") return 0;
+//		vector<Vertex> P = {vrp.o};
+//		UB = initial_heuristic(vrp, P, create_bitset<MAX_N>({vrp.o}), vrp.tw[vrp.o].left);
+//		UB.duration = vrp.ReadyTime(UB.path);
+//		UB.t0 = 0.0;
+//		json bla;
+//		bla["instance_name"] = instance["instance_name"];
+//		bla["routes"] = vector<json>();
+//		bla["routes"].push_back(UB);
+//		bla["tags"] = vector<json>();
+//		bla["tags"].push_back("INIT_UB");
+//		clog << bla << endl;
+//		exit(0);
 		
 		double LB = 0.0;
 		if (UB.path.empty())
