@@ -152,9 +152,10 @@ int main(int argc, char** argv)
 				UB = time_independent ? (Route)solution["routes"][0] : vrp.BestDurationRoute(solution["routes"][0]["path"]);
 		}
 		
-//		vector<Vertex> P = {vrp.o};
-//		UB = initial_heuristic(vrp, P, create_bitset<MAX_N>({vrp.o}), vrp.tw[vrp.o].left);
-	
+		LPExecutionLog ub_log;
+		ub_log.incumbent_value = UB.duration;
+		output["Initial UB"] = ub_log;
+		
 		double LB = 0.0;
 		if (UB.path.empty())
 		{

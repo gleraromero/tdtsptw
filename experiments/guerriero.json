@@ -9,7 +9,7 @@
       "colgen": true,
       "relaxation": "NGLTI",
       "dssr": true,
-      "bidirectional": true
+      "bidirectional_dna": true
     },
     {
       "name": "duration",
@@ -19,7 +19,7 @@
       "colgen": true,
       "relaxation": "NGLTI",
       "dssr": true,
-      "bidirectional": true
+      "bidirectional_dna": true
     }
   ]
 }

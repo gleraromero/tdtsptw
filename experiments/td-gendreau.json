@@ -1,14 +1,15 @@
 {
-  "datasets": [{"name":  "guerriero_et_al_2014b", "select": "W25"}],
+  "datasets": [{"name":  "td-gendreau"}],
   "experiments": [
     {
-      "name": "CG-NGLTI-DNA",
+      "name": "CG-NGLTI-DNA-BD",
       "executable": "main",
       "time_limit": 3600,
-      "objective": "makespan",
+      "objective": "duration",
       "colgen": true,
-      "dssr": true,
       "relaxation": "NGLTI",
+      "dssr": true,
+      "bidirectional_cg": false,
       "bidirectional_dna": true
     }
   ]

@@ -1,0 +1,16 @@
+{
+  "datasets": [{"name":  "td-ascheuer"}],
+  "experiments": [
+    {
+      "name": "CG-NGLTI-DNA-BD",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "duration",
+      "colgen": true,
+      "dssr": true,
+      "relaxation": "NGLTI",
+      "bidirectional_dna": true,
+      "bidirectional_cg": false
+    }
+  ]
+}
