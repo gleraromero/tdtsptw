@@ -11,8 +11,7 @@
       "dssr": true,
       "bidirectional_cg": false,
       "bidirectional_dna": true,
-      "time_independent": true,
-      "tilk_ub": true
+      "time_independent": true
     }
   ]
 }
