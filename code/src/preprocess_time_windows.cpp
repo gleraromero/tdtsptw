@@ -134,7 +134,7 @@ void preprocess_time_windows(json& instance)
 		{
 			double max_EAT = -INFTY;
 			for (Vertex i: BEFORE[k]) max_EAT = max(max_EAT, EAT[i][k]);
-			set_a(k, max(a(k), max_EAT));
+			set_a(k, max(a(k), min(b(k), max_EAT)));
 		}
 		
 		// Rule 3: (3.14a) 	Upper bound adjustment derived from the latest departure time from node k to its successors,
