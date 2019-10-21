@@ -11,7 +11,8 @@
       "relaxation": "NGLTI",
       "time_independent": true,
       "bidirectional_dna": true,
-      "bidirectional_cg": false
+      "bidirectional_cg": false,
+      "tilk_ub": true
     }
   ]
 }
