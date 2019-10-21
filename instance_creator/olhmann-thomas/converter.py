@@ -66,12 +66,24 @@ for file_name in instance_files:
 	# Truncate distances and modify them to satisfy triangle inequality.
 	for i in range(0, n):
 		for j in range(0, n):
-			I["distances"][i][j] = math.floor(I["distances"][i][j])
+			I["distances"][i][j] = math.floor(I["distances"][i][j] * 10.0) / 10.0
 	for i in range(0, n):
 		for j in range(0, n):
 			for k in range(0, n):
 				if I["distances"][i][j] > I["distances"][i][k] + I["distances"][k][j]:
 					I["distances"][i][j] = I["distances"][i][k] + I["distances"][k][j]
+
+	for i in range(0, n):
+		I["time_windows"][i][0] = I["time_windows"][i][0] * 10.0
+		I["time_windows"][i][1] = I["time_windows"][i][1] * 10.0
+		I["horizon"][0] = I["horizon"][0] * 10.0
+		I["horizon"][1] = I["horizon"][1] * 10.0
+	for i in range(0, n):
+		for j in range(0, n):
+			I["distances"][i][j] = I["distances"][i][j] * 10.0
+	for i in range(0, zone_count):
+		I["speed_zones"][i][0] = I["speed_zones"][i][0] * 10.0
+		I["speed_zones"][i][1] = I["speed_zones"][i][1] * 10.0
 
 	instance_name = file_name.replace(".txt", "")
 	with open(F"output/{instance_name}.json", "w") as ff:
