@@ -133,6 +133,7 @@ int main(int argc, char** argv)
 		if (objective == "makespan") instance["time_windows"][0] = Interval(0, 0);
 		
 		// Preprocess instance JSON.
+		clog << "Preprocessing instance..." << endl;
 		preprocess_travel_times(instance);
 		preprocess_waiting_times(instance);
 		preprocess_time_windows(instance);
@@ -177,10 +178,11 @@ int main(int argc, char** argv)
 
 			// Run subgradient.
 			Stopwatch rolex(true);
+			clog << "Running initial NG with penalties 0" << endl;
 			vector<Route> sg_routes;
-//			CGExecutionLog subgradient_log;
-//			sg_routes = subgradient(vrp, NG, relaxation, 20, UB, LB, penalties, &subgradient_log);
-//			output["Subgradient"] = subgradient_log;
+			CGExecutionLog subgradient_log;
+			sg_routes = subgradient(vrp, NG, relaxation, 20, UB, LB, penalties, &subgradient_log);
+			output["Initial NG"] = subgradient_log;
 			
 			// Solve CG to obtain best penalties.
 			if (epsilon_smaller(LB, UB.duration))
@@ -190,6 +192,7 @@ int main(int argc, char** argv)
 					clog << "Running CG algorithm..." << endl;
 					// Initialize SPF.
 					SPF spf(vrp.D.VertexCount());
+					UB.duration = 1000000.0;
 					spf.AddRoute(UB);
 					for (auto& r: sg_routes) spf.AddRoute(r);
 					

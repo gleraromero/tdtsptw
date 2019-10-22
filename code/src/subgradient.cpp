@@ -19,7 +19,7 @@ vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, const s
 	log->iteration_count = 0;
 	log->iterations = vector<json>();
 	Stopwatch rolex(true);
-	for (int t = 0; t < max_iter; ++t)
+	for (int t = 0; t < 1; ++t)
 	{
 		clog << "Iteration " << (t + 1) << endl;
 		// Run NG pricing problem.
@@ -57,7 +57,7 @@ vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, const s
 
 		if (epsilon_equal(LB, UB.duration))
 		{
-			clog << "\tOptimality gap closed in Subgradient Algorithm." << endl;
+			clog << "\tOptimality gap closed in Initial NG." << endl;
 			return {};
 		}
 
@@ -66,7 +66,7 @@ vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, const s
 		for (Vertex v: r.path) delta[v]++;
 		if (all_of(r.path.begin(), r.path.end(), [&](Vertex v) { return delta[v] == 1; }))
 		{
-			clog << "\tFound elementary route in Subgradient Algorithm." << endl;
+			clog << "\tFound elementary route in Initial NG." << endl;
 			break;
 		}
 
@@ -75,14 +75,13 @@ vector<Route> subgradient(const VRPInstance& vrp, const NGStructure& NG, const s
 		double step_size = (0.2 * LB_r) / norm_square_gk;
 		for (Vertex j: vrp.D.Vertices()) lambda[j] += step_size * (delta[j] - 1.0);
 		route_set[r.path] = r;
-		clog << "New lambda: " << lambda << endl;
 	}
-	clog << "LB subgradient: " << LB << endl;
+	clog << "LB initial NG: " << LB << endl;
 	log->incumbent_value = LB;
 	log->time = rolex.Peek();
 	log->status = CGStatus::Optimum;
 	vector<Route> r;
-	for (auto &route: route_set) r.push_back(route.second);
+//	for (auto &route: route_set) r.push_back(route.second);
 	return r;
 }
 } // namespace tdtsptw
