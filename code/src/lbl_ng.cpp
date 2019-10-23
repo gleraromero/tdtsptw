@@ -181,14 +181,131 @@ void NGStructure::AdjustTimeWindows(const VRPInstance& vrp)
 {
 	// tw[k][v] should be the interval where a route of length k can arrive at vertex v.
 	int n = vrp.D.VertexCount();
+	
+	// Calculate time_prec and time_succ.
+	Matrix<pair<double, int> > time_prec(n, n+1); // time_prec[i][k] = max { t : |{j : LDT(i, j) <= t}| < k }.
+	Matrix<pair<double, int> > time_succ(n, n+1); // time_succ[i][k] = min { t : |{j : EAT(j, i) >= t}| < k }.
+	
+	// Compute LDT times for the predecesors.
+	for (Vertex i : vrp.D.Vertices())
+	{
+		vector<pair<double, Vertex> > limit_times;
+		for (Vertex k : vrp.D.Vertices())
+		{
+			if (k == i) continue;
+			
+			limit_times.push_back(pair<double, Vertex>(vrp.LDT(i,k), k));
+		}
+		sort(limit_times.begin(), limit_times.end());
+		
+		for (int k = 1; k < n; k++)
+		{
+			time_prec[i][k] = pair<double, Vertex>(limit_times[k-1].first, limit_times[k-1].second);
+		}
+		time_prec[i][n] = {i == vrp.d ? vrp.b[i] : -INFTY, i};
+	}
+	
+	// Compute EAT times for the successors
+	for (Vertex i : vrp.D.Vertices())
+	{
+		vector<pair<double, Vertex> > limit_times;
+		for (Vertex k : vrp.D.Vertices())
+		{
+			if (k == i) continue;
+			
+			limit_times.push_back(pair<double, Vertex>(vrp.EAT(k,i), k));
+		}
+		
+		sort(limit_times.begin(), limit_times.end(), std::greater<>());
+		
+		for (int k = 1; k < n; k++)
+		{
+			time_succ[i][n-k+1] = pair<double, Vertex>(limit_times[k-1].first, limit_times[k-1].second);
+		}
+		time_succ[i][1] = {i == vrp.o ? vrp.a[i] : INFTY, i};
+	}
+	
 	tw = Matrix<Interval>(n+1, n);
 	
 	// Trivial implementation, tw[k][v] = tw[v].
+	bool active = true;
 	for (int k = 1; k <= n; ++k)
-		for (Vertex v: vrp.D.Vertices()) {
-			tw[k][v] = vrp.tw[v];
-			//tw[k][v] = Interval(vrp.tw[v].left - EPS, vrp.time_prec[v][k].first - EPS);
+	{
+		for (Vertex v: vrp.D.Vertices())
+		{
+			tw[k][v] = Interval(time_succ[v][k].first, time_prec[v][k].first);
+			if (!active) tw[k][v] = vrp.tw[v];
 		}
+	}
+	
+	// Checker.
+	if (active)
+	{
+		clog << "Checking validity of predecessors and succesors" << endl;
+		for (Vertex v: vrp.D.Vertices())
+		{
+			for (int k = 1; k <= n; ++k)
+			{
+				double t_max = vrp.b[v];
+				for (int t = vrp.a[v]; t <= vrp.b[v]; ++t)
+				{
+					int prec = 0;
+					for (int j = 0; j < n; ++j)
+					{
+						if (j == v) continue;
+						if (epsilon_smaller(vrp.LDT[v][j], t)) prec++;
+					}
+					if (prec >= k)
+					{
+						t_max = t - 1;
+						break;
+					}
+				}
+				if (t_max == vrp.a[v] - 1) t_max = -INFTY;
+				if (k == n) t_max = v == vrp.d ? vrp.b[v] : -INFTY;
+				
+				if (t_max != tw[k][v].right)
+				{
+					clog << vrp.tw[v] << endl;
+					clog << vrp.LDT[v] << endl;
+					clog << v << " " << k << " " << t_max << " " << tw[k][v].right << endl;
+					fail("Checker predecesors failed.");
+				}
+			}
+		}
+		
+		// Checker.
+		for (Vertex v: vrp.D.Vertices())
+		{
+			for (int k = 1; k <= n; ++k)
+			{
+				double t_min = vrp.a[v];
+				for (int t = vrp.b[v]; t >= vrp.a[v]; --t)
+				{
+					int succ = 0;
+					for (int j = 0; j < n; ++j)
+					{
+						if (j == v) continue;
+						if (epsilon_bigger(vrp.EAT[j][v], t)) succ++;
+					}
+					if (succ > n - k)
+					{
+						t_min = t + 1;
+						break;
+					}
+				}
+				if (t_min == vrp.b[v] + 1) t_min = INFTY;
+				if (k == 1) t_min = v == vrp.o ? vrp.a[v] : INFTY;
+				
+				if (t_min != tw[k][v].left)
+				{
+					clog << vrp.tw[v] << endl;
+					clog << v << " " << k << " " << t_min << " " << tw[k][v].left << endl;
+					fail("Checker successors failed.");
+				}
+			}
+		}
+	}
 }
 
 NGLabel::NGLabel(NGLabel* prev, Vertex v, int S, double Ttime, double Tdur, double Thelp, double lambda) : prev(prev), v(v), S(S), Ttime(Ttime), Tdur(Tdur), Thelp(Thelp), lambda(lambda)

@@ -61,6 +61,14 @@ VRPInstance reverse_instance(const VRPInstance& vrp)
 			rev.LDT[v][w] = -vrp.EAT[w][v];
 		}
 	}
+	for (int i = 0; i < vrp.D.VertexCount(); ++i)
+	{
+		for (int j = 0; j < vrp.D.VertexCount(); ++j)
+		{
+			rev.LDT[i][j] = min(rev.LDT[i][j], rev.b[i]);
+			rev.EAT[i][j] = min(rev.EAT[i][j], rev.a[j]);
+		}
+	}
 	rev.arr = rev.tau = rev.dep = rev.pretau = Matrix<PWLFunction>(n, n);
 	for (Vertex u: vrp.D.Vertices())
 	{
@@ -91,7 +99,7 @@ int main(int argc, char** argv)
 	{
 		json output; // STDOUT output will go into this JSON.
 		
-		simulate_runner_input("instances/td-ascheuer", "rbg048a", "experiments/ascheuer.json", "CG-NGLTI-DNA");
+		simulate_runner_input("instances/td-ascheuer", "rbg016a", "experiments/ascheuer.json", "CG-NGLTI-DNA-BD");
 		
 		json experiment, instance, solutions;
 		cin >> experiment >> instance >> solutions;
