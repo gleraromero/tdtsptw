@@ -66,12 +66,7 @@ for file_name in instance_files:
 	# Truncate distances and modify them to satisfy triangle inequality.
 	for i in range(0, n):
 		for j in range(0, n):
-			I["distances"][i][j] = math.floor(I["distances"][i][j])
-	for i in range(0, n):
-		for j in range(0, n):
-			for k in range(0, n):
-				if I["distances"][i][j] > I["distances"][i][k] + I["distances"][k][j]:
-					I["distances"][i][j] = I["distances"][i][k] + I["distances"][k][j]
+			I["distances"][i][j] = math.floor(I["distances"][i][j] * 10.0) / 10.0
 
 	instance_name = file_name.replace(".txt", "")
 	with open(F"output/{instance_name}.json", "w") as ff:

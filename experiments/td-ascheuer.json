@@ -1,5 +1,5 @@
 {
-  "datasets": [{"name":  "td-olhmann-thomas"}],
+  "datasets": [{"name":  "td-ascheuer"}],
   "experiments": [
     {
       "name": "CG-NGLTI-DNA-BD",
@@ -9,7 +9,6 @@
       "colgen": true,
       "dssr": true,
       "relaxation": "NGLTI",
-      "time_independent": true,
       "bidirectional_dna": true,
       "bidirectional_cg": false
     }

@@ -124,14 +124,16 @@ int main(int argc, char** argv)
 		clog << "Objective: " << objective << endl;
 		clog << "Relaxation: " << relaxation << endl;
 		clog << "Colgen: " << colgen << endl;
-		clog << "DSSR: " << dssr << endl;
+		clog << "DNA: " << dssr << endl;
 		clog << "Bidirectional DNA: " << bidirectional_dna << endl;
 		clog << "Bidirectional CG: " << bidirectional_cg << endl;
+		clog << "Time independent: " << time_independent << endl;
 		
 		// Set departing time from depot equal to 0 if makespan objective.
 		if (objective == "makespan") instance["time_windows"][0] = Interval(0, 0);
 		
 		// Preprocess instance JSON.
+		clog << "Preprocessing instance..." << endl;
 		preprocess_travel_times(instance);
 		preprocess_waiting_times(instance);
 		preprocess_time_windows(instance);
@@ -141,11 +143,22 @@ int main(int argc, char** argv)
 		clog << "Parsing instance..." << endl;
 		VRPInstance vrp = instance;
 		
-		// Get UB.
+		// Parse initial UB.
+		Route UB;
+		const string INIT_UB_TAG = time_independent ? "INIT_TILK" : "INIT_UB";
+		for (auto& solution: solutions)
+		{
+			set<string> tags = solution["tags"];
+			if (includes(tags, INIT_UB_TAG))
+				UB = time_independent ? (Route)solution["routes"][0] : vrp.BestDurationRoute(solution["routes"][0]["path"]);
+		}
+		
+		LPExecutionLog ub_log;
+		ub_log.incumbent_value = UB.duration;
+		output["Initial UB"] = ub_log;
+		
 		double LB = 0.0;
-		vector<Vertex> P = {vrp.o};
-		Route UB = initial_heuristic(vrp, P, create_bitset<MAX_N>({vrp.o}), vrp.tw[vrp.o].left);
-		if (UB.duration == INFTY)
+		if (UB.path.empty())
 		{
 			output["status"] = "Infeasible";
 			clog << "Infeasible" << endl;
@@ -165,10 +178,11 @@ int main(int argc, char** argv)
 
 			// Run subgradient.
 			Stopwatch rolex(true);
+			clog << "Running initial NG with penalties 0" << endl;
 			vector<Route> sg_routes;
-//			CGExecutionLog subgradient_log;
-//			sg_routes = subgradient(vrp, NG, relaxation, 20, UB, LB, penalties, &subgradient_log);
-//			output["Subgradient"] = subgradient_log;
+			CGExecutionLog subgradient_log;
+			sg_routes = subgradient(vrp, NG, relaxation, 20, UB, LB, penalties, &subgradient_log);
+			output["Initial NG"] = subgradient_log;
 			
 			// Solve CG to obtain best penalties.
 			if (epsilon_smaller(LB, UB.duration))

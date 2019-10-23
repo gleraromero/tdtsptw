@@ -58,7 +58,7 @@ struct Bounding
 	
 	void AddBound(int k, int r, goc::Vertex v, const VertexSet& S, const State& Delta);
 	
-	void Bound(goc::Vertex v, VertexSet S, State& Delta);
+	void Bound(goc::Vertex v, const VertexSet& S, State& Delta);
 	
 private:
 	std::vector<std::vector<std::vector<std::vector<std::pair<VertexSet, std::vector<goc::LinearFunction>>>>>> B;

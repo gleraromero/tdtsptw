@@ -97,9 +97,9 @@ void State::Piece::Print(ostream& os) const
 
 bool State::Merge(vector<Piece>& P)
 {
-	auto P1 = F;
+	auto& P1 = F;
 	auto& P2 = P;
-	F.clear();
+	vector<Piece> F;
 
 	// Sweep pieces.
 	int i = 0, j = 0;
@@ -126,7 +126,7 @@ bool State::Merge(vector<Piece>& P)
 			}
 			else
 			{
-				F.push_back(Piece(P1[i].lb, P1[i].f.RestrictDomain({min(dom(P1[i].f)), min(dom(P2[j].f))}), P1[i].prev, P1[i].v));
+				F.emplace_back(Piece(P1[i].lb, P1[i].f.RestrictDomain({min(dom(P1[i].f)), min(dom(P2[j].f))}), P1[i].prev, P1[i].v));
 				P1[i].f.domain.left = P2[j].f.domain.left+EPS;
 			}
 		}
@@ -140,15 +140,17 @@ bool State::Merge(vector<Piece>& P)
 			}
 			else
 			{
-				F.push_back(Piece(P2[j].lb, P2[j].f.RestrictDomain({min(dom(P2[j].f)), min(dom(P1[i].f))}), P2[j].prev, P2[j].v));
+				F.emplace_back(Piece(P2[j].lb, P2[j].f.RestrictDomain({min(dom(P2[j].f)), min(dom(P1[i].f))}), P2[j].prev, P2[j].v));
 				P2[j].f.domain.left = P1[i].f.domain.left+EPS;
 			}
 		}
 	}
 	any_p2 |= j < P2.size();
 	// Add remaining pieces.
-	for (; i < P1.size(); ++i) F.push_back(P1[i]);
-	for (; j < P2.size(); ++j) F.push_back(P2[j]);
+	for (; i < (int)P1.size(); ++i) F.push_back(P1[i]);
+	for (; j < (int)P2.size(); ++j) F.push_back(P2[j]);
+	
+	this->F = F;
 	return any_p2;
 }
 	
@@ -229,7 +231,7 @@ void Bounding::AddBound(int k, int r, goc::Vertex v, const VertexSet& S, const S
 	B[n-k+1][R-r-(!LSet.test(v))][v].push_back({S, DeltaR});
 }
 
-void Bounding::Bound(goc::Vertex v, VertexSet S, State& Delta)
+void Bounding::Bound(goc::Vertex v, const VertexSet& S, State& Delta)
 {
 	int k = S.count();
 	int r = (LSet & S).count();
@@ -827,7 +829,7 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 					{
 						if (epsilon_bigger_equal(p.lb, UB)) continue;
 						if (p.lb == -INFTY) continue;
-						if (epsilon_equal((int)floor(p.lb+EPS), lb + BASE) || !B)
+						if (epsilon_smaller_equal((int)floor(p.lb+EPS), lb + BASE) || !B)
 						{
 							log->enumerated_count++;
 							EXT.push_back(p.f);
@@ -837,12 +839,12 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 						{
 							next_lb = min(next_lb, (int)floor(p.lb+EPS)-BASE);
 						}
-						if (epsilon_smaller(floor(p.lb+EPS), lb + BASE) && p.lb != -INFTY)
-						{
-							clog.precision(17);
-							clog << p.lb+EPS << " " << lb + BASE << endl;
-							fail("Bounds are not increasing.");
-						}
+//						if (epsilon_smaller(floor(p.lb+EPS), lb + BASE) && p.lb != -INFTY)
+//						{
+//							clog.precision(17);
+//							clog << p.lb+EPS << " " << lb + BASE << endl;
+//							fail("Bounds are not increasing.");
+//						}
 					}
 					if (next_lb <= TOP-BASE) q[next_lb][k][v].insert(S);
 					rolex_bounding.Pause();

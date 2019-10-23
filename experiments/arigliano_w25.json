@@ -2,49 +2,14 @@
   "datasets": [{"name":  "guerriero_et_al_2014b", "select": "W25"}],
   "experiments": [
     {
-      "name": "None",
-      "executable": "main",
-      "time_limit": 3600,
-      "objective": "makespan",
-      "colgen": false,
-      "dssr": false,
-      "relaxation": "None"
-    },
-    {
-      "name": "NGLTD",
-      "executable": "main",
-      "time_limit": 3600,
-      "objective": "makespan",
-      "colgen": false,
-      "dssr": false,
-      "relaxation": "NGLTD"
-    },
-    {
-      "name": "CG-NGLTI2RES-DNA",
-      "executable": "main",
-      "time_limit": 3600,
-      "objective": "makespan",
-      "colgen": true,
-      "dssr": true,
-      "relaxation": "NGLTI2RES"
-    },
-    {
       "name": "CG-NGLTI-DNA",
       "executable": "main",
       "time_limit": 3600,
       "objective": "makespan",
       "colgen": true,
       "dssr": true,
-      "relaxation": "NGLTI"
-    },
-    {
-      "name": "CG-NGLTD-DNA",
-      "executable": "main",
-      "time_limit": 3600,
-      "objective": "makespan",
-      "colgen": true,
-      "dssr": true,
-      "relaxation": "NGLTD"
+      "relaxation": "NGLTI",
+      "bidirectional_dna": true
     }
   ]
 }
