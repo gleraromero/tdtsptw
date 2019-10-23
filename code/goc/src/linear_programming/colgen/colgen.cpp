@@ -65,7 +65,7 @@ CGExecutionLog solve_colgen(Formulation* formulation,
 		if (rolex.Peek() >= time_limit) {execution_log.status = CGStatus::TimeLimitReached; break; }
 		
 		// Solve LP relaxation to get dual variables.
-		lp_solver->time_limit = time_limit - rolex.Peek();
+//		lp_solver->time_limit = time_limit - rolex.Peek();
 		auto lp_log = lp_solver->Solve(formulation, {LPOption::Duals, LPOption::Incumbent});
 		*execution_log.lp_time += *lp_log.time;
 		
