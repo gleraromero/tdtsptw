@@ -185,8 +185,10 @@ void NGStructure::AdjustTimeWindows(const VRPInstance& vrp)
 	
 	// Trivial implementation, tw[k][v] = tw[v].
 	for (int k = 1; k <= n; ++k)
-		for (Vertex v: vrp.D.Vertices())
+		for (Vertex v: vrp.D.Vertices()) {
 			tw[k][v] = vrp.tw[v];
+			//tw[k][v] = Interval(vrp.tw[v].left - EPS, vrp.time_prec[v][k].first - EPS);
+		}
 }
 
 NGLabel::NGLabel(NGLabel* prev, Vertex v, int S, double Ttime, double Tdur, double Thelp, double lambda) : prev(prev), v(v), S(S), Ttime(Ttime), Tdur(Tdur), Thelp(Thelp), lambda(lambda)

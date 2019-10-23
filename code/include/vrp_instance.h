@@ -38,7 +38,10 @@ public:
 	goc::Matrix<bool> prec; // prec[i][j] = i is a predecessor of j.
 	std::vector<int> prec_count; // prec_count[i] = #predecessors of i.
 	std::vector<int> suc_count; // suc_count[i] = #successors of i.
-	
+
+	goc::Matrix<std::pair<double, int> > time_prec;
+    goc::Matrix<std::pair<double, int> > time_succ;
+
 	// Returns: the travel time for arc e if departing at t0.
 	// If departure at t0 is infeasible, returns INFTY.
 	TimeUnit TravelTime(goc::Arc e, TimeUnit t0) const;

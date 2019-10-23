@@ -140,26 +140,98 @@ void from_json(const json& j, VRPInstance& instance)
 		instance.tau[u][u] = instance.pretau[u][u] = PWLFunction::ConstantFunction(0.0, instance.tw[u]);
 		instance.dep[u][u] = instance.arr[u][u] = PWLFunction::IdentityFunction(instance.tw[u]);
 	}
-	if (has_key(j, "precedence_matrix"))
-	{
+	if (has_key(j, "precedence_matrix")) {
 		instance.prec = Matrix<bool>(n, n);
 		for (Vertex i: instance.D.Vertices())
 			for (Vertex k: instance.D.Vertices())
 				instance.prec[i][k] = (bool) j["precedence_matrix"][i][k];
-		
+
 		instance.prec_count = vector<int>(n, 0);
 		instance.suc_count = vector<int>(n, 0);
-		for (Vertex i: instance.D.Vertices())
-		{
-			for (Vertex k: instance.D.Vertices())
-			{
-				if (instance.prec[i][k])
-				{
+		for (Vertex i: instance.D.Vertices()) {
+			for (Vertex k: instance.D.Vertices()) {
+				if (instance.prec[i][k]) {
 					instance.prec_count[k]++;
 					instance.suc_count[i]++;
 				}
 			}
 		}
+
+		instance.time_prec = Matrix<pair<double, Vertex> >(n, n+1);
+		instance.time_succ = Matrix<pair<double, Vertex> >(n, n+1);
+
+		for (int k = 0; k <= n; k++)
+		{
+			instance.time_prec[instance.o][k] = pair<double, Vertex>(instance.tw[instance.o].left, -1);
+			instance.time_prec[instance.d][k] = pair<double, Vertex>(instance.tw[instance.d].right, -1);
+
+			instance.time_succ[instance.o][k] = pair<double, Vertex>(instance.tw[instance.o].left, -1);
+			instance.time_succ[instance.d][k] = pair<double, Vertex>(instance.tw[instance.d].right, -1);
+		}
+
+		// Compute LDT times for the predecesors.
+		for (Vertex i : instance.D.Vertices())
+		{
+		    if (i == instance.o || i == instance.d) continue;
+
+			vector<pair<double, Vertex> > limit_times;
+			for (Vertex k : instance.D.Vertices())
+			{
+				if (k == i || k == instance.o || k == instance.d) continue;
+
+				limit_times.push_back(pair<double, Vertex>(instance.LDT(i,k), k));
+			}
+			sort(limit_times.begin(), limit_times.end());
+
+			instance.time_prec[i][0] = pair<double, Vertex>(instance.tw[i].left, -1);
+			instance.time_prec[i][1] = pair<double, Vertex>(instance.tw[i].left, -1);
+			instance.time_prec[i][2] = pair<double, Vertex>(instance.tw[i].left, instance.o);
+
+			for (int k = 3; k < n; k++)
+			{
+				instance.time_prec[i][k] = pair<double, Vertex>(max(limit_times[k-3].first, instance.tw[i].left), limit_times[k-3].second);
+			}
+
+			instance.time_prec[i][n] = pair<double, Vertex>(instance.tw[i].right, instance.d);
+		}
+
+		// Compute EAT times for the successors
+		for (Vertex i : instance.D.Vertices())
+		{
+			if (i == instance.o || i == instance.d) continue;
+			vector<pair<double, Vertex> > limit_times;
+			for (Vertex k : instance.D.Vertices())
+			{
+				if (k == i || k == instance.o || k == instance.d) continue;
+
+				limit_times.push_back(pair<double, Vertex>(instance.EAT(k,i), k));
+			}
+
+			sort(limit_times.begin(), limit_times.end());
+
+			instance.time_succ[i][0] = pair<double, Vertex>(instance.tw[i].right, -1);
+			instance.time_succ[i][1] = pair<double, Vertex>(instance.tw[i].right, -1);
+			instance.time_succ[i][2] = pair<double, Vertex>(instance.tw[i].right, instance.d);
+
+            for (int k = 3; k < n; k++)
+			{
+				instance.time_succ[i][n - 1 - k + 3] = pair<double, Vertex>(min(limit_times[k-3].first, instance.tw[i].right), limit_times[k-3].second);
+			}
+
+			instance.time_succ[i][n] = pair<double, Vertex>(instance.tw[i].left, instance.o);
+		}
+
+		for (int i = 0; i < n; i++)
+		{
+			for (int j = 0; j <= n; j++)
+			{
+				clog << instance.time_succ[i][j] << " ";
+			}
+			clog << endl;
+		}
+		clog << n << endl;
+		clog << instance.tw	<< endl;
+		exit(1);
 	}
 }
 } // namespace tdtsptw
