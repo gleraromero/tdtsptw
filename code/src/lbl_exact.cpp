@@ -829,7 +829,7 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 					{
 						if (epsilon_bigger_equal(p.lb, UB)) continue;
 						if (p.lb == -INFTY) continue;
-						if (epsilon_equal((int)floor(p.lb+EPS), lb + BASE) || !B)
+						if (epsilon_smaller_equal((int)floor(p.lb+EPS), lb + BASE) || !B)
 						{
 							log->enumerated_count++;
 							EXT.push_back(p.f);
@@ -839,12 +839,12 @@ Route run_exact_piecewise(const VRPInstance& vrp, const GraphPath& L, const vect
 						{
 							next_lb = min(next_lb, (int)floor(p.lb+EPS)-BASE);
 						}
-						if (epsilon_smaller(floor(p.lb+EPS), lb + BASE) && p.lb != -INFTY)
-						{
-							clog.precision(17);
-							clog << p.lb+EPS << " " << lb + BASE << endl;
-							fail("Bounds are not increasing.");
-						}
+//						if (epsilon_smaller(floor(p.lb+EPS), lb + BASE) && p.lb != -INFTY)
+//						{
+//							clog.precision(17);
+//							clog << p.lb+EPS << " " << lb + BASE << endl;
+//							fail("Bounds are not increasing.");
+//						}
 					}
 					if (next_lb <= TOP-BASE) q[next_lb][k][v].insert(S);
 					rolex_bounding.Pause();

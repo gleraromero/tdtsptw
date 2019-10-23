@@ -192,9 +192,7 @@ int main(int argc, char** argv)
 					clog << "Running CG algorithm..." << endl;
 					// Initialize SPF.
 					SPF spf(vrp.D.VertexCount());
-					UB.duration += 10000.0;
 					spf.AddRoute(UB);
-					UB.duration -= 10000.0;
 					for (auto& r: sg_routes) spf.AddRoute(r);
 					
 					// Configure CG algorithm.
