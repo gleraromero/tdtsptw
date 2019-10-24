@@ -123,17 +123,6 @@ void from_json(const json& j, VRPInstance& instance)
 	for (int i = 0; i < n; ++i) instance.b.push_back(instance.tw[i].right);
 	if (has_key(j, "EAT")) instance.EAT = j["EAT"];
 	if (has_key(j, "LDT")) instance.LDT = j["LDT"];
-	if (has_key(j, "LDT"))
-	{
-		for (int i = 0; i < instance.D.VertexCount(); ++i)
-		{
-			for (int j = 0; j < instance.D.VertexCount(); ++j)
-			{
-				instance.LDT[i][j] = min(instance.LDT[i][j], instance.b[i]);
-				instance.EAT[i][j] = max(instance.EAT[i][j], instance.a[j]);
-			}
-		}
-	}
 	instance.tau = instance.arr = instance.dep = instance.pretau = Matrix<PWLFunction>(n, n);
 	for (Vertex u: instance.D.Vertices())
 	{

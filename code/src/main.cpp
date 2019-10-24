@@ -61,14 +61,6 @@ VRPInstance reverse_instance(const VRPInstance& vrp)
 			rev.LDT[v][w] = -vrp.EAT[w][v];
 		}
 	}
-	for (int i = 0; i < vrp.D.VertexCount(); ++i)
-	{
-		for (int j = 0; j < vrp.D.VertexCount(); ++j)
-		{
-			rev.LDT[i][j] = min(rev.LDT[i][j], rev.b[i]);
-			rev.EAT[i][j] = min(rev.EAT[i][j], rev.a[j]);
-		}
-	}
 	rev.arr = rev.tau = rev.dep = rev.pretau = Matrix<PWLFunction>(n, n);
 	for (Vertex u: vrp.D.Vertices())
 	{
@@ -144,8 +136,11 @@ int main(int argc, char** argv)
 		clog << "Preprocessing instance..." << endl;
 		preprocess_travel_times(instance);
 		preprocess_waiting_times(instance);
-		preprocess_time_windows(instance);
-		preprocess_waiting_times(instance);
+		for (int i = 0; i < 5; ++i)
+		{
+			preprocess_time_windows(instance);
+			preprocess_waiting_times(instance);
+		}
 		
 		// Parse instance.
 		clog << "Parsing instance..." << endl;
