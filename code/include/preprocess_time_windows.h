@@ -21,7 +21,7 @@ namespace tdtsptw
 // Shrinks time windows [a_i, b_i] according to the techinques introduced in:
 //	Desrosiers, J., Dumas, Y., Solomon, M. M., & Soumis, F. (1995).
 // and removes infeasible arcs.
-void preprocess_time_windows(nlohmann::json& instance);
+bool preprocess_time_windows(nlohmann::json& instance);
 } // namespace tdtsptw
 
 #endif //TDTSPTW_PREPROCESS_TIME_WINDOWS_H

@@ -53,16 +53,6 @@ vector<double> compute_LDT(const VRPInstance& vrp, Vertex j)
 	return LDT;
 }
 
-// Removes the arc ij from the instance.
-void remove_arc(json& instance, Vertex i, Vertex j)
-{
-	if (instance["digraph"]["arcs"][i][j] == 0) return;
-	instance["digraph"]["arcs"][i][j] = 0;
-	int arc_count = instance["digraph"]["arc_count"];
-	instance["digraph"]["arc_count"] = arc_count - 1;
-	if (has_key(instance, "travel_times")) instance["travel_times"][i][j] = vector<json>({});
-}
-
 // Returns: if the instance includes the arc.
 bool includes_arc(json& instance, Arc ij)
 {
@@ -70,17 +60,34 @@ bool includes_arc(json& instance, Arc ij)
 }
 }
 
-void preprocess_time_windows(json& instance)
+bool preprocess_time_windows(json& instance)
 {
+	bool changed = false;
 	VRPInstance vrp = instance;
 	int n = vrp.D.VertexCount();
 	auto& V = vrp.D.Vertices();
 	auto a = [&](Vertex i) -> double { return instance["time_windows"][i][0]; };
 	auto b = [&](Vertex i) -> double { return instance["time_windows"][i][1]; };
+	auto remove_arc = [&] (Vertex i, Vertex j) {
+		if (instance["digraph"]["arcs"][i][j] == 1)
+		{
+			changed = true;
+			instance["digraph"]["arcs"][i][j] = 0;
+			int arc_count = instance["digraph"]["arc_count"];
+			instance["digraph"]["arc_count"] = arc_count - 1;
+			if (has_key(instance, "travel_times")) instance["travel_times"][i][j] = vector<json>({});
+		}
+	};
 	Vertex o = vrp.o;
 	Vertex d = vrp.d;
-	auto set_a = [&](Vertex i, double t) { instance["time_windows"][i][0] = t; };
-	auto set_b = [&](Vertex i, double t) { instance["time_windows"][i][1] = t; };
+	auto set_a = [&](Vertex i, double t) {
+			if (epsilon_different(instance["time_windows"][i][0], t)) changed = true;
+			instance["time_windows"][i][0] = t;
+		};
+	auto set_b = [&](Vertex i, double t) {
+		if (epsilon_different(instance["time_windows"][i][1], t)) changed = true;
+		instance["time_windows"][i][1] = t;
+	};
 	
 	// Initialize EAT, LDT.
 	Matrix<double> EAT(n, n), LDT(n, n);
@@ -150,7 +157,7 @@ void preprocess_time_windows(json& instance)
 		int i = ij.tail, j = ij.head;
 		if (epsilon_bigger(vrp.ArrivalTime({i, j}, a(i)), b(j)))
 		{
-			remove_arc(instance, i, j);
+			remove_arc(i, j);
 		}
 	}
 	for (Vertex i: V)
@@ -172,7 +179,7 @@ void preprocess_time_windows(json& instance)
 					{
 						instance["precedence_matrix"][i][k] = instance["precedence_matrix"][k][j] = true;
 					}
-					remove_arc(instance, i, j);
+					remove_arc(i, j);
 					break;
 				}
 			}
@@ -185,5 +192,6 @@ void preprocess_time_windows(json& instance)
 		instance["precedence_matrix"][i][d] = true;
 	}
 	instance["precedence_matrix"][o][d] = true;
+	return changed;
 }
 } // namespace tdtsptw

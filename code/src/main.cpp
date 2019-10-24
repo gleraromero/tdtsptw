@@ -91,7 +91,7 @@ int main(int argc, char** argv)
 	{
 		json output; // STDOUT output will go into this JSON.
 		
-		simulate_runner_input("instances/td-ascheuer", "rbg016a", "experiments/ascheuer.json", "CG-NGLTI-DNA-BD");
+		simulate_runner_input("instances/td-ascheuer", "rbg020a", "experiments/ascheuer.json", "CG-NGLTI-DNA-BD");
 		
 		json experiment, instance, solutions;
 		cin >> experiment >> instance >> solutions;
@@ -136,9 +136,10 @@ int main(int argc, char** argv)
 		clog << "Preprocessing instance..." << endl;
 		preprocess_travel_times(instance);
 		preprocess_waiting_times(instance);
-		for (int i = 0; i < 5; ++i)
+		int iter_preprocess = 0;
+		while (preprocess_time_windows(instance))
 		{
-			preprocess_time_windows(instance);
+			clog << "\tIteration " << ++iter_preprocess << endl;
 			preprocess_waiting_times(instance);
 		}
 		
@@ -308,7 +309,7 @@ int main(int argc, char** argv)
 					Bounding B(vrp, NG, penalties);
 					if (relaxation != "None")
 					{
-						Route R_NG = run_ngltd(vrp, NG, penalties, &log_ngl, &B, LB, time_limit - rolex.Peek());
+						Route R_NG = run_ngltd(vrp, NG, penalties, &log_ngl, &B, LB, 3600.0_sec);
 						output["NGL-TD"] = log_ngl;
 						clog << "NGL-TD:   " << LB << "\t" << log_ngl.time << "\t" << log_ngl.processed_count << "\t"
 							 << log_ngl.enumerated_count << endl;
