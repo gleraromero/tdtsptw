@@ -241,70 +241,70 @@ void NGStructure::AdjustTimeWindows(const VRPInstance& vrp)
 	// Checker.
 	if (active)
 	{
-		clog << "Checking validity of predecessors and succesors" << endl;
-		for (Vertex v: vrp.D.Vertices())
-		{
-			for (int k = 1; k <= n; ++k)
-			{
-				double t_max = vrp.b[v];
-				for (int t = vrp.a[v]; t <= vrp.b[v]; ++t)
-				{
-					int prec = 0;
-					for (int j = 0; j < n; ++j)
-					{
-						if (j == v) continue;
-						if (epsilon_smaller(vrp.LDT[v][j], t)) prec++;
-					}
-					if (prec >= k)
-					{
-						t_max = t - 1;
-						break;
-					}
-				}
-				if (t_max == vrp.a[v] - 1) t_max = -INFTY;
-				if (k == n) t_max = v == vrp.d ? vrp.b[v] : -INFTY;
-				
-				if (t_max != tw[k][v].right)
-				{
-					clog << vrp.tw[v] << endl;
-					clog << vrp.LDT[v] << endl;
-					clog << v << " " << k << " " << t_max << " " << tw[k][v].right << endl;
-					fail("Checker predecesors failed.");
-				}
-			}
-		}
-		
-		// Checker.
-		for (Vertex v: vrp.D.Vertices())
-		{
-			for (int k = 1; k <= n; ++k)
-			{
-				double t_min = vrp.a[v];
-				for (int t = vrp.b[v]; t >= vrp.a[v]; --t)
-				{
-					int succ = 0;
-					for (int j = 0; j < n; ++j)
-					{
-						if (j == v) continue;
-						if (epsilon_bigger(vrp.EAT[j][v], t)) succ++;
-					}
-					if (succ > n - k)
-					{
-						t_min = t + 1;
-						break;
-					}
-				}
-				if (t_min == vrp.b[v] + 1) t_min = INFTY;
-				if (k == 1) t_min = v == vrp.o ? vrp.a[v] : INFTY;
-				
-				if (t_min != tw[k][v].left)
-				{
-					clog << vrp.tw[v] << endl;
-					clog << v << " " << k << " " << t_min << " " << tw[k][v].left << endl;
-					fail("Checker successors failed.");
-				}
-			}
-		}
+//		clog << "Checking validity of predecessors and succesors" << endl;
+//		for (Vertex v: vrp.D.Vertices())
+//		{
+//			for (int k = 1; k <= n; ++k)
+//			{
+//				double t_max = vrp.b[v];
+//				for (int t = vrp.a[v]; t <= vrp.b[v]; ++t)
+//				{
+//					int prec = 0;
+//					for (int j = 0; j < n; ++j)
+//					{
+//						if (j == v) continue;
+//						if (epsilon_smaller(vrp.LDT[v][j], t)) prec++;
+//					}
+//					if (prec >= k)
+//					{
+//						t_max = t - 1;
+//						break;
+//					}
+//				}
+//				if (t_max == vrp.a[v] - 1) t_max = -INFTY;
+//				if (k == n) t_max = v == vrp.d ? vrp.b[v] : -INFTY;
+//
+//				if (t_max != tw[k][v].right)
+//				{
+//					clog << vrp.tw[v] << endl;
+//					clog << vrp.LDT[v] << endl;
+//					clog << v << " " << k << " " << t_max << " " << tw[k][v].right << endl;
+//					fail("Checker predecesors failed.");
+//				}
+//			}
+//		}
+//
+//		// Checker.
+//		for (Vertex v: vrp.D.Vertices())
+//		{
+//			for (int k = 1; k <= n; ++k)
+//			{
+//				double t_min = vrp.a[v];
+//				for (int t = vrp.b[v]; t >= vrp.a[v]; --t)
+//				{
+//					int succ = 0;
+//					for (int j = 0; j < n; ++j)
+//					{
+//						if (j == v) continue;
+//						if (epsilon_bigger(vrp.EAT[j][v], t)) succ++;
+//					}
+//					if (succ > n - k)
+//					{
+//						t_min = t + 1;
+//						break;
+//					}
+//				}
+//				if (t_min == vrp.b[v] + 1) t_min = INFTY;
+//				if (k == 1) t_min = v == vrp.o ? vrp.a[v] : INFTY;
+//
+//				if (t_min != tw[k][v].left)
+//				{
+//					clog << vrp.tw[v] << endl;
+//					clog << v << " " << k << " " << t_min << " " << tw[k][v].left << endl;
+//					fail("Checker successors failed.");
+//				}
+//			}
+//		}
 	}
 }
 
