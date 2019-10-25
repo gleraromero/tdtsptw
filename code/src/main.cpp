@@ -103,6 +103,10 @@ int main(int argc, char** argv)
 			for (int i = 0; i < n; ++i) instance["time_windows"][i] = instance["horizon"];
 		}
 		
+		Duration tl_exact = 3600.0_sec;
+		Duration tl_cg = 3600.0_sec;
+		Duration tl_dna = 3600.0_sec;
+		
 		// Parse experiment.
 		Duration time_limit = Duration(value_or_default(experiment, "time_limit", 7200), DurationUnit::Seconds);
 		string objective = value_or_default(experiment, "objective", "duration");
@@ -202,7 +206,7 @@ int main(int argc, char** argv)
 					// Configure CG algorithm.
 					CGSolver cg_solver;
 					LPSolver lp_solver;
-					cg_solver.time_limit = 1000.0_sec;
+					cg_solver.time_limit = tl_cg;
 					cg_solver.lp_solver = &lp_solver;
 					cg_solver.screen_output = &clog;
 					
@@ -290,7 +294,7 @@ int main(int argc, char** argv)
 				{
 					clog << "Running DNA to improve bounds." << endl;
 					CGExecutionLog dna_log;
-					auto R = run_dna(vrp, rvrp, NG, rNG, penalties, &dna_log, LB, 200.0_sec, bidirectional_dna);
+					auto R = run_dna(vrp, rvrp, NG, rNG, penalties, &dna_log, LB, tl_dna, bidirectional_dna);
 					if (R.duration != INFTY)
 					{
 						UB = R;
@@ -309,7 +313,7 @@ int main(int argc, char** argv)
 					Bounding B(vrp, NG, penalties);
 					if (relaxation != "None")
 					{
-						Route R_NG = run_ngltd(vrp, NG, penalties, &log_ngl, &B, LB, 3600.0_sec);
+						Route R_NG = run_ngltd(vrp, NG, penalties, &log_ngl, &B, LB, tl_exact);
 						output["NGL-TD"] = log_ngl;
 						clog << "NGL-TD:   " << LB << "\t" << log_ngl.time << "\t" << log_ngl.processed_count << "\t"
 							 << log_ngl.enumerated_count << endl;
@@ -317,7 +321,7 @@ int main(int argc, char** argv)
 					
 					MLBExecutionLog log(true);
 					auto r = run_exact_piecewise(rvrp, reverse(NG.L), penalties, LB, UB.duration, &log,
-												 relaxation == "None" ? nullptr : &B, time_limit - rolex.Peek());
+												 relaxation == "None" ? nullptr : &B, tl_exact);
 					clog << "Exact: " << r.duration << "\t" << log.time << "\t" << log.processed_count << "\t"
 						 << log.enumerated_count << endl;
 					output["Exact"] = log;
