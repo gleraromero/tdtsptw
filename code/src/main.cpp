@@ -103,9 +103,9 @@ int main(int argc, char** argv)
 			for (int i = 0; i < n; ++i) instance["time_windows"][i] = instance["horizon"];
 		}
 		
-		Duration tl_exact = 3600.0_sec;
-		Duration tl_cg = 3600.0_sec;
-		Duration tl_dna = 3600.0_sec;
+		Duration tl_exact = 1200.0_sec;
+		Duration tl_cg = 1200.0_sec;
+		Duration tl_dna = 1200.0_sec;
 		
 		// Parse experiment.
 		Duration time_limit = Duration(value_or_default(experiment, "time_limit", 7200), DurationUnit::Seconds);
