@@ -1,0 +1,15 @@
+{
+  "datasets": [{"name":  "guerriero_et_al_2014b", "select": "MEMLIM"}],
+  "experiments": [
+    {
+      "name": "CG-NGLTI-DNA",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "makespan",
+      "colgen": true,
+      "dssr": true,
+      "relaxation": "NGLTI",
+      "bidirectional_dna": true
+    }
+  ]
+}
