@@ -16,7 +16,7 @@ namespace
 {
 // Calculates the time to depart to traverse arc e arriving at tf.
 // Returns: INFTY if it is infeasible to depart inside the horizon.
-double departing_time(const Matrix<int> C, const vector<Interval>& T, const Matrix<double>& S, const Matrix<double>& D, Arc e, double tf)
+double departing_time(const Matrix<int>& C, const vector<Interval>& T, const Matrix<double>& S, const Matrix<double>& D, Arc e, double tf)
 {
 	double d = D[e.tail][e.head];
 	auto& speed = S[C[e.tail][e.head]];
@@ -38,7 +38,7 @@ double departing_time(const Matrix<int> C, const vector<Interval>& T, const Matr
 
 // Calculates the travel time to traverse arc e departing at t0.
 // Returns: INFTY if it is infeasible to arrive inside the horizon.
-double travel_time(const Matrix<int> C, const vector<Interval>& T, const Matrix<double>& S, const Matrix<double>& D, Arc e, double t0)
+double travel_time(const Matrix<int>& C, const vector<Interval>& T, const Matrix<double>& S, const Matrix<double>& D, Arc e, double t0)
 {
 	double d = D[e.tail][e.head];
 	auto& speed = S[C[e.tail][e.head]];
@@ -58,7 +58,7 @@ double travel_time(const Matrix<int> C, const vector<Interval>& T, const Matrix<
 }
 
 // Precondition: no speeds are 0.
-PWLFunction compute_travel_time_function(const Matrix<int> C, const vector<Interval>& TZ, const Matrix<double>& S, const Matrix<double>& D, Arc e)
+PWLFunction compute_travel_time_function(const Matrix<int>& C, const vector<Interval>& TZ, const Matrix<double>& S, const Matrix<double>& D, Arc e)
 {
 	// Calculate speed breakpoints.
 	vector<double> speed_breakpoints;

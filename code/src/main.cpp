@@ -310,22 +310,22 @@ int main(int argc, char** argv)
 				if (!found_opt)
 				{
 					MLBExecutionLog log_ngl(true);
-					Bounding B(vrp, NG, penalties);
+					Bounding B(rvrp, rNG, penalties);
 					if (relaxation != "None")
 					{
-						Route R_NG = run_ngltd(vrp, NG, penalties, &log_ngl, &B, LB, tl_exact);
+						Route R_NG = run_ngltd(rvrp, rNG, penalties, &log_ngl, &B, LB, tl_exact);
 						output["NGL-TD"] = log_ngl;
 						clog << "NGL-TD:   " << LB << "\t" << log_ngl.time << "\t" << log_ngl.processed_count << "\t"
 							 << log_ngl.enumerated_count << endl;
 					}
 					
 					MLBExecutionLog log(true);
-					auto r = run_exact_piecewise(rvrp, reverse(NG.L), penalties, LB, UB.duration, &log,
+					auto r = run_exact_piecewise(vrp, NG.L, penalties, LB, UB.duration, &log,
 												 relaxation == "None" ? nullptr : &B, tl_exact);
 					clog << "Exact: " << r.duration << "\t" << log.time << "\t" << log.processed_count << "\t"
 						 << log.enumerated_count << endl;
 					output["Exact"] = log;
-					if (r.duration < UB.duration) UB = vrp.BestDurationRoute(reverse(r.path));
+					if (r.duration < UB.duration) UB = vrp.BestDurationRoute(r.path);
 				}
 			}
 			LPExecutionLog lb_log;
