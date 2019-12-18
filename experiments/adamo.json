@@ -10,7 +10,8 @@
       "relaxation": "NGLTI",
       "dssr": true,
       "bidirectional_cg": false,
-      "bidirectional_dna": true
+      "bidirectional_dna": true,
+      "remove_tw": true
     }
   ]
 }

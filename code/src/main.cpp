@@ -96,13 +96,6 @@ int main(int argc, char** argv)
 		json experiment, instance, solutions;
 		cin >> experiment >> instance >> solutions;
 		
-		if (!has_key(instance, "time_windows"))
-		{
-			int n = instance["digraph"]["vertex_count"];
-			instance["time_windows"] = vector<Interval>(n);
-			for (int i = 0; i < n; ++i) instance["time_windows"][i] = instance["horizon"];
-		}
-		
 		Duration tl_exact = 1200.0_sec;
 		Duration tl_cg = 1200.0_sec;
 		Duration tl_dna = 1200.0_sec;
@@ -116,7 +109,15 @@ int main(int argc, char** argv)
 		bool time_independent = value_or_default(experiment, "time_independent", false);
 		bool bidirectional_dna = value_or_default(experiment, "bidirectional_dna", false);
 		bool bidirectional_cg = value_or_default(experiment, "bidirectional_cg", false);
-
+		bool remove_time_windows = value_or_default(experiment, "remove_tw", false);
+		
+		if (!has_key(instance, "time_windows") || remove_time_windows)
+		{
+			int n = instance["digraph"]["vertex_count"];
+			instance["time_windows"] = vector<Interval>(n);
+			for (int i = 0; i < n; ++i) instance["time_windows"][i] = instance["horizon"];
+		}
+		
 		// Time-independentize instance.
 		if (time_independent)
 			for (auto& cluster_row: instance["cluster_speeds"])
@@ -132,6 +133,7 @@ int main(int argc, char** argv)
 		clog << "Bidirectional DNA: " << bidirectional_dna << endl;
 		clog << "Bidirectional CG: " << bidirectional_cg << endl;
 		clog << "Time independent: " << time_independent << endl;
+		clog << "Remove TW: " << remove_time_windows << endl;
 		
 		// Set departing time from depot equal to 0 if makespan objective.
 		if (objective == "makespan") instance["time_windows"][0] = Interval(0, 0);
