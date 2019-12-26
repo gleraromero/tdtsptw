@@ -724,10 +724,13 @@ Route run_ngltd(const VRPInstance& vrp, const NGStructure& NG, const vector<doub
 								double t1 = min(LDTw_at_v, max(min(dom(tau_j)), min(dom(p_i))));
 								double t2 = min(LDTw_at_v, min(max(dom(tau_j)), max(dom(p_i))));
 								t2 = max(t1, t2); // We must avoid numerical errors where (t1 > t2 but t1 <=eps t2).
+								t2 = min(t2, NG.tw[k+1][w].right);
 								
 								// Extend.
 								LinearFunction pp({t1 + tau_j(t1), p_i(t1) + tau_j(t1) - lambda[w]},
 												  {t2 + tau_j(t2), p_i(t2) + tau_j(t2) - lambda[w]});
+								
+								if (epsilon_bigger(pp.domain.left, NG.tw[k+1][w].right)) break;
 								
 								if (k == n - 1) // If complete tour, add it to the solution.
 								{
