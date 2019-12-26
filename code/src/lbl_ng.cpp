@@ -486,7 +486,7 @@ public:
 		int i = 0, j = 0, k = 0;
 		while (i < L1.size() && j < L2.size())
 		{
-			if (k++ > 10000)
+			if (k++ > 500000)
 			{
 				clog.precision(17);
 				clog << "Merge: " << k << " - " << i << " " << j << endl;
@@ -539,7 +539,7 @@ public:
 		int i = 0, j = 0, k = 0;
 		while (i < L1.size() && j < L2.size())
 		{
-			if (k++ > 10000)
+			if (k++ > 500000)
 			{
 				clog.precision(17);
 				clog << "DominateBy: " << k << endl;
