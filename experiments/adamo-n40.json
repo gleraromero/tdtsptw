@@ -1,0 +1,17 @@
+{
+  "datasets": [{"name": "adamo_et_al_2019", "select": "N40"}],
+  "experiments": [
+    {
+      "name": "CG-NGLTI-DNA-BD",
+      "executable": "main",
+      "time_limit": 3600,
+      "objective": "makespan",
+      "colgen": true,
+      "relaxation": "NGLTI",
+      "dssr": true,
+      "bidirectional_cg": false,
+      "bidirectional_dna": true,
+      "remove_tw": true
+    }
+  ]
+}
