@@ -14,6 +14,8 @@
 
 namespace tdtsptw
 {
+// Initial heuristic to find a feasible solution of the TDTSPTW.
+// The heuristic is a DFS on the path tree finding the first feasible solution.
 goc::Route initial_heuristic(const VRPInstance& vrp, std::vector<goc::Vertex>& P, VertexSet S, double t);
 } // namespace tdtsptw
 

@@ -12,10 +12,9 @@
 #include "preprocess_travel_times.h"
 #include "preprocess_time_windows.h"
 #include "preprocess_waiting_times.h"
-#include "lbl_ng.h"
-#include "lbl_exact.h"
+#include "labeling.h"
 #include "pricing_problem.h"
-#include "subgradient.h"
+#include "initial_lb.h"
 #include "spf.h"
 #include "heuristic.h"
 
@@ -26,6 +25,8 @@ using namespace tdtsptw;
 
 namespace
 {
+// Reverse instance so that a forward algorithm will give backward labels.
+// Returns: the VRPInstance representing the reversed instance.
 VRPInstance reverse_instance(const VRPInstance& vrp)
 {
 	int n = vrp.D.VertexCount();
@@ -90,12 +91,15 @@ int main(int argc, char** argv)
 	try
 	{
 		json output; // STDOUT output will go into this JSON.
-		
+
+		// This line only works in debug mode.
 		simulate_runner_input("instances/td-ascheuer", "rbg020a", "experiments/ascheuer.json", "CG-NGLTI-DNA-BD");
-		
+
+		// Read input.
 		json experiment, instance, solutions;
 		cin >> experiment >> instance >> solutions;
-		
+
+		// Set time limit for each section.
 		Duration tl_exact = 1200.0_sec;
 		Duration tl_cg = 1200.0_sec;
 		Duration tl_dna = 1200.0_sec;
@@ -108,7 +112,6 @@ int main(int argc, char** argv)
 		bool dssr = value_or_default(experiment, "dssr", false);
 		bool time_independent = value_or_default(experiment, "time_independent", false);
 		bool bidirectional_dna = value_or_default(experiment, "bidirectional_dna", false);
-		bool bidirectional_cg = value_or_default(experiment, "bidirectional_cg", false);
 		bool remove_time_windows = value_or_default(experiment, "remove_tw", false);
 		
 		if (!has_key(instance, "time_windows") || remove_time_windows)
@@ -118,7 +121,7 @@ int main(int argc, char** argv)
 			for (int i = 0; i < n; ++i) instance["time_windows"][i] = instance["horizon"];
 		}
 		
-		// Time-independentize instance.
+		// Time-independentize instance if required.
 		if (time_independent)
 			for (auto& cluster_row: instance["cluster_speeds"])
 				for (auto& speed: cluster_row)
@@ -131,7 +134,6 @@ int main(int argc, char** argv)
 		clog << "Colgen: " << colgen << endl;
 		clog << "DNA: " << dssr << endl;
 		clog << "Bidirectional DNA: " << bidirectional_dna << endl;
-		clog << "Bidirectional CG: " << bidirectional_cg << endl;
 		clog << "Time independent: " << time_independent << endl;
 		clog << "Remove TW: " << remove_time_windows << endl;
 		
@@ -153,7 +155,7 @@ int main(int argc, char** argv)
 		clog << "Parsing instance..." << endl;
 		VRPInstance vrp = instance;
 		
-		// Parse initial UB.
+		// Parse initial UB from solutions file.
 		Route UB;
 		const string INIT_UB_TAG = time_independent ? "INIT_TILK" : "INIT_UB";
 		for (auto& solution: solutions)
@@ -162,7 +164,6 @@ int main(int argc, char** argv)
 			if (includes(tags, INIT_UB_TAG))
 				UB = time_independent ? (Route)solution["routes"][0] : vrp.BestDurationRoute(solution["routes"][0]["path"]);
 		}
-		
 		LPExecutionLog ub_log;
 		ub_log.incumbent_value = UB.duration;
 		output["Initial UB"] = ub_log;
@@ -173,26 +174,26 @@ int main(int argc, char** argv)
 			output["status"] = "Infeasible";
 			clog << "Infeasible" << endl;
 		}
-		
+
+		// If there is an initial upper bound, start algorithm
 		if (UB.duration < INFTY)
 		{
 			clog << "Initial UB: " << UB.duration << ", Initial LB: " << LB << endl;
 			
-			// Build NG structure.
+			// Build NG structure that contains all information about neighbourhoods and ngL-tour path.
 			clog << "Building NG structure..." << endl;
 			auto rvrp = reverse_instance(vrp);
 			NGStructure NG(vrp, 3);
-			NGStructure rNG(rvrp, NG.N, reverse(NG.L), NG.delta);
+			NGStructure rNG(rvrp, NG.N, reverse(NG.L), NG.delta); // NG for reversed instance.
 
 			vector<double> penalties(vrp.D.VertexCount(), 0.0); // Keep best set of penalties.
 
-			// Run subgradient.
+			// Run initial iteration of ngL with penalties 0 for initial LB.
 			Stopwatch rolex(true);
 			clog << "Running initial NG with penalties 0" << endl;
-			vector<Route> sg_routes;
-			CGExecutionLog subgradient_log;
-			sg_routes = subgradient(vrp, NG, relaxation, 20, UB, LB, penalties, &subgradient_log);
-			output["Initial NG"] = subgradient_log;
+			CGExecutionLog initial_lb_log;
+			initial_lb(vrp, NG, relaxation, UB, LB, &initial_lb_log);
+			output["Initial NG"] = initial_lb_log;
 
 			LPExecutionLog lb_log;
 			// Solve CG to obtain best penalties.
@@ -204,7 +205,6 @@ int main(int argc, char** argv)
 					// Initialize SPF.
 					SPF spf(vrp.D.VertexCount());
 					spf.AddRoute(UB);
-					for (auto& r: sg_routes) spf.AddRoute(r);
 					
 					// Configure CG algorithm.
 					CGSolver cg_solver;
@@ -220,42 +220,18 @@ int main(int argc, char** argv)
 						auto pp = spf.InterpretDuals(duals);
 						Route best;
 						double best_cost;
-						if (relaxation == "NGLTI2RES")
+						if (relaxation == "NGLTI")
 						{
 							MLBExecutionLog iteration_log(true);
-							run_ngl2res(vrp, NG, pp.penalties, UB.duration, &best, &best_cost, &iteration_log);
+							run_nglti(vrp, NG, pp.penalties, UB.duration, best, best_cost, &iteration_log);
 							cg_execution_log->iterations->push_back(iteration_log);
-						}
-						else if (relaxation == "NGLTI")
-						{
-							if (!bidirectional_cg)
-							{
-								MLBExecutionLog iteration_log(true);
-								run_nglti(vrp, NG, pp.penalties, UB.duration, best, best_cost, &iteration_log);
-								cg_execution_log->iterations->push_back(iteration_log);
-							}
-							else
-							{
-								BLBExecutionLog blb_log(true);
-								bidirectional_run_nglti(vrp, rvrp, NG, rNG, pp.penalties, UB.duration, best, best_cost, &blb_log);
-							}
 						}
 						else if (relaxation == "NGLTD")
 						{
-							if (!bidirectional_cg)
-							{
-								MLBExecutionLog iteration_log(true);
-								best = run_ngltd(vrp, NG, pp.penalties, &iteration_log, nullptr, LB, time_limit);
-								best_cost = best.duration - sum<Vertex>(best.path, [&](Vertex v) { return pp.penalties[v]; });
-								cg_execution_log->iterations->push_back(iteration_log);
-							}
-							else
-							{
-								BLBExecutionLog iteration_log(true);
-								best = run_ngltd_bidirectional(vrp, rvrp, NG, rNG, pp.penalties, &iteration_log, LB, time_limit);
-								best_cost = best.duration - sum<Vertex>(best.path, [&](Vertex v) { return pp.penalties[v]; });
-								cg_execution_log->iterations->push_back(iteration_log);
-							}
+							MLBExecutionLog iteration_log(true);
+							best = run_ngltd(vrp, NG, pp.penalties, &iteration_log, nullptr, LB, time_limit);
+							best_cost = best.duration - sum<Vertex>(best.path, [&](Vertex v) { return pp.penalties[v]; });
+							cg_execution_log->iterations->push_back(iteration_log);
 						}
 						
 						// Compute new LB.

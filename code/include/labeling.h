@@ -4,8 +4,8 @@
 // Departamento de Computacion - Universidad de Buenos Aires.
 //
 
-#ifndef TDTSPTW_LBL_EXACT_H
-#define TDTSPTW_LBL_EXACT_H
+#ifndef TDTSPTW_LABELING_H
+#define TDTSPTW_LABELING_H
 
 #include <vector>
 #include <unordered_map>
@@ -15,10 +15,58 @@
 
 #include "vrp_instance.h"
 #include "pricing_problem.h"
-#include "lbl_ng.h"
 
 namespace tdtsptw
 {
+// A structure that precomputes all the information necessary to execute an NG algorithm.
+// @param delta: maximum size of the NG neighbourhoods.
+// @param [out] N: NG neighbourhoods.
+// @param [out] L: L path from the NGL path relaxation.
+// @param [out] V: V[r] are the vertices that may be visited after L[r] and before L[r+1].
+// @param [out] NGSet: NGSet[v][i] is the vertex set of the NGSet with index i of vertex v.
+// @param [out] NGSub: NGSub[v][i] are the indices of the NGSets which are subsets of NGSet[v][i].
+// @param [out] NGArc: NGArc[v][i] is a dictionary which given a destination vertex w, it returns the NGSet of w if departing
+// 				 from v with NGSet[v][i].
+struct NGStructure
+{
+	int delta;
+	std::vector<VertexSet> N;
+	goc::GraphPath L;
+	std::vector<VertexSet> V;
+	std::vector<std::vector<VertexSet>> NGSet;
+	std::vector<std::vector<std::vector<int>>> NGSub;
+	std::vector<std::vector<std::unordered_map<goc::Vertex, int>>> NGArc;
+	goc::Matrix<goc::Interval> tw; // tw[k][v] is the smallest time window of vertex v if path length is k.
+
+	// Builds the NGStructure with respect to vrp and delta.
+	NGStructure(const VRPInstance& vrp, int delta);
+
+	NGStructure(const VRPInstance& vrp, const std::vector<VertexSet>& N, const goc::GraphPath& L, int delta);
+
+	void AdjustTimeWindows(const VRPInstance& vrp);
+};
+
+class NGLabel : public goc::Printable
+{
+public:
+	NGLabel* prev;
+	goc::Vertex v;
+	int S;
+	double Tdur, Thelp, Ttime, lambda;
+
+	NGLabel(NGLabel* prev, goc::Vertex v, int S, double Ttime, double Tdur, double Thelp, double lambda);
+
+	goc::GraphPath Path() const;
+
+	virtual void Print(std::ostream& os) const;
+};
+
+double run_nglti(const VRPInstance& vrp, const NGStructure& NG, const std::vector<double>& lambda, double UB,
+				 goc::Route& best_route, double& best_cost, goc::MLBExecutionLog* log);
+
+double bidirectional_run_nglti(const VRPInstance& fvrp, const VRPInstance& bvrp, const NGStructure& fNG, const NGStructure& bNG, const std::vector<double>& lambda, double UB,
+							   goc::Route& best_route, double& best_cost, goc::BLBExecutionLog* blb_log);
+
 class State : public goc::Printable
 {
 public:
@@ -79,4 +127,4 @@ goc::Route run_exact_piecewise(const VRPInstance& vrp, const goc::GraphPath& L, 
 						  double LB, double UB, goc::MLBExecutionLog* log, Bounding* B, goc::Duration time_limit);
 } // namespace tdtsptw
 
-#endif //TDTSPTW_LBL_EXACT_H
+#endif //TDTSPTW_LABELING_H

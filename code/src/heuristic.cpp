@@ -5,7 +5,6 @@
 //
 
 #include "heuristic.h"
-#include "pwl_domination_function.h"
 
 using namespace std;
 using namespace goc;
