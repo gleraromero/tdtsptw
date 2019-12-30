@@ -193,7 +193,8 @@ int main(int argc, char** argv)
 			CGExecutionLog subgradient_log;
 			sg_routes = subgradient(vrp, NG, relaxation, 20, UB, LB, penalties, &subgradient_log);
 			output["Initial NG"] = subgradient_log;
-			
+
+			LPExecutionLog lb_log;
 			// Solve CG to obtain best penalties.
 			if (epsilon_smaller(LB, UB.duration))
 			{
@@ -289,7 +290,11 @@ int main(int argc, char** argv)
 				}
 				
 				bool found_opt = epsilon_equal(LB, UB.duration);
-				if (found_opt) clog << "Optimality was closed in CG" << endl;
+				if (found_opt)
+				{
+					clog << "Optimality was closed in CG" << endl;
+					lb_log.status = LPStatus::Optimum;
+				}
 
 				clog << "Penalties: " << penalties << endl;
 				
@@ -303,6 +308,7 @@ int main(int argc, char** argv)
 						UB = R;
 						clog << "\tFound solution " << UB.path << " " << UB.duration << endl;
 						dna_log.status = CGStatus::Optimum;
+						lb_log.status = LPStatus::Optimum;
 						found_opt = true;
 					}
 					clog << "Finished DNA in " << dna_log.time << "s, with LB: " << LB << endl;
@@ -329,12 +335,11 @@ int main(int argc, char** argv)
 						 << log.enumerated_count << endl;
 					output["Exact"] = log;
 					if (r.duration < UB.duration) UB = vrp.BestDurationRoute(r.path);
+					lb_log.status = log.status == MLBStatus::TimeLimitReached ? LPStatus::TimeLimitReached : LPStatus::Optimum;
 				}
 			}
-			LPExecutionLog lb_log;
 			lb_log.incumbent_value = LB;
 			lb_log.time = rolex.Peek();
-			lb_log.status = rolex.Peek() > time_limit ? LPStatus::TimeLimitReached : LPStatus::Optimum;
 			output["General"] = lb_log;
 			
 			// Get best route.
