@@ -257,11 +257,11 @@ int main(int argc, char** argv)
 					
 					// Run CG.
 					auto cg_log = cg_solver.Solve(spf.formulation, {CGOption::IterationsInformation});
-					output["CG"] = cg_log;
 					
 					// If gap was not closed, get best LB.
 					if (!early_stop && cg_log.status == CGStatus::Optimum) LB = cg_log.incumbent_value;
 					cg_log.incumbent_value = LB;
+					output["CG"] = cg_log;
 					clog << "Finished CG in " << cg_log.time << "secs with LB: " << LB << endl;
 				}
 				
