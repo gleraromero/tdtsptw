@@ -196,6 +196,7 @@ int main(int argc, char** argv)
 			output["Initial NG"] = initial_lb_log;
 
 			LPExecutionLog lb_log;
+
 			// Solve CG to obtain best penalties.
 			if (epsilon_smaller(LB, UB.duration))
 			{
@@ -313,6 +314,10 @@ int main(int argc, char** argv)
 					if (r.duration < UB.duration) UB = vrp.BestDurationRoute(r.path);
 					lb_log.status = log.status == MLBStatus::TimeLimitReached ? LPStatus::TimeLimitReached : LPStatus::Optimum;
 				}
+			}
+			else
+			{
+				lb_log.status = LPStatus::Optimum;
 			}
 			lb_log.incumbent_value = LB;
 			lb_log.time = rolex.Peek();
