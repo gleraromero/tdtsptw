@@ -105,7 +105,6 @@ int main(int argc, char** argv)
 		Duration tl_dna = Duration(value_or_default(experiment, "time_limit_dna", 1200), DurationUnit::Seconds);
 		
 		// Parse experiment.
-		Duration time_limit = Duration(value_or_default(experiment, "time_limit", 7200), DurationUnit::Seconds);
 		string objective = value_or_default(experiment, "objective", "duration");
 		string relaxation = value_or_default(experiment, "relaxation", "NGLTD");
 		bool colgen = value_or_default(experiment, "colgen", true);
@@ -128,7 +127,7 @@ int main(int argc, char** argv)
 					speed = 1.0;
 		
 		// Show experiment details.
-		clog << "Time limit: " << time_limit << "sec." << endl;
+		clog << "Time limit (sec): (CG) " << tl_cg << " - (DNA) " << tl_dna << " - (EXACT) " << tl_exact << endl;
 		clog << "Objective: " << objective << endl;
 		clog << "Relaxation: " << relaxation << endl;
 		clog << "Colgen: " << colgen << endl;
@@ -333,7 +332,7 @@ int main(int argc, char** argv)
 				clog << "\tduration: " << best.duration << endl;
 				output["Best solution"] = VRPSolution(best.duration, {best});
 			}
-			output["status"] = rolex.Peek() < time_limit ? "Optimum" : "TimeLimitReached";
+			output["status"] = *lb_log.status;
 		}
 		
 		// Send JSON output to cout.
