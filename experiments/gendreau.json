@@ -4,14 +4,16 @@
     {
       "name": "CG-NGLTI-DNA-BD",
       "executable": "main",
-      "time_limit": 3600,
       "objective": "duration",
       "colgen": true,
       "relaxation": "NGLTI",
       "dssr": true,
       "bidirectional_cg": false,
       "bidirectional_dna": true,
-      "time_independent": true
+      "time_independent": true,
+      "time_limit_exact": 3600,
+      "time_limit_cg": 3600,
+      "time_limit_dna": 3600
     }
   ]
 }

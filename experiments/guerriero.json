@@ -4,22 +4,26 @@
     {
       "name": "makespan",
       "executable": "main",
-      "time_limit": 3600,
       "objective": "makespan",
       "colgen": true,
       "relaxation": "NGLTI",
       "dssr": true,
-      "bidirectional_dna": true
+      "bidirectional_dna": true,
+      "time_limit_exact": 3600,
+      "time_limit_cg": 3600,
+      "time_limit_dna": 3600
     },
     {
       "name": "duration",
       "executable": "main",
-      "time_limit": 3600,
       "objective": "duration",
       "colgen": true,
       "relaxation": "NGLTI",
       "dssr": true,
-      "bidirectional_dna": true
+      "bidirectional_dna": true,
+      "time_limit_exact": 3600,
+      "time_limit_cg": 3600,
+      "time_limit_dna": 3600
     }
   ]
 }

@@ -100,9 +100,9 @@ int main(int argc, char** argv)
 		cin >> experiment >> instance >> solutions;
 
 		// Set time limit for each section.
-		Duration tl_exact = 1200.0_sec;
-		Duration tl_cg = 1200.0_sec;
-		Duration tl_dna = 1200.0_sec;
+		Duration tl_exact = Duration(value_or_default(experiment, "time_limit_exact", 1200), DurationUnit::Seconds);
+		Duration tl_cg = Duration(value_or_default(experiment, "time_limit_cg", 1200), DurationUnit::Seconds);
+		Duration tl_dna = Duration(value_or_default(experiment, "time_limit_dna", 1200), DurationUnit::Seconds);
 		
 		// Parse experiment.
 		Duration time_limit = Duration(value_or_default(experiment, "time_limit", 7200), DurationUnit::Seconds);
