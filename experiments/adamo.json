@@ -4,7 +4,9 @@
     {
       "name": "CG-NGLTI-DNA-BD",
       "executable": "main",
-      "time_limit": 3600,
+      "time_limit_exact": 1200,
+      "time_limit_cg": 3000,
+      "time_limit_dna": 300,
       "objective": "makespan",
       "colgen": true,
       "relaxation": "NGLTI",
