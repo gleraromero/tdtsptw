@@ -222,8 +222,11 @@ int main(int argc, char** argv)
 						double best_cost;
 						if (relaxation == "NGLTI")
 						{
-							MLBExecutionLog iteration_log(true);
-							run_nglti(vrp, NG, pp.penalties, UB.duration, best, best_cost, &iteration_log);
+							BLBExecutionLog iteration_log(true);
+							bidirectional_run_nglti(vrp, rvrp, NG, rNG, pp.penalties, UB.duration,
+							best, best_cost, &iteration_log);
+//							MLBExecutionLog iteration_log(true);
+//							run_nglti(vrp, NG, pp.penalties, UB.duration, best, best_cost, &iteration_log);
 							cg_execution_log->iterations->push_back(iteration_log);
 						}
 						else if (relaxation == "NGLTD")
