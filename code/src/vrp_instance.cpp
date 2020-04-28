@@ -162,4 +162,62 @@ void from_json(const json& j, VRPInstance& instance)
 		}
 	}
 }
+
+VRPInstance reverse_instance(const VRPInstance& vrp)
+{
+	int n = vrp.D.VertexCount();
+
+	VRPInstance rev;
+	rev.D = vrp.D.Reverse();
+	rev.o = vrp.d, rev.d = vrp.o;
+	rev.T = vrp.T;
+	for (Vertex v: vrp.D.Vertices()) rev.tw.push_back({-vrp.tw[v].right, -vrp.tw[v].left});
+	for (Vertex v: vrp.D.Vertices()) rev.a.push_back(rev.tw[v].left);
+	for (Vertex v: vrp.D.Vertices()) rev.b.push_back(rev.tw[v].right);
+	rev.prec = Matrix<bool>(n, n, false);
+	rev.prec_count = vector<int>(n, 0);
+	rev.suc_count = vector<int>(n, 0);
+	for (Vertex v: vrp.D.Vertices())
+	{
+		for (Vertex w: vrp.D.Vertices())
+		{
+			if (vrp.prec[w][v])
+			{
+				rev.prec[v][w] = true;
+				rev.prec_count[w]++;
+				rev.suc_count[v]++;
+			}
+		}
+	}
+	rev.LDT = rev.EAT = Matrix<double>(n, n);
+	for (Vertex v: vrp.D.Vertices())
+	{
+		for (Vertex w: vrp.D.Vertices())
+		{
+			rev.EAT[v][w] = -vrp.LDT[w][v];
+			rev.LDT[v][w] = -vrp.EAT[w][v];
+		}
+	}
+	rev.arr = rev.tau = rev.dep = rev.pretau = Matrix<PWLFunction>(n, n);
+	for (Vertex u: vrp.D.Vertices())
+	{
+		for (Vertex v: vrp.D.Successors(u))
+		{
+	// Compute reverse travel functions.
+			rev.tau[v][u] = vrp.pretau[u][v].Compose(PWLFunction::IdentityFunction({-vrp.T, 0.0}) * -1);
+			auto init_piece = LinearFunction({-vrp.T, rev.tau[v][u](min(dom(rev.tau[v][u]))) + min(dom(rev.tau[v][u])) + vrp.T}, {min(dom(rev.tau[v][u])), rev.tau[v][u](min(dom(rev.tau[v][u])))});
+			rev.tau[v][u] = Min(rev.tau[v][u], PWLFunction({init_piece}));
+			rev.arr[v][u] = rev.tau[v][u] + PWLFunction::IdentityFunction(rev.tau[v][u].Domain());
+			rev.dep[v][u] = rev.arr[v][u].Inverse();
+			rev.pretau[v][u] = PWLFunction::IdentityFunction(rev.dep[v][u].Domain()) - rev.dep[v][u];
+		}
+	}
+	// Add travel functions for (i, i) (for boundary reasons).
+	for (Vertex u: rev.D.Vertices())
+	{
+		rev.tau[u][u] = rev.pretau[u][u] = PWLFunction::ConstantFunction(0.0, rev.tw[u]);
+		rev.dep[u][u] = rev.arr[u][u] = PWLFunction::IdentityFunction(rev.tw[u]);
+	}
+	return rev;
+}
 } // namespace tdtsptw

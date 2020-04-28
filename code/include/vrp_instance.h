@@ -78,6 +78,11 @@ void to_json(nlohmann::json& j, const VRPInstance& instance);
 
 // Parses an instance.
 void from_json(const nlohmann::json& j, VRPInstance& instance);
+
+// Reverse instance so that a forward algorithm will give backward labels.
+// Returns: the VRPInstance representing the reversed instance.
+VRPInstance reverse_instance(const VRPInstance& vrp);
+
 } // namespace tdtsptw
 
 #endif //TDTSPTW_VRP_INSTANCE_H
