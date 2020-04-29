@@ -142,6 +142,7 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 	{
 		for (goc::Vertex v: vrp_f.D.Vertices())
 		{
+			if ((!ngl_info_f.V[r].test(v) && ngl_info_f.L[r] != v) || (r < ngl_info_f.L.size() - 1 && ngl_info_f.L[r+1] == v)) continue;
 			if (rolex.Peek() > time_limit) { blb_log.status = goc::BLBStatus::TimeLimitReached; break; } // Check time limit.
 
 			// If we are standing on a vertex from L then both labels must have the r_value in that vertex, otherwise, at one of distance.
@@ -168,12 +169,9 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 		goc:: fail("Relaxation error: Should always find a best route if problem is feasible.");
 
 	*opt_cost = best_route.cost;
-	// Construct optimum route.
-	if (*opt_cost != goc::INFTY) *opt = vrp_f.BestDurationRoute(best_route.Path());
-
-	// Validation.
-	if (*opt_cost != goc::INFTY && goc::epsilon_different(*opt_cost, opt->duration - goc::sum<goc::Vertex>(opt->path, [&] (goc::Vertex v) { return penalties[v]; })))
-		goc::fail("Relaxation error: Costs do not match " + STR(*opt_cost) + " " + STR(opt->duration - goc::sum<goc::Vertex>(opt->path, [&] (goc::Vertex v) { return penalties[v]; })));
+	goc::GraphPath best_route_path = best_route.Path();
+	double best_route_penalty = goc::sum<goc::Vertex>(best_route_path, [&] (goc::Vertex v) { return penalties[v]; });
+	*opt = goc::Route(best_route_path, 0.0, best_route.cost + best_route_penalty);
 
 	// Log total execution time.
 	*blb_log.time = rolex.Peek();

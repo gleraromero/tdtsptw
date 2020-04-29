@@ -14,9 +14,13 @@ namespace
 // Dominates prefix from l2 by l1 including waiting times.
 void dominate_label(const LabelSequenceTI::Label& l1, LabelSequenceTI::Label& l2)
 {
-	if (epsilon_bigger_equal(l1.cost, l2.cost)) return;
+	if (epsilon_bigger(l1.cost, l2.cost)) return;
 	if (epsilon_bigger(l1.early, l2.early)) return; // No prefix can be dominated.
-	l2.early = l1.late + (l2.cost - l1.cost); // Dominate all overlapped domain and waiting time until cost is the same.
+	double dominance_end = l1.late + (l2.cost - l1.cost); // Dominate all overlapped domain and waiting time until cost is the same.
+	if (epsilon_bigger_equal(dominance_end, l2.late))
+		l2.early = INFTY; // Move early to INFTY to signal complete dominance.
+	else
+		l2.early = max(dominance_end, l2.early); // Otherwise only dominate prefix.
 }
 }
 
@@ -28,6 +32,15 @@ LabelSequenceTI::LabelSequenceTI(const vector<Label>& labels)
 
 void LabelSequenceTI::DominateBy(const LabelSequenceTI& L2, bool include_dominating_labels)
 {
+	// If this sequence has no labels, then there is nothing to dominate.
+	if (sequence.empty())
+	{
+		if (include_dominating_labels) sequence = L2.sequence;
+		return;
+	}
+	// If no dominating labels exist, then do nothing.
+	if (L2.sequence.empty()) return;
+
 	auto& s1 = sequence;
 	auto s2 = L2.sequence; // Copy L2 sequence in order to modify it.
 
@@ -42,9 +55,12 @@ void LabelSequenceTI::DominateBy(const LabelSequenceTI& L2, bool include_dominat
 	// Merge labels until both have reached the fictitious label which must be last because of INFTY domain.
 	while (i != s1.size() - 1 || j != s2.size() - 1)
 	{
+		if (j > 0) dominate_label(s2[j-1], s1[i]); // Dominate by previous label because of waiting times.
+		if (i > 0) dominate_label(s1[i-1], s2[j]); // Dominate by previous label because of waiting times.
+
 		// Move i and j to labels that have some domain after the last point covered (t).
-		if (epsilon_smaller_equal(s1[i].late, t)) { ++i; continue; }
-		if (epsilon_smaller_equal(s2[j].late, t)) { ++j; continue; }
+		if (epsilon_smaller_equal(s1[i].late, t) || epsilon_bigger(s1[i].early, s1[i].late)) { ++i; continue; }
+		if (epsilon_smaller_equal(s2[j].late, t) || epsilon_bigger(s2[j].early, s2[j].late)) { ++j; continue; }
 
 		// Move early times of labels beyond t.
 		s1[i].early = max(s1[i].early, t);
@@ -52,22 +68,21 @@ void LabelSequenceTI::DominateBy(const LabelSequenceTI& L2, bool include_dominat
 
 		// Dominate labels between them.
 		dominate_label(s2[j], s1[i]);
-		if (j > 0) dominate_label(s2[j-1], s1[i]); // Dominate by previous label because of waiting times.
 		dominate_label(s1[i], s2[j]);
-		if (i > 0) dominate_label(s1[i-1], s2[j]); // Dominate by previous label because of waiting times.
+
+		double dominance_start = min(s1[i].early, s2[j].early);
+		double dominance_end = min(max(s1[i].early, s2[j].early), min(s1[i].late, s2[j].late));
 
 		// Case 1: s1 starts earlier than s2, then add portion of s1.
 		if (epsilon_smaller(s1[i].early, s2[j].early))
 		{
-			result_seq.emplace_back(Label(s1[i].prev, s1[i].v, s1[i].cost, s1[i].early, min(s1[i].late, s2[j].late)));
-			t = min(s1[i].late, s2[j].late); // Update t to late of last piece.
+			result_seq.emplace_back(Label(s1[i].prev, s1[i].v, s1[i].cost, dominance_start, dominance_end));
 		}
 		// Case 2: s2 starts earlier than s1, then add portion of s2.
 		else if (epsilon_smaller(s2[j].early, s1[i].early))
 		{
 			if (include_dominating_labels)
-				result_seq.emplace_back(Label(s2[j].prev, s2[j].v, s2[j].cost, s2[j].early, min(s2[j].late, s1[i].late)));
-			t = min(s2[j].late, s1[i].late); // Update t to late of last piece.
+				result_seq.emplace_back(Label(s2[j].prev, s2[j].v, s2[j].cost, dominance_start, dominance_end));
 		}
 		// Case 3: s1 and s2 start at the same time, add the shared prefix with the smallest cost.
 		else
@@ -75,13 +90,31 @@ void LabelSequenceTI::DominateBy(const LabelSequenceTI& L2, bool include_dominat
 			if (epsilon_smaller(s1[i].cost, s2[j].cost) || include_dominating_labels)
 			{
 				const Label *prev = s1[i].cost <= s2[j].cost ? s1[i].prev : s2[j].prev;
-				result_seq.emplace_back(Label(prev, s1[i].v, min(s1[i].cost, s2[j].cost), min(s1[i].early, s2[j].early),
-											  min(s1[i].late, s2[j].late)));
+				result_seq.emplace_back(Label(prev, s1[i].v, min(s1[i].cost, s2[j].cost), dominance_start, dominance_end));
 			}
-			t = min(s1[i].late, s2[j].late); // Update t to late of last piece.
 		}
+		t = dominance_end;
 	}
-	sequence = result_seq;
+
+	// Set resulting sequence merge consecutive labels which represent the same one.
+	sequence.clear();
+	for (auto& l: result_seq)
+	{
+		if (!sequence.empty() && epsilon_equal(sequence.back().late, l.early) && sequence.back().prev == l.prev)
+		{
+			if (sequence.back().cost != l.cost) fail("Nope");
+			sequence.back().late = l.late;
+		}
+		else
+			sequence.push_back(l);
+	}
+//	if (!Validate())
+//	{
+//		clog << sequence << endl;
+//		clog << L2.sequence << endl;
+//		clog << include_dominating_labels << endl;
+//		fail("Wrong");
+//	}
 }
 
 bool LabelSequenceTI::Empty() const
@@ -155,7 +188,10 @@ LabelSequenceTI LabelSequenceTI::Extend(const VRPInstance& vrp, const NGLInfo& n
 		// Add the new label to the sequence.
 		Lw.sequence.emplace_back(Label(&l, w, cost_lw, early_lw, late_lw));
 	}
-
+//	if (!Lw.Validate())
+//	{
+//		fail("Wrong");
+//	}
 	return Lw;
 }
 
@@ -196,10 +232,52 @@ LabelSequenceTI::MergedLabel LabelSequenceTI::Merge(LabelSequenceTI& L, double r
 	return best;
 }
 
+bool LabelSequenceTI::Validate() const
+{
+	if (sequence.empty()) return true;
+
+	// Check that is increasing.
+	for (int i = 0; i < sequence.size()-1; ++i)
+	{
+		if (epsilon_bigger(sequence[i].late, sequence[i+1].early))
+		{
+			clog << sequence << endl;
+			clog << i << endl;
+			clog << sequence[i] << " " << sequence[i+1] << endl;
+			clog << "Broken sequence because of disjointness." << endl;
+			return false;
+		}
+
+		if (sequence[i].prev == sequence[i+1].prev && epsilon_equal(sequence[i].late, sequence[i+1].early))
+		{
+			clog << sequence[i] << " vs " << sequence[i+1] << endl;
+			clog << "Sequence not squashed." << endl;
+			return false;
+		}
+	}
+
+	for (auto& l: sequence)
+	{
+		if (epsilon_bigger(l.early, l.late))
+		{
+			clog << sequence << endl;
+			clog << l << endl;
+			clog << "Broken sequence because of empty label." << endl;
+			return false;
+		}
+	}
+	return true;
+}
+
 LabelSequenceTI::Label::Label(const Label* prev, goc::Vertex v, double cost, double early, double late)
 	: prev(prev), v(v), cost(cost), early(early), late(late)
 {
 
+}
+
+void LabelSequenceTI::Label::Print(std::ostream& os) const
+{
+	os << "{ cost: " << cost << ", domain: [" << early << ", " << late << "]";
 }
 
 LabelSequenceTI::MergedLabel::MergedLabel()

@@ -17,13 +17,16 @@ namespace tdtsptw
 class LabelSequenceTI
 {
 public:
-	struct Label
+	class Label : public goc::Printable
 	{
+	public:
 		const Label* prev; // Previous label.
 		goc::Vertex v; // Last vertex.
 		double cost, early, late;
 
 		Label(const Label* prev, goc::Vertex v, double cost, double early, double late);
+
+		virtual void Print(std::ostream& os) const;
 	};
 
 	struct MergedLabel
@@ -56,6 +59,8 @@ public:
 	// Merges this sequence with the opposite direction sequence L, and returns the minimum cost of such merge.
 	// 	redundant_cost: is the cost that is accounted for in both labels and therefore must be substracted.
 	MergedLabel Merge(LabelSequenceTI& L, double redundant_cost) const;
+
+	bool Validate() const;
 
 private:
 	std::vector<Label> sequence;
