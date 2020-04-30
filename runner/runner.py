@@ -195,7 +195,7 @@ def main():
 		output = {"date": str(datetime.date.today()), "experiment_file": experiment_file_name, "outputs": []}
 
 		# Periodically, every TSave seconds the output will be saved to the output folder with the name "<date>-<experiment_file_name>.json".
-		TSave = 60
+		TSave = 5
 		output_file_name = F"{datetime.date.today()}-{experiment_file_name}.json"
 		TInit = datetime.datetime.now() # TInit = "timestamp when the experimentation started".
 		TLast = datetime.datetime.now() # TLast = "last time the output was saved".

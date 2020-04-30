@@ -2,7 +2,7 @@
 // Created by Gonzalo Lera Romero on 28/04/2020.
 //
 
-#include "label_sequence_ti.h"
+#include "label_sequence_td.h"
 
 using namespace std;
 using namespace goc;
@@ -12,26 +12,43 @@ namespace tdtsptw
 namespace
 {
 // Dominates prefix from l2 by l1 including waiting times.
-void dominate_label(const LabelSequenceTI::Label& l1, LabelSequenceTI::Label& l2)
+void dominate_label(const LabelSequenceTD::Label& l1, LabelSequenceTD::Label& l2)
 {
 	if (l2.early == INFTY) return; // All label is already dominated.
-	if (epsilon_bigger(l1.cost, l2.cost)) return;
 	if (epsilon_bigger(l1.early, l2.early)) return; // No prefix can be dominated.
-	double dominance_end = l1.late + (l2.cost - l1.cost); // Dominate all overlapped domain and waiting time until cost is the same.
-	if (epsilon_bigger_equal(dominance_end, l2.late))
+	if (epsilon_bigger(l1.CostAt(l2.early), l2.CostAt(l2.early))) return; // The cost of l1 at the start of l2 is bigger, then no prefix is dominated.
+	// If l2 is fully dominated, move early to INFTY.
+	if (epsilon_smaller_equal(l1.CostAt(l2.late), l2.CostAt(l2.late)))
+	{
+		l2.early = INFTY;
+		return;
+	}
+	// Then, l2 is partially dominated, check intersection.
+	double intersection = epsilon_equal(l1.slope, l2.slope) ? INFTY : (l1.intercept - l2.intercept) / (l2.slope - l1.slope);
+
+	// If the intersection happens after late(l1), then compute the real intersection which is between
+	// the waiting time from l1 after late and l2.
+	if (epsilon_bigger(intersection, l1.late))
+	{
+		double slope_waiting = 1.0, intercept_waiting = l1.CostAt(l1.late) - l1.late;
+		intersection = epsilon_equal(l2.slope, slope_waiting) ? INFTY : (intercept_waiting - l2.intercept) / (l2.slope - slope_waiting);
+	}
+
+	// Then, l2 is dominated until the intersection.
+	if (epsilon_bigger_equal(intersection, l2.late))
 		l2.early = INFTY; // Move early to INFTY to signal complete dominance.
 	else
-		l2.early = max(dominance_end, l2.early); // Otherwise only dominate prefix.
+		l2.early = max(intersection, l2.early); // Otherwise only dominate prefix.
 }
 }
 
-LabelSequenceTI::LabelSequenceTI(const vector<Label>& labels)
+LabelSequenceTD::LabelSequenceTD(const vector<Label>& labels)
 		: sequence(labels)
 {
 
 }
 
-void LabelSequenceTI::DominateBy(const LabelSequenceTI& L2, bool include_dominating_labels)
+void LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominating_labels)
 {
 	// If this sequence has no labels, then there is nothing to dominate.
 	if (sequence.empty())
@@ -46,8 +63,8 @@ void LabelSequenceTI::DominateBy(const LabelSequenceTI& L2, bool include_dominat
 	auto s2 = L2.sequence; // Copy L2 sequence in order to modify it.
 
 	// Add fictitious labels at the end of s1 and s2 for simplicity.
-	s1.emplace_back(Label(nullptr, 0, INFTY, INFTY, INFTY));
-	s2.emplace_back(Label(nullptr, 0, INFTY, INFTY, INFTY));
+	s1.emplace_back(Label(nullptr, 0, INFTY, INFTY, INFTY, INFTY));
+	s2.emplace_back(Label(nullptr, 0, INFTY, INFTY, INFTY, INFTY));
 
 	vector<Label> result_seq;
 	int i = 0, j = 0;
@@ -76,6 +93,7 @@ void LabelSequenceTI::DominateBy(const LabelSequenceTI& L2, bool include_dominat
 		if (epsilon_smaller(s1[i].early, s2[j].early)) winner_label = 1;
 		else if (epsilon_smaller(s2[j].early, s1[i].early)) winner_label = 2;
 		else winner_label = (epsilon_equal(s1[i].early, s1[i].late) ? 1 : 2); // If they start at the same time it is because one of them is a point that dominates the other one.
+
 		auto& winner = winner_label == 1 ? s1[i] : s2[j];
 		auto& loser = winner_label == 1 ? s2[j] : s1[i];
 		t = min(min(winner.late, loser.late), loser.early); // late time of the part we must add.
@@ -86,34 +104,31 @@ void LabelSequenceTI::DominateBy(const LabelSequenceTI& L2, bool include_dominat
 			// If the label to be added is another part of the same label added before, then extend it.
 			if (!result_seq.empty() && epsilon_equal(result_seq.back().late, winner.early) && result_seq.back().prev == winner.prev)
 				result_seq.back().late = t;
-				// Otherwise, add the winner part.
+			// Otherwise, add the winner part.
 			else
-				result_seq.emplace_back(Label(winner.prev, winner.v, winner.cost, winner.early, t));
+				result_seq.emplace_back(Label(winner.prev, winner.early, t, winner.v, winner.slope, winner.intercept));
 		}
 	}
 	sequence = result_seq;
 	if (!Validate())
 	{
-		clog << sequence << endl;
-		clog << L2.sequence << endl;
-		clog << include_dominating_labels << endl;
-		fail("Wrong");
+		fail("Wrong domination");
 	}
 }
 
-bool LabelSequenceTI::Empty() const
+bool LabelSequenceTD::Empty() const
 {
 	return sequence.empty();
 }
 
-int LabelSequenceTI::Count() const
+int LabelSequenceTD::Count() const
 {
 	return sequence.size();
 }
 
-LabelSequenceTI LabelSequenceTI::Extend(const VRPInstance& vrp, const NGLInfo& ngl_info, const Core& c, goc::Vertex w, double penalty_w) const
+LabelSequenceTD LabelSequenceTD::Extend(const VRPInstance& vrp, const NGLInfo& ngl_info, const Core& c, goc::Vertex w, double penalty_w) const
 {
-	LabelSequenceTI Lw;
+	LabelSequenceTD Lw;
 	if (this->sequence.empty()) fail("Sequence must not be empty.");
 
 	Vertex v = c.v;
@@ -126,66 +141,68 @@ LabelSequenceTI LabelSequenceTI::Extend(const VRPInstance& vrp, const NGLInfo& n
 	for (auto& l: this->sequence)
 	{
 		if (epsilon_bigger(l.early, max(dom(tau_vw)))) break;
-		double min_tau_lw = INFTY; // minimum travel time departing on l.
-		double early_lw = INFTY; // earliest arrival to w departing on l.
 		while (j < tau_vw.PieceCount())
 		{
 			if (epsilon_smaller(max(dom(tau_vw[j])), l.early)) { ++j; continue; }
 			if (epsilon_bigger(min(dom(tau_vw[j])), l.late)) break;
 
-			// Earliest arrival to w must be departing at l.early (FIFO).
-			if (tau_vw[j].domain.Includes(l.early)) early_lw = l.early + tau_vw[j](l.early);
-
 			// Calculate overlap between l and tau_vw[j].
-			double overlap_left = max(min(dom(tau_vw[j])), l.early);
-			double overlap_right = min(max(dom(tau_vw[j])), l.late);
+			double early_overlap = max(min(dom(tau_vw[j])), l.early);
+			double late_overlap = min(max(dom(tau_vw[j])), l.late);
 
-			// Calculate minimum travel time to w in overlap zone.
-			min_tau_lw = min(min_tau_lw, tau_vw[j](overlap_left));
-			min_tau_lw = min(min_tau_lw, tau_vw[j](overlap_right));
+			// Calculate early and late arriving times.
+			double early_lw = early_overlap + tau_vw[j](early_overlap);
+			double late_lw = late_overlap + tau_vw[j](late_overlap);
 
+			// Calculate cost at borders.
+			double early_lw_cost = l.CostAt(early_overlap) + (early_lw - early_overlap) - penalty_w;
+			double late_lw_cost = l.CostAt(late_overlap) + (late_lw - late_overlap) - penalty_w;
+
+			// If the earliest and latest arrival times are the same, then we must consider only departing the latest.
+			if (epsilon_equal(early_lw, late_lw)) early_lw_cost = late_lw_cost;
+
+			// Label resulting from l + tau_vw[j].
+			Label lw(&l, w, early_lw, late_lw, early_lw_cost, late_lw_cost);
+
+			// Execute domination among new pieces.
+			if (!Lw.sequence.empty())
+			{
+				dominate_label(Lw.sequence.back(), lw);
+				dominate_label(lw, Lw.sequence.back());
+				if (Lw.sequence.back().early == INFTY) Lw.sequence.pop_back();
+			}
+
+			if (lw.early != INFTY)
+			{
+				// Check if label is an extension of the previous label, if so, extend domain.
+				if (!Lw.sequence.empty() &&
+					Lw.sequence.back().prev == lw.prev &&
+					epsilon_equal(Lw.sequence.back().slope, lw.slope) &&
+					epsilon_equal(Lw.sequence.back().intercept, lw.intercept) &&
+					epsilon_equal(Lw.sequence.back().late, lw.early))
+				{
+					Lw.sequence.back().late = late_lw;
+				}
+				else
+				{
+					// Label could not be squashed, then, add it to the end of the sequence.
+					Lw.sequence.emplace_back(lw);
+				}
+			}
+
+			// Move to next piece of tau_vw if needed.
 			if (epsilon_bigger_equal(max(dom(tau_vw[j])), l.late)) break;
 			++j;
-		}
-
-		double late_lw = min(l.late, max(dom(tau_vw))) + min_tau_lw; // latest arrival to w from l.
-		double cost_lw = l.cost + min_tau_lw - penalty_w; // cost of label lw.
-
-		Label lw = Label(&l, w, cost_lw, early_lw, late_lw);
-
-		// Execute domination among new pieces.
-		if (!Lw.sequence.empty())
-		{
-			dominate_label(Lw.sequence.back(), lw);
-			dominate_label(lw, Lw.sequence.back());
-			if (Lw.sequence.back().early == INFTY) Lw.sequence.pop_back();
-		}
-
-		if (lw.early != INFTY)
-		{
-			// Check if label is an extension of the previous label, if so, extend domain.
-			if (!Lw.sequence.empty() &&
-				Lw.sequence.back().prev == lw.prev &&
-				epsilon_equal(Lw.sequence.back().cost, lw.cost) &&
-				epsilon_equal(Lw.sequence.back().late, lw.early))
-			{
-				Lw.sequence.back().late = late_lw;
-			}
-			else
-			{
-				// Label could not be squashed, then, add it to the end of the sequence.
-				Lw.sequence.emplace_back(lw);
-			}
 		}
 	}
 	if (!Lw.Validate())
 	{
-		fail("Wrong");
+		fail("Wrong extension");
 	}
 	return Lw;
 }
 
-LabelSequenceTI::MergedLabel LabelSequenceTI::Merge(LabelSequenceTI& L, double redundant_cost) const
+LabelSequenceTD::MergedLabel LabelSequenceTD::Merge(LabelSequenceTD& L, double redundant_cost) const
 {
 	MergedLabel best(nullptr, nullptr, INFTY);
 	if (sequence.empty() || L.sequence.empty()) return best;
@@ -204,9 +221,24 @@ LabelSequenceTI::MergedLabel LabelSequenceTI::Merge(LabelSequenceTI& L, double r
 			double late_j = -s2[j].early, early_j = -s2[j].late;
 			if (epsilon_smaller(late_j, l.early)) { --j; continue; } // Move j until s2[j] is ahead of l.
 
+			double merge_cost = INFTY;
+			// If there is no overlap, then compute cost of waiting.
+			if (epsilon_bigger(early_j, l.late))
+			{
+				double waiting_time = early_j - l.late; // necessary waiting time between l to depart at s[j].
+				merge_cost = min(merge_cost, l.CostAt(l.late) + s2[j].CostAt(-early_j) + waiting_time - redundant_cost);
+			}
+			// If there is overlap, compute the minimum which must be in an extreme.
+			else
+			{
+				double early_overlap = max(l.early, early_j);
+				merge_cost = min(merge_cost, l.CostAt(early_overlap) + s2[j].CostAt(-early_overlap) - redundant_cost);
+
+				double late_overlap = min(l.late, late_j);
+				merge_cost = min(merge_cost, l.CostAt(late_overlap) + s2[j].CostAt(-late_overlap) - redundant_cost);
+			}
+
 			// Update cost with merge of l and s[j].
-			double waiting_time = max(0.0, early_j - l.late); // necessary waiting time between l to depart at s[j].
-			double merge_cost = l.cost + s2[j].cost - redundant_cost + waiting_time;
 			if (merge_cost < best.cost)
 			{
 				best.cost = merge_cost;
@@ -223,7 +255,7 @@ LabelSequenceTI::MergedLabel LabelSequenceTI::Merge(LabelSequenceTI& L, double r
 	return best;
 }
 
-bool LabelSequenceTI::Validate() const
+bool LabelSequenceTD::Validate() const
 {
 	if (sequence.empty()) return true;
 
@@ -280,35 +312,61 @@ bool LabelSequenceTI::Validate() const
 	return true;
 }
 
-LabelSequenceTI::Label LabelSequenceTI::Initial(Vertex origin, const goc::Interval& time_window, double initial_cost)
+LabelSequenceTD::Label LabelSequenceTD::Initial(Vertex origin, const goc::Interval& time_window, double initial_cost)
 {
-	return Label(nullptr, origin, initial_cost, time_window.left, time_window.right);
+	return Label(nullptr, origin, time_window.left, time_window.right, initial_cost, initial_cost);
 }
 
-LabelSequenceTI::Label::Label(const Label* prev, goc::Vertex v, double cost, double early, double late)
-		: prev(prev), v(v), cost(cost), early(early), late(late)
+LabelSequenceTD::Label::Label(const Label* prev, goc::Vertex v, double early, double late, double early_cost, double late_cost)
+		: prev(prev), v(v), early(early), late(late)
+{
+	// Case 1: the function is constant.
+	if (epsilon_equal(early_cost, late_cost))
+	{
+		slope = 0;
+		intercept = early_cost;
+	}
+	else
+	{
+		slope = (late_cost - early_cost) / (late - early);
+		intercept = early_cost - slope * early;
+	}
+}
+
+LabelSequenceTD::Label::Label(const Label* prev, double early, double late, goc::Vertex v, double slope, double intercept)
+	: prev(prev), v(v), early(early), late(late), slope(slope), intercept(intercept)
 {
 
 }
 
-void LabelSequenceTI::Label::Print(std::ostream& os) const
+double LabelSequenceTD::Label::CostAt(double t) const
 {
-	os << "{ cost: " << cost << ", domain: [" << early << ", " << late << "]";
+	// Check that t is inside domain or includes waiting times..
+	if (epsilon_smaller(t, early)) fail("Cost of label at " + STR(t) + " is infeasible because domain is [" + STR(early) + ", " + STR(late) + "]");
+	// If t is after the late time, then we must consider the cost plus the waiting time.
+	if (epsilon_bigger_equal(t, late)) return slope * late + intercept  + (t - late);
+	// We are inside the domain.
+	return slope * t + intercept;
 }
 
-LabelSequenceTI::MergedLabel::MergedLabel()
+void LabelSequenceTD::Label::Print(std::ostream& os) const
+{
+	os << "{ domain: [" << early << ", " << late << "], image: [" << (slope * early + intercept) << ", " << (slope * late + intercept) << "] }";
+}
+
+LabelSequenceTD::MergedLabel::MergedLabel()
 		: forward(nullptr), backward(nullptr), cost(INFTY)
 {
 
 }
 
-LabelSequenceTI::MergedLabel::MergedLabel(const Label* forward, const Label* backward, double cost)
+LabelSequenceTD::MergedLabel::MergedLabel(const Label* forward, const Label* backward, double cost)
 		: forward(forward), backward(backward), cost(cost)
 {
 
 }
 
-GraphPath LabelSequenceTI::MergedLabel::Path() const
+GraphPath LabelSequenceTD::MergedLabel::Path() const
 {
 	GraphPath p;
 	// Add forward path.

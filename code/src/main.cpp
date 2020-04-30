@@ -19,6 +19,7 @@
 #include "spf.h"
 #include "relaxation_solver.h"
 #include "label_sequence_ti.h"
+#include "label_sequence_td.h"
 
 using namespace std;
 using namespace goc;
@@ -46,8 +47,8 @@ Route get_initial_solution(const json& solutions, const string& tag)
 void preprocess_instance(json& instance, const string& objective, bool remove_td, bool remove_time_windows)
 {
 	// Set departing time from depot equal to 0 if makespan objective.
-	if (objective == "makespan") instance["time_windows"][0] = Interval(0, 0);
 	if (!has_key(instance, "time_windows") || remove_time_windows) preprocess_remove_time_windows(instance);
+	if (objective == "makespan") instance["time_windows"][0] = Interval(0, 0);
 	if (remove_td) preprocess_remove_time_dependency(instance);
 	if (remove_td) preprocess_remove_time_dependency(instance);
 	preprocess_travel_times(instance);
@@ -78,7 +79,7 @@ BLBStatus solve_relaxation(const VRPInstance& vrp, const VRPInstance& vrp_r, con
 	if (relaxation == "NGLTI")
 		return run_relaxation<LabelSequenceTI>(vrp, vrp_r, ngl_info, ngl_info_r, penalties, nullptr, time_limit, opt, opt_cost, log);
 	else if (relaxation == "NGLTD")
-		return run_relaxation<LabelSequenceTI>(vrp, vrp_r, ngl_info, ngl_info_r, penalties, nullptr, time_limit, opt, opt_cost, log);
+		return run_relaxation<LabelSequenceTD>(vrp, vrp_r, ngl_info, ngl_info_r, penalties, nullptr, time_limit, opt, opt_cost, log);
 
 	fail("Unrecognized relaxation " + relaxation);
 	return BLBStatus::DidNotStart;

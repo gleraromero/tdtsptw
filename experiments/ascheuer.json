@@ -4,8 +4,11 @@
     {
       "name": "TI",
       "executable": "main",
+      "time_limit_exact": 3600,
+      "time_limit_cg": 3600,
+      "time_limit_dna": 3600,
       "objective": "duration",
-      "relaxation": "NGLTI",
+      "relaxation": "NGLTD",
       "bounding": true,
       "remove_td": true,
       "remove_tw": false,

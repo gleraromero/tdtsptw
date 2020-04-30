@@ -47,8 +47,8 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 	int c_dir[2] = {1, 1}; // c_dir[d] indicates the number of sequences to extend next in direction d.
 
 	// Add initial routes for forward and backward.
-	L[0][1][0][vrp_f.o][goc::create_bitset<MAX_N>({vrp_f.o})] = LS({typename LS::Label(nullptr, vrp_f.o, 0.0, vrp_f.a[vrp_f.o], vrp_f.b[vrp_f.o])});
-	L[1][1][0][vrp_b.o][goc::create_bitset<MAX_N>({vrp_b.o})] = LS({typename LS::Label(nullptr, vrp_b.o, 0.0, vrp_b.a[vrp_b.o], vrp_b.b[vrp_b.o])});
+	L[0][1][0][vrp_f.o][goc::create_bitset<MAX_N>({vrp_f.o})] = LS({LS::Initial(vrp_f.o, vrp_f.tw[vrp_f.o], -penalties[vrp_f.o])});
+	L[1][1][0][vrp_b.o][goc::create_bitset<MAX_N>({vrp_b.o})] = LS({LS::Initial(vrp_b.o, vrp_b.tw[vrp_b.o], -penalties[vrp_b.o])});
 
 	// Keep extending while merging is not possible (merge should yield complete routes with n vertices).
 	while (k_dir[0] + k_dir[1] < n+1)
@@ -95,6 +95,7 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 					*mlb_log[d]->bounding_time += rolex_temp.Pause();
 
 					// Extend l1.
+					mlb_log[d]->processed_count += l1.Count();
 					mlb_log[d]->extended_count++;
 					rolex_temp.Reset().Resume();
 					for (goc::Vertex w: vrp.D.Vertices())
