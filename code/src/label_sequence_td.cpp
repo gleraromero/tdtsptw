@@ -24,7 +24,7 @@ void dominate_label(const LabelSequenceTD::Label& l1, LabelSequenceTD::Label& l2
 		return;
 	}
 	// Then, l2 is partially dominated, check intersection.
-	double intersection = epsilon_equal(l1.slope, l2.slope) ? INFTY : (l1.intercept - l2.intercept) / (l2.slope - l1.slope);
+	double intersection = epsilon_smaller_equal(l1.slope, l2.slope) ? INFTY : (l1.intercept - l2.intercept) / (l2.slope - l1.slope);
 
 	// If the intersection happens after late(l1), then compute the real intersection which is between
 	// the waiting time from l1 after late and l2.
@@ -73,8 +73,8 @@ void LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 	// Merge labels until both have reached the fictitious label which must be last because of INFTY domain.
 	while (i != s1.size() - 1 || j != s2.size() - 1)
 	{
-		if (j > 0) dominate_label(s2[j-1], s1[i]); // Dominate by previous label because of waiting times.
-		if (i > 0) dominate_label(s1[i-1], s2[j]); // Dominate by previous label because of waiting times.
+//		if (j > 0) dominate_label(s2[j-1], s1[i]); // Dominate by previous label because of waiting times.
+//		if (i > 0) dominate_label(s1[i-1], s2[j]); // Dominate by previous label because of waiting times.
 
 		// Move i and j to labels that have some domain after the last point covered (t).
 		if (epsilon_smaller_equal(s1[i].late, t) || epsilon_bigger(s1[i].early, s1[i].late)) { ++i; continue; }
@@ -102,11 +102,17 @@ void LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 		if (winner_label == 1 || (winner_label == 2 && include_dominating_labels))
 		{
 			// If the label to be added is another part of the same label added before, then extend it.
-			if (!result_seq.empty() && epsilon_equal(result_seq.back().late, winner.early) && result_seq.back().prev == winner.prev)
+			if (!result_seq.empty() && epsilon_equal(result_seq.back().late, winner.early) &&
+				epsilon_equal(result_seq.back().slope, winner.slope) &&
+				epsilon_equal(result_seq.back().intercept, winner.intercept) && result_seq.back().prev == winner.prev)
 				result_seq.back().late = t;
 			// Otherwise, add the winner part.
 			else
-				result_seq.emplace_back(Label(winner.prev, winner.early, t, winner.v, winner.slope, winner.intercept));
+			{
+				Label add(winner.prev, winner.early, t, winner.v, winner.slope, winner.intercept);
+				if (!result_seq.empty()) dominate_label(result_seq.back(), add);
+				if (add.early < INFTY) result_seq.emplace_back(add);
+			}
 		}
 	}
 	sequence = result_seq;
@@ -291,7 +297,8 @@ bool LabelSequenceTD::Validate() const
 			return false;
 		}
 
-		if (sequence[i].prev == sequence[i+1].prev && epsilon_equal(sequence[i].late, sequence[i+1].early))
+		if (sequence[i].prev == sequence[i+1].prev && epsilon_equal(sequence[i].late, sequence[i+1].early) &&
+			epsilon_equal(sequence[i].slope, sequence[i+1].slope) && epsilon_equal(sequence[i].intercept, sequence[i+1].intercept))
 		{
 			clog << sequence[i] << " vs " << sequence[i+1] << endl;
 			clog << "Sequence not squashed." << endl;
