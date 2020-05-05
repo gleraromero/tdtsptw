@@ -289,7 +289,7 @@ LabelSequenceTI::Label LabelSequenceTI::Initial(const goc::Interval& time_window
 	return Label(initial_cost, time_window.left, time_window.right);
 }
 
-double LabelSequenceTI::CostAt(double t, double* waiting_time) const
+double LabelSequenceTI::CostAt(double t) const
 {
 	if (sequence.empty()) return INFTY;
 	if (epsilon_smaller(t, sequence.front().early)) return INFTY;
@@ -298,8 +298,8 @@ double LabelSequenceTI::CostAt(double t, double* waiting_time) const
 	{
 		if (epsilon_smaller_equal(sequence[i].early, t))
 		{
-			*waiting_time = max(0.0, t - sequence[i].late);
-			cost = sequence[i].cost + *waiting_time;
+			double waiting_time = max(0.0, t - sequence[i].late);
+			cost = sequence[i].cost + waiting_time;
 			break;
 		}
 	}

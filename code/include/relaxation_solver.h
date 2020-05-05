@@ -32,8 +32,6 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 								const std::vector<std::vector<std::vector<std::unordered_map<VertexSet, LS>>>>& L,
 								const std::vector<double>& penalties, const Core& c, double cost, double time)
 {
-	double orig_time = time;
-	double orig_cost = cost;
 	// Variables that contain information about the path to be built.
 	goc::Vertex v = c.v;
 	int r = ngl_info.L[c.r] == v ? c.r - 1 : c.r;
@@ -61,8 +59,7 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				double t = vrp.DepartureTime({u, v}, time);
 				if (t == goc::INFTY) continue;
 				double cost_t = cost - (time - t) + penalties[v];
-				double waiting_time;
-				double actual_cost = l.CostAt(t, &waiting_time);
+				double actual_cost = l.CostAt(t);
 				if (goc::epsilon_smaller(actual_cost, cost_t)) goc::fail("Smaller cost than expected");
 				if (goc::epsilon_equal(actual_cost, cost_t))
 				{
@@ -72,8 +69,8 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					S = s;
 					if (ngl_info.L[r] == u) r--;
 					v = u;
-					time = t - waiting_time;
-					cost = cost_t - waiting_time;
+					time = t;
+					cost = cost_t;
 					break;
 				}
 			}

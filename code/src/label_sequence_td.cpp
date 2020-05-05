@@ -328,7 +328,7 @@ LabelSequenceTD::Label LabelSequenceTD::Initial(const goc::Interval& time_window
 	return Label::FromPoints(time_window.left, time_window.right, initial_cost, initial_cost);
 }
 
-double LabelSequenceTD::CostAt(double t, double* waiting_time) const
+double LabelSequenceTD::CostAt(double t) const
 {
 	if (sequence.empty()) return INFTY;
 	if (epsilon_smaller(t, sequence.front().early)) return INFTY;

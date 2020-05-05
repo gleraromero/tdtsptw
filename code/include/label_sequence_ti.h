@@ -56,8 +56,7 @@ public:
 	static Label Initial(const goc::Interval& time_window, double initial_cost);
 
 	// Returns the cost of arriving at time t, including waiting times.
-	// 	waiting_time: time spent waiting to reach at t.
-	double CostAt(double t, double* waiting_time) const;
+	double CostAt(double t) const;
 
 private:
 	std::vector<Label> sequence;
