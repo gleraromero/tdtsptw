@@ -18,7 +18,89 @@
 
 namespace tdtsptw
 {
+// Reconstructs a path from a .
+// 	vrp: instance to work with.
+//	ngl_info: information about the NG sets and L path.
+//	L: map (k, r, v, S) -> LabelSequence of non-dominated labels.
+//	penalties: penalties of the vertices.
+// 	c: Core of the label to reconstruct.
+//	cost: Cost of the label to reconstruct.
+//	time: Arrival time of the label to reconstruct.
+//
+template<class LS>
+goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
+								const std::vector<std::vector<std::vector<std::unordered_map<VertexSet, LS>>>>& L,
+								const std::vector<double>& penalties, const Core& c, double cost, double time)
+{
+	double orig_time = time;
+	double orig_cost = cost;
+	// Variables that contain information about the path to be built.
+	goc::Vertex v = c.v;
+	int r = ngl_info.L[c.r] == v ? c.r - 1 : c.r;
+	VertexSet S = c.S;
+
+	// Get next k-1 vertices.
+	goc::GraphPath path = {v};
+	for (int k = c.k-1; k > 0; --k)
+	{
+		bool found_next = false;
+		for (goc::Vertex u: vrp.D.Vertices())
+		{
+			if (u == v) continue;
+			if (!goc::is_subset(S, ngl_info.ExtendNG(ngl_info.N[u], v))) continue; // Check that after visiting (u, v) we can have S as the NGset.
+			if (!ngl_info.V[r].test(u) && ngl_info.L[r] != u) continue;
+
+			// Check if some sequence with core (k, r, v, _) has a label with  cost=_cost_.
+			for (auto& s_l: L[k][r][u])
+			{
+				auto& s = s_l.first;
+				auto& l = s_l.second;
+				if (s.test(v)) continue; // If v \in s, then adding (u, v) forms an ng-cycle.
+				// Verify that (S_u \cap N[v]) \cup {v} = S_v (i.e. extension of L through v gives the last step).
+				if (ngl_info.ExtendNG(s, v) != S) continue;
+				double t = vrp.DepartureTime({u, v}, time);
+				if (t == goc::INFTY) continue;
+				double cost_t = cost - (time - t) + penalties[v];
+				double waiting_time;
+				double actual_cost = l.CostAt(t, &waiting_time);
+				if (goc::epsilon_smaller(actual_cost, cost_t)) goc::fail("Smaller cost than expected");
+				if (goc::epsilon_equal(actual_cost, cost_t))
+				{
+					// Move to next label.
+					found_next = true;
+					path.push_back(u);
+					S = s;
+					if (ngl_info.L[r] == u) r--;
+					v = u;
+					time = t - waiting_time;
+					cost = cost_t - waiting_time;
+					break;
+				}
+			}
+
+			if (found_next) break; // If next vertex was found, continue.
+		}
+		if (!found_next)
+		{
+			goc::fail("Could not reconstruct path");
+		}
+	}
+
+	return goc::reverse(path);
+}
+
 // LS is the class of the LabelSequence used for the relaxation (it can be LabelSequenceTD or LabelSequenceTI).
+// Runs a relaxed TSP algorithm with the relaxation specified in LS.
+// 	vrp_f: forward instance
+// 	vrp_b: backward instance
+//	ngl_info_f: NGL structure for forward instance
+//	ngl_info_b: NGL structure for backward instance
+//	penalties: vertex penalties
+//	B: bounding tree to keep non-dominated labels for bounding (nullptr if no bounds need to be kept)
+//	time_limit: maximum execution time
+//	opt: [output] best route
+//	opt_cost: [output] best route cost
+//	log: [output] log of the execution.
 template<class LS>
 goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, const NGLInfo& ngl_info_f,
 					const NGLInfo& ngl_info_b, const std::vector<double>& penalties, BoundingTree<LS>* B, const goc::Duration& time_limit,
@@ -47,8 +129,8 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 	int c_dir[2] = {1, 1}; // c_dir[d] indicates the number of sequences to extend next in direction d.
 
 	// Add initial routes for forward and backward.
-	L[0][1][0][vrp_f.o][goc::create_bitset<MAX_N>({vrp_f.o})] = LS({LS::Initial(vrp_f.o, vrp_f.tw[vrp_f.o], -penalties[vrp_f.o])});
-	L[1][1][0][vrp_b.o][goc::create_bitset<MAX_N>({vrp_b.o})] = LS({LS::Initial(vrp_b.o, vrp_b.tw[vrp_b.o], -penalties[vrp_b.o])});
+	L[0][1][0][vrp_f.o][goc::create_bitset<MAX_N>({vrp_f.o})] = LS({LS::Initial(vrp_f.tw[vrp_f.o], -penalties[vrp_f.o])});
+	L[1][1][0][vrp_b.o][goc::create_bitset<MAX_N>({vrp_b.o})] = LS({LS::Initial(vrp_b.tw[vrp_b.o], -penalties[vrp_b.o])});
 
 	// Keep extending while merging is not possible (merge should yield complete routes with n vertices).
 	while (k_dir[0] + k_dir[1] < n+1)
@@ -113,9 +195,7 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 
 						// Add extension to queue L, and perform a fusion with the existing sequence with the same
 						// core if it exists.
-						VertexSet S_w = s1 & ngl_info.N[w]; // Update S_w according to NG rules.
-						S_w.set(w);
-						Core c_w(k+1, r + (ngl_info.L[r+1] == w), w, S_w);
+						Core c_w(k+1, r + (ngl_info.L[r+1] == w), w, ngl_info.ExtendNG(s1, w));
 						L[d][c_w.k][c_w.r][c_w.v].insert({c_w.S, LS()}).first->second.DominateBy(l_w, true);
 						mlb_log[d]->enumerated_count++;
 						(*mlb_log[d]->count_by_length)[c_w.k]++;
@@ -138,7 +218,10 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 	int k_f = k_dir[0];
 	int k_b = k_dir[1];
 
-	typename LS::MergedLabel best_route;
+	double best_cost = goc::INFTY;
+	Core best_forward, best_backward; // forward and backward labels that merged give the best_cost.
+	double best_cost_forward, best_cost_backward; // Cost when the forward and backward label merge.
+	double best_time; // Time when the forward and backward merge (expressed in terms of forward instance).
 	for (int r = 0; r < ngl_info_f.L.size(); ++r)
 	{
 		for (goc::Vertex v: vrp_f.D.Vertices())
@@ -157,22 +240,35 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 
 					// Check if labels can be merged.
 					if ((s_f & s_b) != goc::create_bitset<MAX_N>({v})) continue; // Sf \cap Sb = {v}.
-//					if (l_f.best_cost + l_b.best_cost + penalties[v] >= *opt_cost) continue;
-					auto merged_route = l_f.Merge(l_b, -penalties[v]);
-					if (merged_route.cost < best_route.cost) best_route = merged_route;
+					double merge_time, cost_forward, cost_backward;
+					double merged_cost = l_f.Merge(l_b, -penalties[v], &merge_time, &cost_forward, &cost_backward);
+					if (merged_cost < best_cost)
+					{
+						best_cost = merged_cost;
+						best_time = merge_time;
+						best_forward = Core(k_f, r, v, s_f);
+						best_backward = Core(k_b, r_b, v, s_b);
+						best_cost_forward = cost_forward;
+						best_cost_backward = cost_backward;
+					}
 				}
 			}
 		}
 	}
 	*blb_log.merge_time += rolex_temp.Pause();
 
-	if (best_route.cost == goc::INFTY)
+	if (best_cost == goc::INFTY)
 		goc:: fail("Relaxation error: Should always find a best route if problem is feasible.");
 
-	*opt_cost = best_route.cost;
-	goc::GraphPath best_route_path = best_route.Path();
+	*opt_cost = best_cost;
+
+	// Reconstruct path by appending the forward and backward paths.
+	goc::GraphPath best_route_path = reconstruct_path(vrp_f, ngl_info_f, L[0], penalties, best_forward, best_cost_forward, best_time);
+	goc::GraphPath best_backward_path = reconstruct_path(vrp_b, ngl_info_b, L[1], penalties, best_backward, best_cost_backward, -best_time);
+	for (int i = (int)best_backward_path.size()-2; i >= 0; --i) best_route_path.push_back(best_backward_path[i]);
+
 	double best_route_penalty = goc::sum<goc::Vertex>(best_route_path, [&] (goc::Vertex v) { return penalties[v]; });
-	*opt = goc::Route(best_route_path, 0.0, best_route.cost + best_route_penalty);
+	*opt = goc::Route(best_route_path, 0.0, best_cost + best_route_penalty);
 
 	// Log total execution time.
 	*blb_log.time = rolex.Peek();

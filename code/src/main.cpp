@@ -269,6 +269,7 @@ int main(int argc, char** argv)
 
 		general_log.best_bound = lb;
 		general_log.best_int_value = UB.duration;
+		general_log.time = rolex.Peek();
 		output["general"] = general_log;
 		output["best_solution"] = VRPSolution(UB.duration, {UB});
 		cout << output << endl;

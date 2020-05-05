@@ -9,6 +9,13 @@ using namespace goc;
 
 namespace tdtsptw
 {
+VertexSet NGLInfo::ExtendNG(const VertexSet& S, Vertex v) const
+{
+	auto Sv = S & N[v];
+	Sv.set(v);
+	return Sv;
+}
+
 void create_default_nginfo(const VRPInstance& vrp, int delta, NGLInfo* forward, NGLInfo* backward)
 {
 	// Compute Neighbourhoods.
@@ -30,6 +37,7 @@ void create_default_nginfo(const VRPInstance& vrp, int delta, NGLInfo* forward, 
 			forward->N[i].set(N_by_dist[k].second);
 			N_list[i].push_back(N_by_dist[k].second);
 		}
+		forward->N[i].set(i);
 	}
 
 	// Compute NGL path

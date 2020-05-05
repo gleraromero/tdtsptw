@@ -17,6 +17,9 @@ struct NGLInfo
 	std::vector<VertexSet> N; // neighbours.
 	goc::GraphPath L; // path for the ngL relaxation.
 	std::vector<VertexSet> V; // V[r] are the vertices that may be visited after L[r] and before L[r+1].
+
+	// Extends the NG set S along vertex v
+	VertexSet ExtendNG(const VertexSet& S, goc::Vertex v) const;
 };
 
 // Creates NGLInfo structure with neighbours containing the _delta_ closest vertices.

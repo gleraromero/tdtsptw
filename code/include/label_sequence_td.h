@@ -20,14 +20,10 @@ public:
 	class Label : public goc::Printable
 	{
 	public:
-		const Label* prev; // Previous label.
-		goc::Vertex v; // Last vertex.
 		double early, late; // Earliest and latest arrival time for the label.
 		double slope, intercept; // slope and intercept of the function.
 
-		Label(const Label* prev, goc::Vertex v, double early, double late, double early_cost, double late_cost);
-
-		Label(const Label* prev, double early, double late, goc::Vertex v, double slope, double intercept);
+		Label(double early, double late, double slope, double intercept);
 
 		// Returns the cost of the function at time t.
 		// If time t is before early, an exception is raised.
@@ -35,19 +31,8 @@ public:
 		double CostAt(double t) const;
 
 		virtual void Print(std::ostream& os) const;
-	};
 
-	struct MergedLabel
-	{
-		const Label* forward;
-		const Label* backward;
-		double cost;
-
-		MergedLabel();
-
-		MergedLabel(const Label* forward, const Label* backward, double cost);
-
-		goc::GraphPath Path() const;
+		static Label FromPoints(double early, double late, double early_cost, double late_cost);
 	};
 
 	LabelSequenceTD() = default;
@@ -69,11 +54,18 @@ public:
 
 	// Merges this sequence with the opposite direction sequence L, and returns the minimum cost of such merge.
 	// 	redundant_cost: is the cost that is accounted for in both labels and therefore must be substracted.
-	MergedLabel Merge(LabelSequenceTD& L, double redundant_cost) const;
+	//  merge_t: returns the merge time when the best cost is achieved (with respect to this sequence).
+	// 	cost_f: cost of forward label at time merge_t.
+	// 	cost_b: cost of backward label at time merge_t.
+	double Merge(LabelSequenceTD& L, double redundant_cost, double* merge_t, double* cost_f, double* cost_b) const;
 
 	bool Validate() const;
 
-	static Label Initial(goc::Vertex origin, const goc::Interval& time_window, double initial_cost);
+	static Label Initial(const goc::Interval& time_window, double initial_cost);
+
+	// Returns the cost of arriving at time t, including waiting times.
+	// 	waiting_time: time spent waiting to reach at t.
+	double CostAt(double t, double* waiting_time) const;
 
 private:
 	std::vector<Label> sequence;

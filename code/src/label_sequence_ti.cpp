@@ -46,22 +46,23 @@ void LabelSequenceTI::DominateBy(const LabelSequenceTI& L2, bool include_dominat
 	auto s2 = L2.sequence; // Copy L2 sequence in order to modify it.
 
 	// Add fictitious labels at the end of s1 and s2 for simplicity.
-	s1.emplace_back(Label(nullptr, 0, INFTY, INFTY, INFTY));
-	s2.emplace_back(Label(nullptr, 0, INFTY, INFTY, INFTY));
+	s1.emplace_back(Label(INFTY, INFTY, INFTY));
+	s2.emplace_back(Label(INFTY, INFTY, INFTY));
 
 	vector<Label> result_seq;
 	int i = 0, j = 0;
 	double t = -INFTY; // latest point covered.
+	Label last_consolidated(INFTY, INFTY, INFTY); // Last label that was verified as not dominated.
 
 	// Merge labels until both have reached the fictitious label which must be last because of INFTY domain.
 	while (i != s1.size() - 1 || j != s2.size() - 1)
 	{
-		if (j > 0) dominate_label(s2[j-1], s1[i]); // Dominate by previous label because of waiting times.
-		if (i > 0) dominate_label(s1[i-1], s2[j]); // Dominate by previous label because of waiting times.
+		dominate_label(last_consolidated, s1[i]);
+		dominate_label(last_consolidated, s2[j]);
 
 		// Move i and j to labels that have some domain after the last point covered (t).
-		if (epsilon_smaller_equal(s1[i].late, t) || epsilon_bigger(s1[i].early, s1[i].late)) { ++i; continue; }
-		if (epsilon_smaller_equal(s2[j].late, t) || epsilon_bigger(s2[j].early, s2[j].late)) { ++j; continue; }
+		if (s1[i].early == INFTY && i + 1 < s1.size()) { ++i; continue; }
+		if (s2[j].early == INFTY && j + 1 < s2.size()) { ++j; continue; }
 
 		// Move early times of labels beyond t.
 		s1[i].early = max(s1[i].early, t);
@@ -84,12 +85,15 @@ void LabelSequenceTI::DominateBy(const LabelSequenceTI& L2, bool include_dominat
 		if (winner_label == 1 || (winner_label == 2 && include_dominating_labels))
 		{
 			// If the label to be added is another part of the same label added before, then extend it.
-			if (!result_seq.empty() && epsilon_equal(result_seq.back().late, winner.early) && result_seq.back().prev == winner.prev)
+			if (!result_seq.empty() && epsilon_equal(result_seq.back().late, winner.early) && epsilon_equal(result_seq.back().cost, winner.cost))
 				result_seq.back().late = t;
-				// Otherwise, add the winner part.
+			// Otherwise, add the winner part.
 			else
-				result_seq.emplace_back(Label(winner.prev, winner.v, winner.cost, winner.early, t));
+				result_seq.emplace_back(Label(winner.cost, winner.early, t));
 		}
+
+		// Keep the latest consolidated label.
+		last_consolidated = Label(winner.cost, winner.early, t);
 	}
 	sequence = result_seq;
 	if (!Validate())
@@ -151,7 +155,7 @@ LabelSequenceTI LabelSequenceTI::Extend(const VRPInstance& vrp, const NGLInfo& n
 		double late_lw = min(l.late, max(dom(tau_vw))) + min_tau_lw; // latest arrival to w from l.
 		double cost_lw = l.cost + min_tau_lw - penalty_w; // cost of label lw.
 
-		Label lw = Label(&l, w, cost_lw, early_lw, late_lw);
+		Label lw(cost_lw, early_lw, late_lw);
 
 		// Execute domination among new pieces.
 		if (!Lw.sequence.empty())
@@ -165,7 +169,6 @@ LabelSequenceTI LabelSequenceTI::Extend(const VRPInstance& vrp, const NGLInfo& n
 		{
 			// Check if label is an extension of the previous label, if so, extend domain.
 			if (!Lw.sequence.empty() &&
-				Lw.sequence.back().prev == lw.prev &&
 				epsilon_equal(Lw.sequence.back().cost, lw.cost) &&
 				epsilon_equal(Lw.sequence.back().late, lw.early))
 			{
@@ -185,10 +188,10 @@ LabelSequenceTI LabelSequenceTI::Extend(const VRPInstance& vrp, const NGLInfo& n
 	return Lw;
 }
 
-LabelSequenceTI::MergedLabel LabelSequenceTI::Merge(LabelSequenceTI& L, double redundant_cost) const
+double LabelSequenceTI::Merge(LabelSequenceTI& L, double redundant_cost, double* merge_t, double* cost_f, double* cost_b) const
 {
-	MergedLabel best(nullptr, nullptr, INFTY);
-	if (sequence.empty() || L.sequence.empty()) return best;
+	double best_cost = INFTY;
+	if (sequence.empty() || L.sequence.empty()) return best_cost;
 
 	auto& s1 = sequence;
 	auto& s2 = L.sequence;
@@ -207,11 +210,12 @@ LabelSequenceTI::MergedLabel LabelSequenceTI::Merge(LabelSequenceTI& L, double r
 			// Update cost with merge of l and s[j].
 			double waiting_time = max(0.0, early_j - l.late); // necessary waiting time between l to depart at s[j].
 			double merge_cost = l.cost + s2[j].cost - redundant_cost + waiting_time;
-			if (merge_cost < best.cost)
+			if (merge_cost < best_cost)
 			{
-				best.cost = merge_cost;
-				best.forward = &l;
-				best.backward = &s2[j];
+				best_cost = merge_cost;
+				*merge_t = min(l.late, late_j);
+				*cost_f = l.cost;
+				*cost_b = s2[j].cost + waiting_time;
 			}
 
 			if (epsilon_bigger(late_j, l.late)) break; // label s2[j] ends after the end of l, then move to next l.
@@ -220,7 +224,7 @@ LabelSequenceTI::MergedLabel LabelSequenceTI::Merge(LabelSequenceTI& L, double r
 		j = min((int)s2.size()-1, j+1); // We go back one label to make sure we consider them all.
 	}
 
-	return best;
+	return best_cost;
 }
 
 bool LabelSequenceTI::Validate() const
@@ -259,7 +263,7 @@ bool LabelSequenceTI::Validate() const
 			return false;
 		}
 
-		if (sequence[i].prev == sequence[i+1].prev && epsilon_equal(sequence[i].late, sequence[i+1].early))
+		if (epsilon_equal(sequence[i].late, sequence[i+1].early) && epsilon_equal(sequence[i].cost, sequence[i+1].cost))
 		{
 			clog << sequence[i] << " vs " << sequence[i+1] << endl;
 			clog << "Sequence not squashed." << endl;
@@ -280,13 +284,30 @@ bool LabelSequenceTI::Validate() const
 	return true;
 }
 
-LabelSequenceTI::Label LabelSequenceTI::Initial(Vertex origin, const goc::Interval& time_window, double initial_cost)
+LabelSequenceTI::Label LabelSequenceTI::Initial(const goc::Interval& time_window, double initial_cost)
 {
-	return Label(nullptr, origin, initial_cost, time_window.left, time_window.right);
+	return Label(initial_cost, time_window.left, time_window.right);
 }
 
-LabelSequenceTI::Label::Label(const Label* prev, goc::Vertex v, double cost, double early, double late)
-		: prev(prev), v(v), cost(cost), early(early), late(late)
+double LabelSequenceTI::CostAt(double t, double* waiting_time) const
+{
+	if (sequence.empty()) return INFTY;
+	if (epsilon_smaller(t, sequence.front().early)) return INFTY;
+	double cost = INFTY;
+	for (int i = sequence.size()-1; i >= 0; --i)
+	{
+		if (epsilon_smaller_equal(sequence[i].early, t))
+		{
+			*waiting_time = max(0.0, t - sequence[i].late);
+			cost = sequence[i].cost + *waiting_time;
+			break;
+		}
+	}
+	return cost;
+}
+
+LabelSequenceTI::Label::Label(double cost, double early, double late)
+		: cost(cost), early(early), late(late)
 {
 
 }
@@ -294,28 +315,5 @@ LabelSequenceTI::Label::Label(const Label* prev, goc::Vertex v, double cost, dou
 void LabelSequenceTI::Label::Print(std::ostream& os) const
 {
 	os << "{ cost: " << cost << ", domain: [" << early << ", " << late << "]";
-}
-
-LabelSequenceTI::MergedLabel::MergedLabel()
-		: forward(nullptr), backward(nullptr), cost(INFTY)
-{
-
-}
-
-LabelSequenceTI::MergedLabel::MergedLabel(const Label* forward, const Label* backward, double cost)
-		: forward(forward), backward(backward), cost(cost)
-{
-
-}
-
-GraphPath LabelSequenceTI::MergedLabel::Path() const
-{
-	GraphPath p;
-	// Add forward path.
-	for (const Label* l = forward; l != nullptr; l = l->prev) p.push_back(l->v);
-	p = reverse(p);
-	// Add backward path.
-	for (const Label* l = backward->prev; l != nullptr; l = l->prev) p.push_back(l->v);
-	return p;
 }
 } // namespace tdtsptw
