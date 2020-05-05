@@ -180,6 +180,7 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 					for (goc::Vertex w: vrp.D.Vertices())
 					{
 						// Check that extension to w is feasible.
+						if (!vrp.D.IncludesArc({v, w})) continue;
 						if (s1.test(w)) continue;
 						if (!ngl_info.V[r].test(w)) continue;
 						if (vrp.prec_count[w] > k) continue;
@@ -207,7 +208,8 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 		c_dir[d] = 0;
 		for (int r = 0; r < ngl_info.L.size(); ++r)
 			for (goc::Vertex v: vrp.D.Vertices())
-				c_dir[d] += L[d][k_dir[d]][r][v].size();
+				for (auto& s_l: L[d][k_dir[d]][r][v])
+					c_dir[d] += s_l.second.Count();
 	}
 
 	// *** Second step: Merge forward and backward labels to find the best solution.
