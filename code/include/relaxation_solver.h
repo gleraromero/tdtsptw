@@ -53,15 +53,17 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 			{
 				auto& s = s_l.first;
 				auto& l = s_l.second;
+				if (l.Empty()) continue; // If l was fully dominated, skip.
 				if (s.test(v)) continue; // If v \in s, then adding (u, v) forms an ng-cycle.
 				// Verify that (S_u \cap N[v]) \cup {v} = S_v (i.e. extension of L through v gives the last step).
 				if (ngl_info.ExtendNG(s, v) != S) continue;
-				double t = vrp.DepartureTime({u, v}, time);
-				if (t == goc::INFTY) continue;
-				double cost_t = cost - (time - t) + penalties[v];
-				double actual_cost = l.CostAt(t);
-				if (goc::epsilon_smaller(actual_cost, cost_t)) goc::fail("Smaller cost than expected");
-				if (goc::epsilon_equal(actual_cost, cost_t))
+				double time_u = vrp.DepartureTime({u, v}, time);
+				if (time_u == goc::INFTY) continue;
+
+				// Check if extension of l into v gives the last label in the path.
+				auto l_v = l.Extend(vrp, ngl_info, Core(k, r, u, s), v, penalties[v]);
+				if (goc::epsilon_smaller(l_v.CostAt(time), cost)) goc::fail("Smaller cost than expected");
+				if (goc::epsilon_equal(l_v.CostAt(time), cost))
 				{
 					// Move to next label.
 					found_next = true;
@@ -69,18 +71,15 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					S = s;
 					if (ngl_info.L[r] == u) r--;
 					v = u;
-					time = t;
-					cost = cost_t;
+					time = time_u;
+					cost = l.CostAt(time);
 					break;
 				}
 			}
 
 			if (found_next) break; // If next vertex was found, continue.
 		}
-		if (!found_next)
-		{
-			goc::fail("Could not reconstruct path");
-		}
+		if (!found_next) goc::fail("Could not reconstruct path");
 	}
 
 	return goc::reverse(path);

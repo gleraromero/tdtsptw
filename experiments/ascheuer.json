@@ -8,7 +8,7 @@
       "time_limit_cg": 3600,
       "time_limit_dna": 3600,
       "objective": "duration",
-      "relaxation": "NGLTD",
+      "relaxation": "NGLTI",
       "bounding": true,
       "remove_td": true,
       "remove_tw": false,
