@@ -29,7 +29,10 @@ public:
 	
 	// Initializes route with specified parameters.
 	Route(const GraphPath& path, double t0, double duration);
-	
+
+	// Returns if the path contains no repeated vertices.
+	bool IsElementary() const;
+
 	// Prints the JSON representation of the Route.
 	virtual void Print(std::ostream& os) const;
 };

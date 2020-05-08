@@ -14,9 +14,15 @@ template<typename LS>
 struct BoundingTree
 {
 public:
-	void Add(const Core& c, const LS& s)
+	void Add(const Core& c, const LS& L)
 	{
 
+	}
+
+	// Sets the bounds for the labels in L and removes the labels with bound bigger than ub.
+	void Bound(LS& L, double ub) const
+	{
+		for (auto& l: L.sequence) if (l.completion_bound == -goc::INFTY) l.completion_bound = ub;
 	}
 };
 } // namespace tdtsptw

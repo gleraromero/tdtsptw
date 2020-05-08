@@ -48,16 +48,17 @@ LabelSequenceTD::LabelSequenceTD(const vector<Label>& labels)
 
 }
 
-void LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominating_labels)
+bool LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominating_labels)
 {
+	// If no dominating labels exist, then do nothing.
+	if (L2.sequence.empty()) return false;
+
 	// If this sequence has no labels, then there is nothing to dominate.
 	if (sequence.empty())
 	{
 		if (include_dominating_labels) sequence = L2.sequence;
-		return;
+		return true;
 	}
-	// If no dominating labels exist, then do nothing.
-	if (L2.sequence.empty()) return;
 
 	auto& s1 = sequence;
 	auto s2 = L2.sequence; // Copy L2 sequence in order to modify it.
@@ -70,6 +71,7 @@ void LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 	int i = 0, j = 0;
 	double t = -INFTY; // latest point covered.
 	Label last_consolidated = Label::FromPoints(INFTY, INFTY, INFTY, INFTY); // Last label that was verified as not dominated.
+	bool included_labels_from_L2 = false;
 
 	// Merge labels until both have reached the fictitious label which must be last because of INFTY domain.
 	while (i != s1.size() - 1 || j != s2.size() - 1)
@@ -82,8 +84,8 @@ void LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 		if (s2[j].early == INFTY && j + 1 < s2.size()) { ++j; continue; }
 
 		// Move early times of labels beyond t.
-		s1[i].early = max(s1[i].early, t);
 		s2[j].early = max(s2[j].early, t);
+		s1[i].early = max(s1[i].early, t);
 
 		// Dominate labels between them.
 		dominate_label(s2[j], s1[i]);
@@ -98,6 +100,8 @@ void LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 		auto& winner = winner_label == 1 ? s1[i] : s2[j];
 		auto& loser = winner_label == 1 ? s2[j] : s1[i];
 		t = min(min(winner.late, loser.late), loser.early); // late time of the part we must add.
+
+		if (winner_label == 2) included_labels_from_L2 = true;
 
 		// Add the next piece.
 		if (winner_label == 1 || (winner_label == 2 && include_dominating_labels))
@@ -124,6 +128,7 @@ void LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 	{
 		fail("Wrong domination");
 	}
+	return included_labels_from_L2;
 }
 
 bool LabelSequenceTD::Empty() const
@@ -136,7 +141,7 @@ int LabelSequenceTD::Count() const
 	return sequence.size();
 }
 
-LabelSequenceTD LabelSequenceTD::Extend(const VRPInstance& vrp, const NGLInfo& ngl_info, const Core& c, goc::Vertex w, double penalty_w) const
+LabelSequenceTD LabelSequenceTD::Extend(const VRPInstance& vrp, const NGLInfo& ngl_info, const Core& c, goc::Vertex w, double penalty_w, double max_dom) const
 {
 	LabelSequenceTD Lw;
 	if (this->sequence.empty()) fail("Sequence must not be empty.");
@@ -148,17 +153,20 @@ LabelSequenceTD LabelSequenceTD::Extend(const VRPInstance& vrp, const NGLInfo& n
 	if (epsilon_bigger(this->sequence.front().early, max(dom(tau_vw)))) return Lw;
 
 	int j = 0;
+	double latest_departure_from_v = min(max_dom, max(dom(tau_vw)));
 	for (auto& l: this->sequence)
 	{
-		if (epsilon_bigger(l.early, max(dom(tau_vw)))) break;
+		if (epsilon_bigger(l.early, latest_departure_from_v)) break;
 		while (j < tau_vw.PieceCount())
 		{
 			if (epsilon_smaller(max(dom(tau_vw[j])), l.early)) { ++j; continue; }
 			if (epsilon_bigger(min(dom(tau_vw[j])), l.late)) break;
+			if (epsilon_bigger(min(dom(tau_vw[j])), latest_departure_from_v)) break;
 
 			// Calculate overlap between l and tau_vw[j].
 			double early_overlap = max(min(dom(tau_vw[j])), l.early);
 			double late_overlap = min(max(dom(tau_vw[j])), l.late);
+			late_overlap = min(late_overlap, latest_departure_from_v);
 
 			// Calculate early and late arriving times.
 			double early_lw = early_overlap + tau_vw[j](early_overlap);
@@ -323,9 +331,11 @@ bool LabelSequenceTD::Validate() const
 	return true;
 }
 
-LabelSequenceTD::Label LabelSequenceTD::Initial(const goc::Interval& time_window, double initial_cost)
+LabelSequenceTD::Label LabelSequenceTD::Initial(const goc::Interval& time_window, double initial_cost, double initial_bound)
 {
-	return Label::FromPoints(time_window.left, time_window.right, initial_cost, initial_cost);
+	auto l = Label::FromPoints(time_window.left, time_window.right, initial_cost, initial_cost);
+	l.completion_bound = initial_bound;
+	return l;
 }
 
 double LabelSequenceTD::CostAt(double t) const
@@ -342,6 +352,44 @@ double LabelSequenceTD::CostAt(double t) const
 		}
 	}
 	return cost;
+}
+
+LabelSequenceTD LabelSequenceTD::WithCompletionBound(double bound) const
+{
+	LabelSequenceTD result;
+	for (auto& l: sequence) if (epsilon_equal(floor(l.completion_bound), bound)) result.sequence.push_back(l);
+	return result;
+}
+
+double LabelSequenceTD::NextBound(double bound) const
+{
+	double next = INFTY;
+	for (auto& l: sequence) if (floor(l.completion_bound) >= bound) next = min(next, floor(l.completion_bound));
+	return next;
+}
+
+void LabelSequenceTD::LowestCostArrival(double* t, double* cost) const
+{
+	*t = INFTY;
+	*cost = INFTY;
+	for (auto& l: sequence)
+	{
+		if (l.CostAt(l.early) < *cost)
+		{
+			*t = l.early;
+			*cost = l.CostAt(l.early);
+		}
+		if (l.CostAt(l.late) < *cost)
+		{
+			*t = l.late;
+			*cost = l.CostAt(l.late);
+		}
+	}
+}
+
+void LabelSequenceTD::Print(ostream& os) const
+{
+	os << sequence;
 }
 
 LabelSequenceTD::Label LabelSequenceTD::Label::FromPoints(double early, double late, double early_cost, double late_cost)

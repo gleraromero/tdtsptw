@@ -18,6 +18,13 @@ Route::Route(const GraphPath& path, double t0, double duration)
 	: path(path), t0(t0), duration(duration)
 { }
 
+bool Route::IsElementary() const
+{
+	vector<int> repetitions(*max_element(path.begin(), path.end())+1, 0);
+	for (Vertex v: path) if (repetitions[v]++ > 0) return false;
+	return true;
+}
+
 void Route::Print(ostream& os) const
 {
 	os << json(*this);

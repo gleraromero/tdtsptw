@@ -18,8 +18,10 @@
 #include "pricing_problem.h"
 #include "spf.h"
 #include "relaxation_solver.h"
+#include "exact_solver.h"
 #include "label_sequence_ti.h"
 #include "label_sequence_td.h"
+#include "dynamic_neighbour_augmentation.h"
 
 using namespace std;
 using namespace goc;
@@ -61,14 +63,6 @@ void preprocess_instance(json& instance, const string& objective, bool remove_td
 		clog << "> Preprocessing time windows iteration " << ++iter_preprocess << endl;
 		preprocess_waiting_times(instance);
 	}
-}
-
-// Returns if route r visits each vertex at most once.
-bool is_elementary(const Route& r)
-{
-	vector<int> repetitions(*max_element(r.path.begin(), r.path.end())+1, 0);
-	for (Vertex v: r.path) if (repetitions[v]++ > 0) return false;
-	return true;
 }
 }
 
@@ -208,19 +202,19 @@ int main(int argc, char** argv)
 		double lb = 0.0;
 		vector<double> penalties(n, 0.0); // Initial set of penalties.
 		double penalty_sum = 0.0;
+		json log;
+
+		// Generate NG structures for forward and backward instances.
+		NGLInfo ngl_info, ngl_info_r;
+		create_default_nginfo(vrp, 3, &ngl_info, &ngl_info_r);
 
 		// Run bounding phase.
 		if (bounding)
 		{
-			// Generate NG structures for forward and backward instances.
-			NGLInfo ngl_info, ngl_info_r;
-			create_default_nginfo(vrp, 3, &ngl_info, &ngl_info_r);
-
 			// Run initial relaxation with default penalties to get a LB.
 			clog << "Running initial relaxation..." << endl;
 			Route opt;
 			double opt_cost;
-			json log;
 			rolex_temp.Resume();
 			auto status = solve_relaxation(vrp, vrp_r, ngl_info, ngl_info_r, lb, UB.duration,
 										   penalties, tl_cg, relaxation, &opt, &opt_cost, &log);
@@ -247,23 +241,34 @@ int main(int argc, char** argv)
 			{
 				clog << "Running dynamic neighbour augmentation..." << endl;
 				rolex_temp.Reset().Resume();
-
+				dynamic_neighbour_augmentation(vrp, vrp_r, ngl_info, ngl_info_r, 15, penalties, tl_dna, &UB, &lb, &log);
 				rolex_temp.Pause();
 				output["dna"] = log;
 				clog << "> Finished in " << rolex_temp.Peek() << " - LB: " << lb << endl;
 			}
-
-			// Solve exact algorithm.
-			if (epsilon_different(UB.duration, lb))
-			{
-				clog << "Running exact algorithm..." << endl;
-				rolex_temp.Reset().Resume();
-
-				rolex_temp.Pause();
-				output["exact"] = log;
-				clog << "> Finished in " << rolex_temp.Peek() << " - UB: " << UB.duration << endl;
-			}
 		}
+
+		// Solve exact algorithm.
+		if (epsilon_different(UB.duration, lb))
+		{
+			Stopwatch rolex_exact(true);
+			BoundingTree<LabelSequenceTD> B;
+			if (bounding)
+			{
+				clog << "Building bounding tree..." << endl;
+				rolex_temp.Reset().Resume();
+				rolex_temp.Pause();
+				clog << "> Finished in " << rolex_temp.Peek() << endl;
+			}
+
+			clog << "Running exact algorithm..." << endl;
+			rolex_temp.Reset().Resume();
+			run_exact(vrp, ngl_info, penalties, B, tl_exact - rolex_exact.Peek(), lb, &UB, &log);
+			rolex_temp.Pause();
+			output["exact"] = log;
+			clog << "> Finished in " << rolex_temp.Peek() << " - UB: " << UB.duration << endl;
+		}
+
 		if (epsilon_equal(lb, UB.duration)) clog << "Optimum found: " << UB << endl;
 		else clog << "Gap was not closed. Best LB: " << lb << " - Best UB: " << UB.duration << endl;
 
