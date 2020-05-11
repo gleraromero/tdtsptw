@@ -87,6 +87,8 @@ void dynamic_neighbour_augmentation(const VRPInstance& vrp_f, const VRPInstance&
 			}
 		}
 	}
+	log_dna.incumbent_value = *lb;
+	log_dna.time = rolex.Peek();
 	*log = log_dna;
 }
 } // namespace tdtsptw
