@@ -99,7 +99,7 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 //	log: [output] log of the execution.
 template<class LS>
 goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, const NGLInfo& ngl_info_f,
-					const NGLInfo& ngl_info_b, const std::vector<double>& penalties, BoundingTree<LS>* B, const goc::Duration& time_limit,
+					const NGLInfo& ngl_info_b, const std::vector<double>& penalties, BoundingTree* B, const goc::Duration& time_limit,
 					goc::Route* opt, double* opt_cost, nlohmann::json* log)
 {
 	// Create execution logs.
@@ -133,6 +133,7 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 	{
 		if (rolex.Peek() > time_limit) { blb_log.status = goc::BLBStatus::TimeLimitReached; break; } // Check time limit.
 		int d = c_dir[0] < c_dir[1] ? 0 : 1; // Get the direction which needs to extend the least labels.
+		if (B != nullptr) d = 1; // If bounding is enabled, then run a full backward algorithm.
 
 		// Extend direction _best_dir_ to one more vertex.
 		int k = k_dir[d];

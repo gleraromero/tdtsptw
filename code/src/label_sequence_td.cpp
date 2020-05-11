@@ -167,6 +167,7 @@ LabelSequenceTD LabelSequenceTD::Extend(const VRPInstance& vrp, const NGLInfo& n
 			double early_overlap = max(min(dom(tau_vw[j])), l.early);
 			double late_overlap = min(max(dom(tau_vw[j])), l.late);
 			late_overlap = min(late_overlap, latest_departure_from_v);
+			late_overlap = max(early_overlap, late_overlap);
 
 			// Calculate early and late arriving times.
 			double early_lw = early_overlap + tau_vw[j](early_overlap);
@@ -357,14 +358,14 @@ double LabelSequenceTD::CostAt(double t) const
 LabelSequenceTD LabelSequenceTD::WithCompletionBound(double bound) const
 {
 	LabelSequenceTD result;
-	for (auto& l: sequence) if (epsilon_equal(floor(l.completion_bound), bound)) result.sequence.push_back(l);
+	for (auto& l: sequence) if (epsilon_equal(floor(l.completion_bound+EPS), bound)) result.sequence.push_back(l);
 	return result;
 }
 
 double LabelSequenceTD::NextBound(double bound) const
 {
 	double next = INFTY;
-	for (auto& l: sequence) if (floor(l.completion_bound) >= bound) next = min(next, floor(l.completion_bound));
+	for (auto& l: sequence) if (floor(l.completion_bound+EPS) >= bound) next = min(next, floor(l.completion_bound+EPS));
 	return next;
 }
 
@@ -427,6 +428,6 @@ double LabelSequenceTD::Label::CostAt(double t) const
 
 void LabelSequenceTD::Label::Print(std::ostream& os) const
 {
-	os << "{ domain: [" << early << ", " << late << "], image: [" << (slope * early + intercept) << ", " << (slope * late + intercept) << "] }";
+	os << "{ domain: [" << early << ", " << late << "], image: [" << (slope * early + intercept) << ", " << (slope * late + intercept) << "], bd: " << completion_bound << " }";
 }
 } // namespace tdtsptw

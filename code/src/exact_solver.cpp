@@ -42,6 +42,7 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp,
 			auto& l = L[u][Su];
 			double time_u = vrp.DepartureTime({u, v}, time);
 			double cost_u = l.CostAt(time_u);
+			if (time_u == INFTY || cost_u == INFTY) continue;
 			if (epsilon_smaller(cost_u, cost - (time - time_u) + penalties[v]))
 				fail("Smaller cost when reconstructing exact path.");
 			if (epsilon_bigger(cost_u, cost - (time - time_u) + penalties[v])) continue;
@@ -71,10 +72,10 @@ void add_to_queue(vector<vector<vector<unordered_set<VertexSet>>>>& q, int k, Ve
 }
 
 MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vector<double>& penalties,
-					const BoundingTree<LabelSequenceTD>& B, const Duration &time_limit, double lb, Route* UB, json *log)
+					const BoundingTree& B, const Duration &time_limit, double* lb, Route* UB, json *log)
 {
-	int base = floor(lb);
-	int gap = floor(UB->duration) - base;
+	int base = floor(*lb+EPS);
+	int gap = floor(UB->duration+EPS) - base;
 	MLBStatus status = MLBStatus::Finished;
 	MLBExecutionLog mlb_log(true);
 
@@ -86,7 +87,7 @@ MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vecto
 	int n = vrp.D.VertexCount();
 	vector<unordered_map<VertexSet, LabelSequenceTD>> L(n);
 	vector<vector<vector<unordered_set<VertexSet>>>> q(gap+1, vector<vector<unordered_set<VertexSet>>>(n+1, vector<unordered_set<VertexSet>>(n)));
-	L[vrp.o][goc::create_bitset<MAX_N>({vrp.o})] = LabelSequenceTD({LabelSequenceTD::Initial(vrp.tw[vrp.o], -penalties[vrp.o], lb)});
+	L[vrp.o][goc::create_bitset<MAX_N>({vrp.o})] = LabelSequenceTD({LabelSequenceTD::Initial(vrp.tw[vrp.o], -penalties[vrp.o], *lb)});
 	q[0][1][vrp.o].insert(goc::create_bitset<MAX_N>({vrp.o}));
 
 	TableStream output(&clog, 1.0);
@@ -95,6 +96,7 @@ MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vecto
 	output.WriteHeader();
 	for (int p = 0; p < gap+1; ++p)
 	{
+		*lb = max(*lb, (double)base+p);
 		for (int k = 1; k < n; ++k)
 		{
 			bool did_some_processing = false;
@@ -108,7 +110,7 @@ MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vecto
 
 					auto& l = L[v][S]; // Get label sequence with Core (v, S).
 					rolex_temp.Reset().Resume();
-					B.Bound(l, UB->duration); // Apply bounds to the labels in l.
+					B.Bound(S, v, l, base+p, UB->duration); // Apply bounds to the labels in l.
 					*mlb_log.bounding_time += rolex_temp.Pause();
 
 					add_to_queue(q, k, v, S, l, p + 1, base);
@@ -162,6 +164,7 @@ MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vecto
 	*UB = vrp.BestDurationRoute(opt_path);
 	mlb_log.time = rolex.Peek();
 	*log = mlb_log;
+	*lb = UB->duration;
 
 	return status;
 }

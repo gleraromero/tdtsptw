@@ -68,6 +68,7 @@ void dynamic_neighbour_augmentation(const VRPInstance& vrp_f, const VRPInstance&
 			for (int j = i+1; j < n; ++j)
 			{
 				if (vertex_in_cycle[p[j]]) break; // If j is in a cycle, then the cycle starting at i would not be disjoint.
+				if (!N[p[j]].test(p[i]) && N[p[j]].count() >= delta) break; // vertex j already has a neighbourhood of size delta, then we can not break this cycle.
 				if (p[i] != p[j]) continue; // Not a cycle from i to j, skip.
 				if (p[i] == p[j]) // Found a cycle disjoint with the previous one, modify neighbours.
 				{
@@ -83,9 +84,9 @@ void dynamic_neighbour_augmentation(const VRPInstance& vrp_f, const VRPInstance&
 					clog << p[i] << endl;
 					break;
 				}
-				if (!N[p[j]].test(p[i]) && N[p[j]].count() >= delta) break; // vertex j already has a neighbourhood of size delta, then we can not break this cycle.
 			}
 		}
 	}
+	*log = log_dna;
 }
 } // namespace tdtsptw

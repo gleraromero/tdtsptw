@@ -14,7 +14,7 @@
 namespace tdtsptw
 {
 goc::MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const std::vector<double>& penalties,
-						 const BoundingTree<LabelSequenceTD>& B, const goc::Duration &time_limit, double lb,
+						 const BoundingTree& B, const goc::Duration &time_limit, double* lb,
 						 goc::Route* UB, nlohmann::json *log);
 }
 

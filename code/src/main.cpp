@@ -249,21 +249,26 @@ int main(int argc, char** argv)
 		}
 
 		// Solve exact algorithm.
-		if (epsilon_different(UB.duration, lb))
+		if (epsilon_different(UB.duration, lb-1))
 		{
 			Stopwatch rolex_exact(true);
-			BoundingTree<LabelSequenceTD> B;
+			BoundingTree B(&vrp, &ngl_info, penalties);
 			if (bounding)
 			{
 				clog << "Building bounding tree..." << endl;
 				rolex_temp.Reset().Resume();
+				Route opt;
+				double opt_cost;
+				run_relaxation<LabelSequenceTD>(vrp, vrp_r, ngl_info, ngl_info_r, penalties, &B, tl_exact, &opt, &opt_cost, &log);
 				rolex_temp.Pause();
+				output["bounding_tree_build"] = log;
 				clog << "> Finished in " << rolex_temp.Peek() << endl;
 			}
+			if (!bounding) B.Disable();
 
 			clog << "Running exact algorithm..." << endl;
 			rolex_temp.Reset().Resume();
-			run_exact(vrp, ngl_info, penalties, B, tl_exact - rolex_exact.Peek(), lb, &UB, &log);
+			run_exact(vrp, ngl_info, penalties, B, tl_exact - rolex_exact.Peek(), &lb, &UB, &log);
 			rolex_temp.Pause();
 			output["exact"] = log;
 			clog << "> Finished in " << rolex_temp.Peek() << " - UB: " << UB.duration << endl;

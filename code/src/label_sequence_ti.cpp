@@ -153,6 +153,7 @@ LabelSequenceTI LabelSequenceTI::Extend(const VRPInstance& vrp, const NGLInfo& n
 		}
 
 		double late_lw = min(l.late, max(dom(tau_vw))) + min_tau_lw; // latest arrival to w from l.
+		late_lw = max(early_lw, late_lw);
 		double cost_lw = l.cost + min_tau_lw - penalty_w; // cost of label lw.
 
 		Label lw(cost_lw, early_lw, late_lw);
