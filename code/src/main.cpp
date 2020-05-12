@@ -23,6 +23,7 @@
 #include "label_sequence_ti.h"
 #include "label_sequence_td.h"
 #include "dynamic_neighbour_augmentation.h"
+#include "column_generation.h"
 
 using namespace std;
 using namespace goc;
@@ -81,67 +82,12 @@ BLBStatus solve_relaxation(const VRPInstance& vrp, const VRPInstance& vrp_r, con
 	return BLBStatus::DidNotStart;
 }
 
-void column_generation(const VRPInstance& vrp, const VRPInstance& vrp_r, const NGLInfo& ngl_info,
-					   const NGLInfo& ngl_info_r, double& lb, Route& UB, vector<double>& penalties,
-					   const Duration& time_limit_cg, const string& relaxation, json* cg_log)
-{
-	SPF spf(vrp.D.VertexCount());
-	spf.AddRoute(UB);
-	CGSolver cg_solver;
-	LPSolver lp_solver;
-	cg_solver.time_limit = time_limit_cg;
-	cg_solver.lp_solver = &lp_solver;
-	cg_solver.screen_output = &clog;
-
-	// Use as pricing function the relaxation.
-	cg_solver.pricing_function = [&](const vector<double>& duals, double incumbent_value,
-									 Duration time_limit, CGExecutionLog* cg_execution_log) {
-		Route opt;
-		double opt_cost;
-		json log;
-		auto pricing_problem = spf.InterpretDuals(duals);
-		auto status = solve_relaxation(vrp, vrp_r, ngl_info, ngl_info_r, lb, UB.duration,
-									   pricing_problem.penalties, time_limit, relaxation, &opt, &opt_cost, &log);
-		cg_execution_log->iterations->push_back(log);
-
-		if (status == BLBStatus::TimeLimitReached) { clog << "> Time limit reached" << endl; return false; }
-
-		// Check if a new lower bound is found by the solution of the relaxation.
-		double pp_penalties_sum = sum(pricing_problem.penalties);
-		if (opt_cost + pp_penalties_sum > lb)
-		{
-			lb = opt_cost + pp_penalties_sum;
-			penalties = pricing_problem.penalties;
-			clog << "> Found new lower bound: " << lb << endl;
-		}
-
-		// Check if the solution of the relaxation is elementary.
-		if (epsilon_equal(lb, UB.duration))
-		{
-			clog << "> Optimum was found since LB reached UB" << endl;
-			return false;
-		}
-
-		// Check if a negative reduced cost route was found, if so, add it to the SPF.
-		if (epsilon_smaller(opt_cost, 0.0)) spf.AddRoute(opt);
-
-		// Keep iterating while a route was added to the SPF.
-		return epsilon_smaller(opt_cost, 0.0);
-	};
-
-	auto result = cg_solver.Solve(spf.formulation, {CGOption::IterationsInformation});
-	*cg_log = result; // Save algorithm result in output variable.
-	if (epsilon_equal(UB.duration, lb)) return; // If optimum was found, do nothing else.
-	if (result.status == CGStatus::Optimum) lb = result.incumbent_value; // Update lb to the incumbent of CG if finished.
-	if (result.status == CGStatus::TimeLimitReached) clog << "> Time limit reached" << endl;
-}
-
 int main(int argc, char** argv)
 {
 	try
 	{
 		// This line only works in debug mode.
-		simulate_runner_input("instances/td-ascheuer", "rbg010a", "experiments/ascheuer.json", "TI");
+		simulate_runner_input("instances/td-ascheuer", "rbg021.6", "experiments/ascheuer.json", "TI");
 
 		// Read input.
 		json experiment, instance, solutions;
@@ -231,7 +177,10 @@ int main(int argc, char** argv)
 			{
 				clog << "Running column generation..." << endl;
 				rolex_temp.Reset().Resume();
-				column_generation(vrp, vrp_r, ngl_info, ngl_info_r, lb, UB, penalties, tl_cg, relaxation, &log);
+				if (relaxation == "NGLTD")
+					column_generation<LabelSequenceTD>(vrp, vrp_r, ngl_info, ngl_info_r, tl_cg, &penalties, &UB, &lb, &log);
+				else
+					column_generation<LabelSequenceTI>(vrp, vrp_r, ngl_info, ngl_info_r, tl_cg, &penalties, &UB, &lb, &log);
 				rolex_temp.Pause();
 				output["column_generation"] = log;
 				clog << "> Finished in " << rolex_temp.Peek() << " - LB: " << lb << endl;
