@@ -16,12 +16,8 @@
 #include "preprocess_remove_time_dependency.h"
 #include "preprocess_time_precedence.h"
 #include "ngl_info.h"
-#include "pricing_problem.h"
-#include "spf.h"
 #include "relaxation_solver.h"
 #include "exact_solver.h"
-#include "label_sequence_ti.h"
-#include "label_sequence_td.h"
 #include "dynamic_neighbour_augmentation.h"
 #include "column_generation.h"
 
@@ -179,7 +175,7 @@ int main(int argc, char** argv)
 			{
 				clog << "Running dynamic neighbour augmentation..." << endl;
 				rolex_temp.Reset().Resume();
-				dynamic_neighbour_augmentation(dna_relaxation, vrp_f, vrp_b, ngl_info_f, ngl_info_b, 10, penalties, tl_dna, &UB, &lb, &log);
+				dynamic_neighbour_augmentation(dna_relaxation, vrp_f, vrp_b, ngl_info_f, ngl_info_b, 8, penalties, tl_dna, &UB, &lb, &log);
 				rolex_temp.Pause();
 				output["dna"] = log;
 				clog << "> Finished in " << rolex_temp.Peek() << " - LB: " << lb << endl;
