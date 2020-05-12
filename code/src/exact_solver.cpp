@@ -132,7 +132,7 @@ MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vecto
 						if (LDTw_at_v == INFTY) continue; // If it is infeasible to reach w before LDT_w, then stop.
 
 						rolex_temp.Reset().Resume();
-						auto l_w = l_p.Extend(vrp, ngl_info, Core(S.count(), -1, v, S), w, penalties[w], LDTw_at_v); // r is not used in extension.
+						auto l_w = l_p.Extend(vrp, ngl_info, S.count(), v, w, penalties[w], LDTw_at_v); // r is not used in extension.
 						*mlb_log.extension_time += rolex_temp.Pause();
 						if (l_w.Empty()) continue; // If no extension is feasible, continue.
 

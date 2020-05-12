@@ -147,20 +147,19 @@ Interval LabelSequenceTD::Domain() const
 	return {sequence.front().early, sequence.back().late};
 }
 
-LabelSequenceTD LabelSequenceTD::Extend(const VRPInstance& vrp, const NGLInfo& ngl_info, const Core& c, goc::Vertex w, double penalty_w, double max_dom) const
+LabelSequenceTD LabelSequenceTD::Extend(const VRPInstance& vrp, const NGLInfo& ngl_info, int k, Vertex v, Vertex w, double penalty_w, double max_dom) const
 {
 	LabelSequenceTD Lw;
 	if (this->sequence.empty()) fail("Sequence must not be empty.");
 
-	Vertex v = c.v;
 	auto& tau_vw = vrp.tau[v][w]; // Precondition: tau is preprocessed such that it always arrives in [a_w, b_w].
 
 	// If it is not feasible to reach w before its deadline, return empty.
 	if (epsilon_bigger(this->sequence.front().early, max(dom(tau_vw)))) return Lw;
 
 	// Can depart to arrive at b_kw or before.
-	double a_kw = vrp.TWP[c.k+1][w].left;
-	double b_kw = vrp.TWP[c.k+1][w].right;
+	double a_kw = vrp.TWP[k+1][w].left;
+	double b_kw = vrp.TWP[k+1][w].right;
 	double latest_departure = min(max_dom, vrp.DepartureTime({v, w}, b_kw));
 	if (latest_departure == INFTY) return Lw; // If impossible, return empty sequence.
 

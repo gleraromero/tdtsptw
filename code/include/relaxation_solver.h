@@ -61,7 +61,7 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				if (time_u == goc::INFTY) continue;
 
 				// Check if extension of l into v gives the last label in the path.
-				auto l_v = l.Extend(vrp, ngl_info, Core(k, r, u, s), v, penalties[v]);
+				auto l_v = l.Extend(vrp, ngl_info, k, u, v, penalties[v]);
 				double new_cost = l_v.CostAt(time);
 				if (goc::epsilon_smaller(l_v.CostAt(time), cost)) goc::fail("Smaller cost than expected");
 				if (goc::epsilon_equal(l_v.CostAt(time), cost))
@@ -72,7 +72,7 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					S = s;
 					if (ngl_info.L[r] == u) r--;
 					v = u;
-					time = std::min(time_u, l.Domain().right);
+					time = time_u;
 					cost = l.CostAt(time);
 					break;
 				}
@@ -189,7 +189,7 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 						if (w != ngl_info.L[r + 1] && vrp.suc_count[ngl_info.L[r + 1]] > n - k - 2) continue;
 
 						// Extend l1 to w.
-						LS l_w = l1.Extend(vrp, ngl_info, c, w, penalties[w]);
+						LS l_w = l1.Extend(vrp, ngl_info, v, k, w, penalties[w]);
 						if (l_w.Empty()) continue; // If no extension is feasible, continue.
 
 						// Add extension to queue L, and perform a fusion with the existing sequence with the same

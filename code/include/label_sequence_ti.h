@@ -45,7 +45,7 @@ public:
 	goc::Interval Domain() const;
 
 	// Extends the sequence to another vertex w into a new sequence.
-	LabelSequenceTI Extend(const VRPInstance& vrp, const NGLInfo& ngl_info, const Core& c, goc::Vertex w, double penalty_w) const;
+	LabelSequenceTI Extend(const VRPInstance& vrp, const NGLInfo& ngl_info, int k, goc::Vertex v, goc::Vertex w, double penalty_w) const;
 
 	// Merges this sequence with the opposite direction sequence L, and returns the minimum cost of such merge.
 	// 	redundant_cost: is the cost that is accounted for in both labels and therefore must be substracted.
