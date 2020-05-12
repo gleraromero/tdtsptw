@@ -276,7 +276,8 @@ int main(int argc, char** argv)
 			clog << "> Finished in " << rolex_temp.Peek() << " - UB: " << UB.duration << endl;
 		}
 
-		if (epsilon_equal(lb, UB.duration)) clog << "Optimum found: " << UB << endl;
+		if (epsilon_equal(lb, INFTY)) clog << "The problem is infeasible." << endl;
+		else if (epsilon_equal(lb, UB.duration)) clog << "Optimum found: " << UB << endl;
 		else clog << "Gap was not closed. Best LB: " << lb << " - Best UB: " << UB.duration << endl;
 
 		general_log.best_bound = lb;

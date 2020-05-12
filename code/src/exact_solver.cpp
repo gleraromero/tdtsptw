@@ -158,13 +158,21 @@ MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vecto
 	}
 
 	auto& solution = L[vrp.d][all_vertices];
-	if (solution.Empty()) fail("The problem is infeasible.");
 
-	GraphPath opt_path = reconstruct_path(vrp, penalties, L);
-	*UB = vrp.BestDurationRoute(opt_path);
+	if (solution.Empty())
+	{
+		clog << "The problem is infeasible" << endl;
+		*lb = INFTY;
+		UB->duration = INFTY;
+	}
+	else
+	{
+		GraphPath opt_path = reconstruct_path(vrp, penalties, L);
+		*UB = vrp.BestDurationRoute(opt_path);
+		*lb = UB->duration;
+	}
 	mlb_log.time = rolex.Peek();
 	*log = mlb_log;
-	*lb = UB->duration;
 
 	return status;
 }
