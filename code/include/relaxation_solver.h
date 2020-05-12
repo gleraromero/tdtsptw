@@ -189,7 +189,7 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 						if (w != ngl_info.L[r + 1] && vrp.suc_count[ngl_info.L[r + 1]] > n - k - 2) continue;
 
 						// Extend l1 to w.
-						LS l_w = l1.Extend(vrp, ngl_info, v, k, w, penalties[w]);
+						LS l_w = l1.Extend(vrp, ngl_info, k, v, w, penalties[w]);
 						if (l_w.Empty()) continue; // If no extension is feasible, continue.
 
 						// Add extension to queue L, and perform a fusion with the existing sequence with the same
