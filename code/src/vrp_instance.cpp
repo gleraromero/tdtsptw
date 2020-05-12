@@ -161,6 +161,7 @@ void from_json(const json& j, VRPInstance& instance)
 			}
 		}
 	}
+	if (has_key(j, "time_windows_with_precedences")) instance.TWP = j["time_windows_with_precedences"];
 }
 
 VRPInstance reverse_instance(const VRPInstance& vrp)
@@ -203,7 +204,7 @@ VRPInstance reverse_instance(const VRPInstance& vrp)
 	{
 		for (Vertex v: vrp.D.Successors(u))
 		{
-	// Compute reverse travel functions.
+			// Compute reverse travel functions.
 			rev.tau[v][u] = vrp.pretau[u][v].Compose(PWLFunction::IdentityFunction({-vrp.T, 0.0}) * -1);
 			auto init_piece = LinearFunction({-vrp.T, rev.tau[v][u](min(dom(rev.tau[v][u]))) + min(dom(rev.tau[v][u])) + vrp.T}, {min(dom(rev.tau[v][u])), rev.tau[v][u](min(dom(rev.tau[v][u])))});
 			rev.tau[v][u] = Min(rev.tau[v][u], PWLFunction({init_piece}));
@@ -218,6 +219,12 @@ VRPInstance reverse_instance(const VRPInstance& vrp)
 		rev.tau[u][u] = rev.pretau[u][u] = PWLFunction::ConstantFunction(0.0, rev.tw[u]);
 		rev.dep[u][u] = rev.arr[u][u] = PWLFunction::IdentityFunction(rev.tw[u]);
 	}
+
+	rev.TWP = Matrix<Interval>(n+1, n);
+	for (int k = 1; k <= n; ++k)
+		for (Vertex v: rev.D.Vertices())
+			rev.TWP[k][v] = { -vrp.TWP[n-k+1][v].right, -vrp.TWP[n-k+1][v].left };
+
 	return rev;
 }
 } // namespace tdtsptw

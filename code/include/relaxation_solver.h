@@ -62,6 +62,7 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 
 				// Check if extension of l into v gives the last label in the path.
 				auto l_v = l.Extend(vrp, ngl_info, Core(k, r, u, s), v, penalties[v]);
+				double new_cost = l_v.CostAt(time);
 				if (goc::epsilon_smaller(l_v.CostAt(time), cost)) goc::fail("Smaller cost than expected");
 				if (goc::epsilon_equal(l_v.CostAt(time), cost))
 				{
@@ -71,7 +72,7 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					S = s;
 					if (ngl_info.L[r] == u) r--;
 					v = u;
-					time = time_u;
+					time = std::min(time_u, l.Domain().right);
 					cost = l.CostAt(time);
 					break;
 				}
@@ -256,18 +257,24 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 	}
 	*blb_log.merge_time += rolex_temp.Pause();
 
-	if (best_cost == goc::INFTY)
-		goc:: fail("Relaxation error: Should always find a best route if problem is feasible.");
+	*opt_cost = goc::INFTY;
+	if (blb_log.status == goc::BLBStatus::Finished)
+	{
+		if (best_cost == goc::INFTY)
+			goc::fail("Relaxation error: Should always find a best route if problem is feasible.");
 
-	*opt_cost = best_cost;
+		*opt_cost = best_cost;
 
-	// Reconstruct path by appending the forward and backward paths.
-	goc::GraphPath best_route_path = reconstruct_path(vrp_f, ngl_info_f, L[0], penalties, best_forward, best_cost_forward, best_time);
-	goc::GraphPath best_backward_path = reconstruct_path(vrp_b, ngl_info_b, L[1], penalties, best_backward, best_cost_backward, -best_time);
-	for (int i = (int)best_backward_path.size()-2; i >= 0; --i) best_route_path.push_back(best_backward_path[i]);
+		// Reconstruct path by appending the forward and backward paths.
+		goc::GraphPath best_route_path = reconstruct_path(vrp_f, ngl_info_f, L[0], penalties, best_forward,
+														  best_cost_forward, best_time);
+		goc::GraphPath best_backward_path = reconstruct_path(vrp_b, ngl_info_b, L[1], penalties, best_backward,
+															 best_cost_backward, -best_time);
+		for (int i = (int) best_backward_path.size() - 2; i >= 0; --i) best_route_path.push_back(best_backward_path[i]);
 
-	double best_route_penalty = goc::sum<goc::Vertex>(best_route_path, [&] (goc::Vertex v) { return penalties[v]; });
-	*opt = goc::Route(best_route_path, 0.0, best_cost + best_route_penalty);
+		double best_route_penalty = goc::sum<goc::Vertex>(best_route_path, [&](goc::Vertex v) { return penalties[v]; });
+		*opt = goc::Route(best_route_path, 0.0, best_cost + best_route_penalty);
+	}
 
 	// Log total execution time.
 	*blb_log.time = rolex.Peek();

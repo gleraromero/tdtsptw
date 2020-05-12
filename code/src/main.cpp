@@ -14,6 +14,7 @@
 #include "preprocess_waiting_times.h"
 #include "preprocess_remove_time_windows.h"
 #include "preprocess_remove_time_dependency.h"
+#include "preprocess_time_precedence.h"
 #include "ngl_info.h"
 #include "pricing_problem.h"
 #include "spf.h"
@@ -63,6 +64,7 @@ void preprocess_instance(json& instance, const string& objective, bool remove_td
 		clog << "> Preprocessing time windows iteration " << ++iter_preprocess << endl;
 		preprocess_waiting_times(instance);
 	}
+	preprocess_time_precedence(instance);
 }
 }
 
@@ -95,34 +97,33 @@ void column_generation(const VRPInstance& vrp, const VRPInstance& vrp_r, const N
 	cg_solver.pricing_function = [&](const vector<double>& duals, double incumbent_value,
 									 Duration time_limit, CGExecutionLog* cg_execution_log) {
 		Route opt;
-		double opt_cost = INFTY;
+		double opt_cost;
 		json log;
 		auto pricing_problem = spf.InterpretDuals(duals);
 		auto status = solve_relaxation(vrp, vrp_r, ngl_info, ngl_info_r, lb, UB.duration,
 									   pricing_problem.penalties, time_limit, relaxation, &opt, &opt_cost, &log);
 		cg_execution_log->iterations->push_back(log);
 
-		if (status == BLBStatus::Finished)
+		if (status == BLBStatus::TimeLimitReached) { clog << "> Time limit reached" << endl; return false; }
+
+		// Check if a new lower bound is found by the solution of the relaxation.
+		double pp_penalties_sum = sum(pricing_problem.penalties);
+		if (opt_cost + pp_penalties_sum > lb)
 		{
-			// Check if a new lower bound is found by the solution of the relaxation.
-			double pp_penalties_sum = sum(pricing_problem.penalties);
-			if (opt_cost + pp_penalties_sum > lb)
-			{
-				lb = opt_cost + pp_penalties_sum;
-				penalties = pricing_problem.penalties;
-				clog << "> Found new lower bound: " << lb << endl;
-			}
-
-			// Check if the solution of the relaxation is elementary.
-			if (epsilon_equal(lb, UB.duration))
-			{
-				clog << "> Optimum was found since LB reached UB" << endl;
-				return false;
-			}
-
-			// Check if a negative reduced cost route was found, if so, add it to the SPF.
-			if (epsilon_smaller(opt_cost, 0.0)) spf.AddRoute(opt);
+			lb = opt_cost + pp_penalties_sum;
+			penalties = pricing_problem.penalties;
+			clog << "> Found new lower bound: " << lb << endl;
 		}
+
+		// Check if the solution of the relaxation is elementary.
+		if (epsilon_equal(lb, UB.duration))
+		{
+			clog << "> Optimum was found since LB reached UB" << endl;
+			return false;
+		}
+
+		// Check if a negative reduced cost route was found, if so, add it to the SPF.
+		if (epsilon_smaller(opt_cost, 0.0)) spf.AddRoute(opt);
 
 		// Keep iterating while a route was added to the SPF.
 		return epsilon_smaller(opt_cost, 0.0);
@@ -223,6 +224,7 @@ int main(int argc, char** argv)
 			lb = max(lb, opt_cost + penalty_sum);
 			clog << "> Finished in " << rolex_temp.Peek() << " - LB: " << lb << endl;
 			output["initial_relaxation"] = log;
+			clog << opt << endl;
 
 			// Solve column generation.
 			if (epsilon_different(UB.duration, lb))
@@ -241,7 +243,7 @@ int main(int argc, char** argv)
 			{
 				clog << "Running dynamic neighbour augmentation..." << endl;
 				rolex_temp.Reset().Resume();
-				dynamic_neighbour_augmentation(vrp, vrp_r, ngl_info, ngl_info_r, 15, penalties, tl_dna, &UB, &lb, &log);
+				dynamic_neighbour_augmentation(vrp, vrp_r, ngl_info, ngl_info_r, 10, penalties, tl_dna, &UB, &lb, &log);
 				rolex_temp.Pause();
 				output["dna"] = log;
 				clog << "> Finished in " << rolex_temp.Peek() << " - LB: " << lb << endl;
@@ -249,7 +251,7 @@ int main(int argc, char** argv)
 		}
 
 		// Solve exact algorithm.
-		if (epsilon_different(UB.duration, lb-1))
+		if (epsilon_different(UB.duration, lb))
 		{
 			Stopwatch rolex_exact(true);
 			BoundingTree B(&vrp, &ngl_info, penalties);

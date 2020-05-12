@@ -51,6 +51,9 @@ public:
 	// Returns the number of labels.
 	int Count() const;
 
+	// Returns the earliest and latest arrival times.
+	goc::Interval Domain() const;
+
 	// Extends the sequence to another vertex w into a new sequence.
 	LabelSequenceTD Extend(const VRPInstance& vrp, const NGLInfo& ngl_info, const Core& c, goc::Vertex w, double penalty_w, double max_dom=goc::INFTY) const;
 

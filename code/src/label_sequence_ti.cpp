@@ -115,21 +115,35 @@ int LabelSequenceTI::Count() const
 	return sequence.size();
 }
 
+Interval LabelSequenceTI::Domain() const
+{
+	if (sequence.empty()) return Interval();
+	return {sequence.front().early, sequence.back().late};
+}
+
 LabelSequenceTI LabelSequenceTI::Extend(const VRPInstance& vrp, const NGLInfo& ngl_info, const Core& c, goc::Vertex w, double penalty_w) const
 {
 	LabelSequenceTI Lw;
 	if (this->sequence.empty()) fail("Sequence must not be empty.");
 
 	Vertex v = c.v;
-	auto& tau_vw = vrp.tau[v][w]; // Precondition: tau is preprocessed such that it always arrives in [a_w, b_w].
+	auto tau_vw = vrp.tau[v][w]; // Precondition: tau is preprocessed such that it always arrives in [a_w, b_w].
 
 	// If it is not feasible to reach w before its deadline, return empty.
 	if (epsilon_bigger(this->sequence.front().early, max(dom(tau_vw)))) return Lw;
+	// If the time window of w at k+1 is empty, then no extension is feasible.
+	if (vrp.TWP[c.k+1][w].Empty()) return Lw;
+
+	// Can depart to arrive at b_kw or before.
+	double a_kw = vrp.TWP[c.k+1][w].left;
+	double b_kw = vrp.TWP[c.k+1][w].right;
+	double latest_departure = vrp.DepartureTime({v, w}, b_kw);
+	if (latest_departure == INFTY) return Lw; // If impossible, return empty sequence.
 
 	int j = 0;
 	for (auto& l: this->sequence)
 	{
-		if (epsilon_bigger(l.early, max(dom(tau_vw)))) break;
+		if (epsilon_bigger(l.early, latest_departure)) break;
 		double min_tau_lw = INFTY; // minimum travel time departing on l.
 		double early_lw = INFTY; // earliest arrival to w departing on l.
 		while (j < tau_vw.PieceCount())
@@ -138,7 +152,7 @@ LabelSequenceTI LabelSequenceTI::Extend(const VRPInstance& vrp, const NGLInfo& n
 			if (epsilon_bigger(min(dom(tau_vw[j])), l.late)) break;
 
 			// Earliest arrival to w must be departing at l.early (FIFO).
-			if (tau_vw[j].domain.Includes(l.early)) early_lw = l.early + tau_vw[j](l.early);
+			if (tau_vw[j].domain.Includes(l.early)) early_lw = max(a_kw, l.early + tau_vw[j](l.early));
 
 			// Calculate overlap between l and tau_vw[j].
 			double overlap_left = max(min(dom(tau_vw[j])), l.early);
@@ -151,8 +165,9 @@ LabelSequenceTI LabelSequenceTI::Extend(const VRPInstance& vrp, const NGLInfo& n
 			if (epsilon_bigger_equal(max(dom(tau_vw[j])), l.late)) break;
 			++j;
 		}
+		min_tau_lw = max(min_tau_lw, early_lw-l.late); // At least we must travel from l.late to early_lw.
 
-		double late_lw = min(l.late, max(dom(tau_vw))) + min_tau_lw; // latest arrival to w from l.
+		double late_lw = min(l.late, latest_departure) + min_tau_lw; // latest arrival to w from l.
 		late_lw = max(early_lw, late_lw);
 		double cost_lw = l.cost + min_tau_lw - penalty_w; // cost of label lw.
 
@@ -305,6 +320,11 @@ double LabelSequenceTI::CostAt(double t) const
 		}
 	}
 	return cost;
+}
+
+void LabelSequenceTI::Print(ostream& os) const
+{
+	os << sequence;
 }
 
 LabelSequenceTI::Label::Label(double cost, double early, double late)

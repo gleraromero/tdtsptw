@@ -14,7 +14,7 @@
 namespace tdtsptw
 {
 // Specialization of class LabelSequence for Time Independent labels (i.e. representing constant functions).
-class LabelSequenceTI
+class LabelSequenceTI : public goc::Printable
 {
 public:
 	class Label : public goc::Printable
@@ -41,6 +41,9 @@ public:
 	// Returns the number of labels.
 	int Count() const;
 
+	// Returns the earliest and latest arrival times.
+	goc::Interval Domain() const;
+
 	// Extends the sequence to another vertex w into a new sequence.
 	LabelSequenceTI Extend(const VRPInstance& vrp, const NGLInfo& ngl_info, const Core& c, goc::Vertex w, double penalty_w) const;
 
@@ -57,6 +60,8 @@ public:
 
 	// Returns the cost of arriving at time t, including waiting times.
 	double CostAt(double t) const;
+
+	virtual void Print(std::ostream& os) const;
 
 private:
 	std::vector<Label> sequence;

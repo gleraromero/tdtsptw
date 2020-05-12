@@ -141,6 +141,12 @@ int LabelSequenceTD::Count() const
 	return sequence.size();
 }
 
+Interval LabelSequenceTD::Domain() const
+{
+	if (sequence.empty()) return Interval();
+	return {sequence.front().early, sequence.back().late};
+}
+
 LabelSequenceTD LabelSequenceTD::Extend(const VRPInstance& vrp, const NGLInfo& ngl_info, const Core& c, goc::Vertex w, double penalty_w, double max_dom) const
 {
 	LabelSequenceTD Lw;
@@ -152,26 +158,31 @@ LabelSequenceTD LabelSequenceTD::Extend(const VRPInstance& vrp, const NGLInfo& n
 	// If it is not feasible to reach w before its deadline, return empty.
 	if (epsilon_bigger(this->sequence.front().early, max(dom(tau_vw)))) return Lw;
 
+	// Can depart to arrive at b_kw or before.
+	double a_kw = vrp.TWP[c.k+1][w].left;
+	double b_kw = vrp.TWP[c.k+1][w].right;
+	double latest_departure = min(max_dom, vrp.DepartureTime({v, w}, b_kw));
+	if (latest_departure == INFTY) return Lw; // If impossible, return empty sequence.
+
 	int j = 0;
-	double latest_departure_from_v = min(max_dom, max(dom(tau_vw)));
 	for (auto& l: this->sequence)
 	{
-		if (epsilon_bigger(l.early, latest_departure_from_v)) break;
+		if (epsilon_bigger(l.early, latest_departure)) break;
 		while (j < tau_vw.PieceCount())
 		{
 			if (epsilon_smaller(max(dom(tau_vw[j])), l.early)) { ++j; continue; }
 			if (epsilon_bigger(min(dom(tau_vw[j])), l.late)) break;
-			if (epsilon_bigger(min(dom(tau_vw[j])), latest_departure_from_v)) break;
+			if (epsilon_bigger(min(dom(tau_vw[j])), latest_departure)) break;
 
 			// Calculate overlap between l and tau_vw[j].
 			double early_overlap = max(min(dom(tau_vw[j])), l.early);
 			double late_overlap = min(max(dom(tau_vw[j])), l.late);
-			late_overlap = min(late_overlap, latest_departure_from_v);
+			late_overlap = min(late_overlap, latest_departure);
 			late_overlap = max(early_overlap, late_overlap);
 
 			// Calculate early and late arriving times.
-			double early_lw = early_overlap + tau_vw[j](early_overlap);
-			double late_lw = late_overlap + tau_vw[j](late_overlap);
+			double early_lw = max(a_kw, early_overlap + tau_vw[j](early_overlap));
+			double late_lw = max(a_kw, late_overlap + tau_vw[j](late_overlap));
 
 			// Calculate cost at borders.
 			double early_lw_cost = l.CostAt(early_overlap) + (early_lw - early_overlap) - penalty_w;

@@ -38,7 +38,7 @@ void dynamic_neighbour_augmentation(const VRPInstance& vrp_f, const VRPInstance&
 		rolex_temp.Pause();
 		log_dna.iteration_count++;
 		log_dna.iterations->push_back(relaxation_log);
-		if (status == BLBStatus::TimeLimitReached) { log_dna.status = CGStatus::TimeLimitReached; break; }
+		if (status == BLBStatus::TimeLimitReached) { clog << "> Time limit reached" << endl; log_dna.status = CGStatus::TimeLimitReached; break; }
 		if (status != BLBStatus::Finished) fail("Unexpected status from relaxation solver.");
 		*lb = opt_cost + sum(penalties);
 		clog << "> Iteration: " << log_dna.iteration_count << " - LB: " << *lb << " - Time: " << rolex_temp.Peek() << " - Total time: " << rolex.Peek() << endl;
