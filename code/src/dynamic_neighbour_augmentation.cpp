@@ -12,9 +12,10 @@ using namespace nlohmann;
 
 namespace tdtsptw
 {
-void dynamic_neighbour_augmentation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, NGLInfo& ngl_info_f,
-									NGLInfo& ngl_info_b, int delta, const vector<double>& penalties,
-									const Duration& time_limit, Route* UB, double* lb, json* log)
+void dynamic_neighbour_augmentation(const RelaxationSolver& relaxation, const VRPInstance& vrp_f,
+									const VRPInstance& vrp_b, NGLInfo& ngl_info_f, NGLInfo& ngl_info_b, int delta,
+									const vector<double>& penalties, const Duration& time_limit, Route* UB, double* lb,
+									json* log)
 {
 	// Initialize log.
 	Stopwatch rolex(true), rolex_temp(false);
@@ -33,7 +34,7 @@ void dynamic_neighbour_augmentation(const VRPInstance& vrp_f, const VRPInstance&
 		double opt_cost;
 		json relaxation_log;
 		rolex_temp.Reset().Resume();
-		BLBStatus status = run_relaxation<LabelSequenceTD>(vrp_f, vrp_b, ngl_info_f, ngl_info_b, penalties, nullptr,
+		BLBStatus status = relaxation.Run(vrp_f, vrp_b, ngl_info_f, ngl_info_b, penalties, nullptr,
 				time_limit - rolex.Peek(), &opt, &opt_cost, &relaxation_log);
 		rolex_temp.Pause();
 		log_dna.iteration_count++;

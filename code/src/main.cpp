@@ -69,19 +69,6 @@ void preprocess_instance(json& instance, const string& objective, bool remove_td
 }
 }
 
-BLBStatus solve_relaxation(const VRPInstance& vrp, const VRPInstance& vrp_r, const NGLInfo& ngl_info,
-					  const NGLInfo& ngl_info_r, double lb, double ub, const vector<double>& penalties,
-					  const Duration& time_limit, const string& relaxation, Route* opt, double* opt_cost, json* log)
-{
-	if (relaxation == "NGLTI")
-		return run_relaxation<LabelSequenceTI>(vrp, vrp_r, ngl_info, ngl_info_r, penalties, nullptr, time_limit, opt, opt_cost, log);
-	else if (relaxation == "NGLTD")
-		return run_relaxation<LabelSequenceTD>(vrp, vrp_r, ngl_info, ngl_info_r, penalties, nullptr, time_limit, opt, opt_cost, log);
-
-	fail("Unrecognized relaxation " + relaxation);
-	return BLBStatus::DidNotStart;
-}
-
 int main(int argc, char** argv)
 {
 	try
@@ -151,6 +138,10 @@ int main(int argc, char** argv)
 		double penalty_sum = 0.0;
 		json log;
 
+		// Set relaxation solver for CG and DNA.
+		RelaxationSolver cg_relaxation(relaxation == "NGLTI" ? RelaxationSolver::NGLTI : RelaxationSolver::NGLTD, RelaxationSolver::Bidirectional);
+		RelaxationSolver dna_relaxation(RelaxationSolver::NGLTD, RelaxationSolver::Bidirectional);
+
 		// Generate NG structures for forward and backward instances.
 		NGLInfo ngl_info, ngl_info_r;
 		create_default_nginfo(vrp, 3, &ngl_info, &ngl_info_r);
@@ -163,8 +154,7 @@ int main(int argc, char** argv)
 			Route opt;
 			double opt_cost;
 			rolex_temp.Resume();
-			auto status = solve_relaxation(vrp, vrp_r, ngl_info, ngl_info_r, lb, UB.duration,
-										   penalties, tl_cg, relaxation, &opt, &opt_cost, &log);
+			auto status = cg_relaxation.Run(vrp, vrp_r, ngl_info, ngl_info_r, penalties, nullptr, tl_cg, &opt, &opt_cost, &log);
 			rolex_temp.Pause();
 			if (status == BLBStatus::TimeLimitReached) clog << "> Time limit reached" << endl;
 			lb = max(lb, opt_cost + penalty_sum);
@@ -177,10 +167,7 @@ int main(int argc, char** argv)
 			{
 				clog << "Running column generation..." << endl;
 				rolex_temp.Reset().Resume();
-				if (relaxation == "NGLTD")
-					column_generation<LabelSequenceTD>(vrp, vrp_r, ngl_info, ngl_info_r, tl_cg, &penalties, &UB, &lb, &log);
-				else
-					column_generation<LabelSequenceTI>(vrp, vrp_r, ngl_info, ngl_info_r, tl_cg, &penalties, &UB, &lb, &log);
+				column_generation(cg_relaxation, vrp, vrp_r, ngl_info, ngl_info_r, tl_cg, &penalties, &UB, &lb, &log);
 				rolex_temp.Pause();
 				output["column_generation"] = log;
 				clog << "> Finished in " << rolex_temp.Peek() << " - LB: " << lb << endl;
@@ -192,7 +179,7 @@ int main(int argc, char** argv)
 			{
 				clog << "Running dynamic neighbour augmentation..." << endl;
 				rolex_temp.Reset().Resume();
-				dynamic_neighbour_augmentation(vrp, vrp_r, ngl_info, ngl_info_r, 10, penalties, tl_dna, &UB, &lb, &log);
+				dynamic_neighbour_augmentation(dna_relaxation, vrp, vrp_r, ngl_info, ngl_info_r, 10, penalties, tl_dna, &UB, &lb, &log);
 				rolex_temp.Pause();
 				output["dna"] = log;
 				clog << "> Finished in " << rolex_temp.Peek() << " - LB: " << lb << endl;
@@ -210,7 +197,8 @@ int main(int argc, char** argv)
 				rolex_temp.Reset().Resume();
 				Route opt;
 				double opt_cost;
-				run_relaxation<LabelSequenceTD>(vrp, vrp_r, ngl_info, ngl_info_r, penalties, &B, tl_exact, &opt, &opt_cost, &log);
+				dna_relaxation.direction = RelaxationSolver::Backward;
+				dna_relaxation.Run(vrp, vrp_r, ngl_info, ngl_info_r, penalties, &B, tl_exact, &opt, &opt_cost, &log);
 				rolex_temp.Pause();
 				output["bounding_tree_build"] = log;
 				clog << "> Finished in " << rolex_temp.Peek() << endl;
