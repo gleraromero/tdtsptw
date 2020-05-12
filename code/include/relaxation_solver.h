@@ -28,8 +28,8 @@ public:
 	RelaxationSolver(Type type, Direction direction);
 
 	goc::BLBStatus Run(const VRPInstance& vrp_f, const VRPInstance& vrp_b, const NGLInfo& ngl_info_f,
-			const NGLInfo& ngl_info_b, const std::vector<double>& penalties, BoundingTree* B,
-			const goc::Duration& time_limit, goc::Route* opt, double* opt_cost, nlohmann::json* log) const;
+					   const NGLInfo& ngl_info_b, const std::vector<double>& penalties, BoundingTree* B,
+					   const goc::Duration& time_limit, goc::Route* opt, double* opt_cost, nlohmann::json* log) const;
 };
 } // namespace tdtsptw
 

@@ -27,24 +27,24 @@ namespace
 //	time: Arrival time of the label to reconstruct.
 //
 template<class LS>
-goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
-								const std::vector<std::vector<std::vector<std::unordered_map<VertexSet, LS>>>>& L,
-								const std::vector<double>& penalties, const Core& c, double cost, double time)
+GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
+								const vector<vector<vector<unordered_map<VertexSet, LS>>>>& L,
+								const vector<double>& penalties, const Core& c, double cost, double time)
 {
 	// Variables that contain information about the path to be built.
-	goc::Vertex v = c.v;
+	Vertex v = c.v;
 	int r = ngl_info.L[c.r] == v ? c.r - 1 : c.r;
 	VertexSet S = c.S;
 
 	// Get next k-1 vertices.
-	goc::GraphPath path = {v};
+	GraphPath path = {v};
 	for (int k = c.k-1; k > 0; --k)
 	{
 		bool found_next = false;
-		for (goc::Vertex u: vrp.D.Vertices())
+		for (Vertex u: vrp.D.Vertices())
 		{
 			if (u == v) continue;
-			if (!goc::is_subset(S, ngl_info.ExtendNG(ngl_info.N[u], v))) continue; // Check that after visiting (u, v) we can have S as the NGset.
+			if (!is_subset(S, ngl_info.ExtendNG(ngl_info.N[u], v))) continue; // Check that after visiting (u, v) we can have S as the NGset.
 			if (!ngl_info.V[r].test(u) && ngl_info.L[r] != u) continue;
 
 			// Check if some sequence with core (k, r, v, _) has a label with  cost=_cost_.
@@ -57,13 +57,13 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				// Verify that (S_u \cap N[v]) \cup {v} = S_v (i.e. extension of L through v gives the last step).
 				if (ngl_info.ExtendNG(s, v) != S) continue;
 				double time_u = vrp.DepartureTime({u, v}, time);
-				if (time_u == goc::INFTY) continue;
+				if (time_u == INFTY) continue;
 
 				// Check if extension of l into v gives the last label in the path.
 				auto l_v = l.Extend(vrp, ngl_info, k, u, v, penalties[v]);
 				double new_cost = l_v.CostAt(time);
-				if (goc::epsilon_smaller(l_v.CostAt(time), cost)) goc::fail("Smaller cost than expected");
-				if (goc::epsilon_equal(l_v.CostAt(time), cost))
+				if (epsilon_smaller(l_v.CostAt(time), cost)) fail("Smaller cost than expected");
+				if (epsilon_equal(l_v.CostAt(time), cost))
 				{
 					// Move to next label.
 					found_next = true;
@@ -79,10 +79,10 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 
 			if (found_next) break; // If next vertex was found, continue.
 		}
-		if (!found_next) goc::fail("Could not reconstruct path");
+		if (!found_next) fail("Could not reconstruct path");
 	}
 
-	return goc::reverse(path);
+	return reverse(path);
 }
 
 // LS is the class of the LabelSequence used for the relaxation (it can be LabelSequenceTD or LabelSequenceTI).
@@ -98,42 +98,45 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 //	opt_cost: [output] best route cost
 //	log: [output] log of the execution.
 template<class LS>
-goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, const NGLInfo& ngl_info_f,
-							  const NGLInfo& ngl_info_b, const std::vector<double>& penalties, BoundingTree* B, const goc::Duration& time_limit,
-							  goc::Route* opt, double* opt_cost, nlohmann::json* log)
+BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, const NGLInfo& ngl_info_f,
+						 const NGLInfo& ngl_info_b, const vector<double>& penalties, BoundingTree* B,
+						 const Duration& time_limit, RelaxationSolver::Direction direction, Route* opt,
+						 double* opt_cost, nlohmann::json* log)
 {
 	// Create execution logs.
-	goc::BLBExecutionLog blb_log(true);
-	blb_log.status = goc::BLBStatus::Finished;
-	blb_log.forward_log = goc::MLBExecutionLog(true);
-	blb_log.backward_log = goc::MLBExecutionLog(true);
-	goc::MLBExecutionLog* mlb_log[2] = { &(blb_log.forward_log.Value()), &(blb_log.backward_log.Value()) };
-	goc::stretch_to_size(*mlb_log[0]->count_by_length, vrp_f.D.VertexCount(), 0);
-	goc::stretch_to_size(*mlb_log[1]->count_by_length, vrp_f.D.VertexCount(), 0);
+	BLBExecutionLog blb_log(true);
+	blb_log.status = BLBStatus::Finished;
+	blb_log.forward_log = MLBExecutionLog(true);
+	blb_log.backward_log = MLBExecutionLog(true);
+	MLBExecutionLog* mlb_log[2] = { &(blb_log.forward_log.Value()), &(blb_log.backward_log.Value()) };
+	stretch_to_size(*mlb_log[0]->count_by_length, vrp_f.D.VertexCount(), 0);
+	stretch_to_size(*mlb_log[1]->count_by_length, vrp_f.D.VertexCount(), 0);
 
-	goc::Stopwatch rolex(true), rolex_temp(false);
+	Stopwatch rolex(true), rolex_temp(false);
 
 	// *** First step: Run forward and backward algorithms until they meet (k_forward + k_backward = n+1).
 
 	// Map L: Core (k, r, v, S) -> LabelSequence
 	int n = vrp_f.D.VertexCount();
-	std::vector<std::vector<std::vector<std::unordered_map<VertexSet, LS>>>> L[2] = {
-			std::vector<std::vector<std::vector<std::unordered_map<VertexSet, LS>>>>(n+1, std::vector<std::vector<std::unordered_map<VertexSet, LS>>>(ngl_info_f.L.size(), std::vector<std::unordered_map<VertexSet, LS>>(n))),
-			std::vector<std::vector<std::vector<std::unordered_map<VertexSet, LS>>>>(n+1, std::vector<std::vector<std::unordered_map<VertexSet, LS>>>(ngl_info_f.L.size(), std::vector<std::unordered_map<VertexSet, LS>>(n)))
+	vector<vector<vector<unordered_map<VertexSet, LS>>>> L[2] = {
+			vector<vector<vector<unordered_map<VertexSet, LS>>>>(n+1, vector<vector<unordered_map<VertexSet, LS>>>(ngl_info_f.L.size(), vector<unordered_map<VertexSet, LS>>(n))),
+			vector<vector<vector<unordered_map<VertexSet, LS>>>>(n+1, vector<vector<unordered_map<VertexSet, LS>>>(ngl_info_f.L.size(), vector<unordered_map<VertexSet, LS>>(n)))
 	}; // Keep one for each direction (0=forward, 1=backward).
 	int k_dir[2] = {1, 1}; // k_dir[d] indicates the maximum length of labels enumerated for direction d.
 	int c_dir[2] = {1, 1}; // c_dir[d] indicates the number of sequences to extend next in direction d.
 
 	// Add initial routes for forward and backward.
-	L[0][1][0][vrp_f.o][goc::create_bitset<MAX_N>({vrp_f.o})] = LS({LS::Initial(vrp_f.tw[vrp_f.o], -penalties[vrp_f.o])});
-	L[1][1][0][vrp_b.o][goc::create_bitset<MAX_N>({vrp_b.o})] = LS({LS::Initial(vrp_b.tw[vrp_b.o], -penalties[vrp_b.o])});
+	L[0][1][0][vrp_f.o][create_bitset<MAX_N>({vrp_f.o})] = LS({LS::Initial(vrp_f.tw[vrp_f.o], -penalties[vrp_f.o])});
+	L[1][1][0][vrp_b.o][create_bitset<MAX_N>({vrp_b.o})] = LS({LS::Initial(vrp_b.tw[vrp_b.o], -penalties[vrp_b.o])});
 
 	// Keep extending while merging is not possible (merge should yield complete routes with n vertices).
 	while (k_dir[0] + k_dir[1] < n+1)
 	{
-		if (rolex.Peek() > time_limit) { blb_log.status = goc::BLBStatus::TimeLimitReached; break; } // Check time limit.
+		if (rolex.Peek() > time_limit) { blb_log.status = BLBStatus::TimeLimitReached; break; } // Check time limit.
 		int d = c_dir[0] < c_dir[1] ? 0 : 1; // Get the direction which needs to extend the least labels.
-		if (B != nullptr) d = 1; // If bounding is enabled, then run a full backward algorithm.
+
+		if (direction == RelaxationSolver::Forward) d = 0;
+		else if (direction == RelaxationSolver::Backward) d = 1;
 
 		// Extend direction _best_dir_ to one more vertex.
 		int k = k_dir[d];
@@ -142,13 +145,13 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 
 		for (int r = 0; r < ngl_info.L.size(); ++r)
 		{
-			if (rolex.Peek() > time_limit) { blb_log.status = goc::BLBStatus::TimeLimitReached; break; } // Check time limit.
-			for (goc::Vertex v: vrp.D.Vertices())
+			if (rolex.Peek() > time_limit) { blb_log.status = BLBStatus::TimeLimitReached; break; } // Check time limit.
+			for (Vertex v: vrp.D.Vertices())
 			{
-				if (rolex.Peek() > time_limit) { blb_log.status = goc::BLBStatus::TimeLimitReached; break; } // Check time limit.
+				if (rolex.Peek() > time_limit) { blb_log.status = BLBStatus::TimeLimitReached; break; } // Check time limit.
 				for (auto& s_l: L[d][k][r][v])
 				{
-					if (rolex.Peek() > time_limit) { blb_log.status = goc::BLBStatus::TimeLimitReached; break; } // Check time limit.
+					if (rolex.Peek() > time_limit) { blb_log.status = BLBStatus::TimeLimitReached; break; } // Check time limit.
 
 					auto& s1 = s_l.first; // ng memory.
 					auto& l1 = s_l.second; // label sequence.
@@ -161,7 +164,7 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 						auto& l2 = s_l2.second;
 
 						// Check that Core2 <= Core1.
-						if (s1 == s2 || !goc::is_subset(s2, s1)) continue;
+						if (s1 == s2 || !is_subset(s2, s1)) continue;
 						l1.DominateBy(l2);
 						if (l1.Empty()) break;
 					}
@@ -177,7 +180,7 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 					mlb_log[d]->processed_count += l1.Count();
 					mlb_log[d]->extended_count++;
 					rolex_temp.Reset().Resume();
-					for (goc::Vertex w: vrp.D.Vertices())
+					for (Vertex w: vrp.D.Vertices())
 					{
 						// Check that extension to w is feasible.
 						if (!vrp.D.IncludesArc({v, w})) continue;
@@ -207,7 +210,7 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 		k_dir[d]++;
 		c_dir[d] = 0;
 		for (int r = 0; r < ngl_info.L.size(); ++r)
-			for (goc::Vertex v: vrp.D.Vertices())
+			for (Vertex v: vrp.D.Vertices())
 				for (auto& s_l: L[d][k_dir[d]][r][v])
 					c_dir[d] += s_l.second.Count();
 	}
@@ -217,16 +220,16 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 	int k_f = k_dir[0];
 	int k_b = k_dir[1];
 
-	double best_cost = goc::INFTY;
+	double best_cost = INFTY;
 	Core best_forward, best_backward; // forward and backward labels that merged give the best_cost.
 	double best_cost_forward, best_cost_backward; // Cost when the forward and backward label merge.
 	double best_time; // Time when the forward and backward merge (expressed in terms of forward instance).
 	for (int r = 0; r < ngl_info_f.L.size(); ++r)
 	{
-		for (goc::Vertex v: vrp_f.D.Vertices())
+		for (Vertex v: vrp_f.D.Vertices())
 		{
 			if ((!ngl_info_f.V[r].test(v) && ngl_info_f.L[r] != v) || (r < ngl_info_f.L.size() - 1 && ngl_info_f.L[r+1] == v)) continue;
-			if (rolex.Peek() > time_limit) { blb_log.status = goc::BLBStatus::TimeLimitReached; break; } // Check time limit.
+			if (rolex.Peek() > time_limit) { blb_log.status = BLBStatus::TimeLimitReached; break; } // Check time limit.
 
 			// If we are standing on a vertex from L then both labels must have the r_value in that vertex, otherwise, at one of distance.
 			int r_b = ngl_info_f.L.size() - r - (ngl_info_f.L[r] != v) - 1; // r_b is the r_value for a mergeable backward label.
@@ -238,7 +241,7 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 					auto &l_f = s_l_f.second, &l_b = s_l_b.second;
 
 					// Check if labels can be merged.
-					if ((s_f & s_b) != goc::create_bitset<MAX_N>({v})) continue; // Sf \cap Sb = {v}.
+					if ((s_f & s_b) != create_bitset<MAX_N>({v})) continue; // Sf \cap Sb = {v}.
 					double merge_time, cost_forward, cost_backward;
 					double merged_cost = l_f.Merge(l_b, -penalties[v], &merge_time, &cost_forward, &cost_backward);
 					if (merged_cost < best_cost)
@@ -256,23 +259,23 @@ goc::BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b
 	}
 	*blb_log.merge_time += rolex_temp.Pause();
 
-	*opt_cost = goc::INFTY;
-	if (blb_log.status == goc::BLBStatus::Finished)
+	*opt_cost = INFTY;
+	if (blb_log.status == BLBStatus::Finished)
 	{
-		if (best_cost == goc::INFTY)
-			goc::fail("Relaxation error: Should always find a best route if problem is feasible.");
+		if (best_cost == INFTY)
+			fail("Relaxation error: Should always find a best route if problem is feasible.");
 
 		*opt_cost = best_cost;
 
 		// Reconstruct path by appending the forward and backward paths.
-		goc::GraphPath best_route_path = reconstruct_path(vrp_f, ngl_info_f, L[0], penalties, best_forward,
+		GraphPath best_route_path = reconstruct_path(vrp_f, ngl_info_f, L[0], penalties, best_forward,
 														  best_cost_forward, best_time);
-		goc::GraphPath best_backward_path = reconstruct_path(vrp_b, ngl_info_b, L[1], penalties, best_backward,
+		GraphPath best_backward_path = reconstruct_path(vrp_b, ngl_info_b, L[1], penalties, best_backward,
 															 best_cost_backward, -best_time);
 		for (int i = (int) best_backward_path.size() - 2; i >= 0; --i) best_route_path.push_back(best_backward_path[i]);
 
-		double best_route_penalty = goc::sum<goc::Vertex>(best_route_path, [&](goc::Vertex v) { return penalties[v]; });
-		*opt = goc::Route(best_route_path, 0.0, best_cost + best_route_penalty);
+		double best_route_penalty = sum<Vertex>(best_route_path, [&](Vertex v) { return penalties[v]; });
+		*opt = Route(best_route_path, 0.0, best_cost + best_route_penalty);
 	}
 
 	// Log total execution time.
@@ -290,18 +293,18 @@ RelaxationSolver::RelaxationSolver(Type type, Direction direction)
 }
 
 BLBStatus RelaxationSolver::Run(const VRPInstance& vrp_f, const VRPInstance& vrp_b, const NGLInfo& ngl_info_f,
-								const NGLInfo& ngl_info_b, const std::vector<double>& penalties, BoundingTree* B,
+								const NGLInfo& ngl_info_b, const vector<double>& penalties, BoundingTree* B,
 								const Duration& time_limit, Route* opt, double* opt_cost, json* log) const
 {
 	if (type == NGLTI)
 	{
 		return run_relaxation<LabelSequenceTI>(vrp_f, vrp_b, ngl_info_f, ngl_info_b, penalties, B, time_limit,
-											   opt, opt_cost, log);
+											   direction, opt, opt_cost, log);
 	}
 	else if (type == NGLTD)
 	{
 		return run_relaxation<LabelSequenceTD>(vrp_f, vrp_b, ngl_info_f, ngl_info_b, penalties, B, time_limit,
-											   opt, opt_cost, log);
+											   direction, opt, opt_cost, log);
 	}
 	fail("Unexpected type in RelaxationSolver.");
 	return BLBStatus::DidNotStart;
