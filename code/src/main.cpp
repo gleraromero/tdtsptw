@@ -70,7 +70,7 @@ int main(int argc, char** argv)
 	try
 	{
 		// This line only works in debug mode.
-		simulate_runner_input("instances/td-ascheuer", "rbg021.6", "experiments/ascheuer.json", "TI");
+		simulate_runner_input("instances/adamo_et_al_2019", "15_80_A_A5", "experiments/adamo.json", "TI");
 
 		// Read input.
 		json experiment, instance, solutions;
@@ -135,7 +135,7 @@ int main(int argc, char** argv)
 		json log;
 
 		// Set relaxation solver for CG and DNA.
-		RelaxationSolver cg_relaxation(relaxation == "NGLTI" ? RelaxationSolver::NGLTI : RelaxationSolver::NGLTD, RelaxationSolver::Bidirectional);
+		RelaxationSolver cg_relaxation(relaxation == "NGLTI" ? RelaxationSolver::NGLTI : RelaxationSolver::NGLTD, RelaxationSolver::Forward);
 		RelaxationSolver dna_relaxation(RelaxationSolver::NGLTD, RelaxationSolver::Bidirectional);
 
 		// Generate NG structures for forward and backward instances.

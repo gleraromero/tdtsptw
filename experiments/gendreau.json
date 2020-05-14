@@ -2,18 +2,17 @@
   "datasets": [{"name":  "td-gendreau"}],
   "experiments": [
     {
-      "name": "CG-NGLTI-DNA-BD",
+      "name": "TI",
       "executable": "main",
-      "objective": "duration",
-      "colgen": true,
-      "relaxation": "NGLTI",
-      "dssr": true,
-      "bidirectional_cg": false,
-      "bidirectional_dna": true,
-      "time_independent": true,
       "time_limit_exact": 3600,
       "time_limit_cg": 3600,
-      "time_limit_dna": 3600
+      "time_limit_dna": 3600,
+      "objective": "duration",
+      "relaxation": "NGLTI",
+      "bounding": true,
+      "remove_td": true,
+      "remove_tw": false,
+      "initial_solution_tag": "INIT_TILK"
     }
   ]
 }

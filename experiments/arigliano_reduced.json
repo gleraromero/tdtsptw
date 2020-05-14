@@ -2,34 +2,43 @@
   "datasets": [{"name":  "guerriero_et_al_2014b", "select": "!W75 REDUCED"}],
   "experiments": [
     {
-      "name": "None",
+      "name": "FWD",
       "executable": "main",
-      "time_limit": 3600,
+      "time_limit_exact": 1200,
+      "time_limit_cg": 1200,
+      "time_limit_dna": 1200,
       "objective": "makespan",
-      "colgen": false,
-      "dssr": false,
-      "relaxation": "None",
-      "bidirectional_dna": true
-    },
-    {
-      "name": "CG-NGLTI-DNA",
-      "executable": "main",
-      "time_limit": 3600,
-      "objective": "makespan",
-      "colgen": true,
-      "dssr": true,
       "relaxation": "NGLTI",
-      "bidirectional_dna": true
+      "bounding": false,
+      "remove_td": false,
+      "remove_tw": false,
+      "initial_solution_tag": "INIT_UB"
     },
     {
-      "name": "CG-NGLTD-DNA",
+      "name": "TI",
       "executable": "main",
-      "time_limit": 3600,
+      "time_limit_exact": 1200,
+      "time_limit_cg": 1200,
+      "time_limit_dna": 1200,
       "objective": "makespan",
-      "colgen": true,
-      "dssr": true,
+      "relaxation": "NGLTI",
+      "bounding": true,
+      "remove_td": false,
+      "remove_tw": false,
+      "initial_solution_tag": "INIT_UB"
+    },
+    {
+      "name": "NGL",
+      "executable": "main",
+      "time_limit_exact": 1200,
+      "time_limit_cg": 1200,
+      "time_limit_dna": 1200,
+      "objective": "makespan",
       "relaxation": "NGLTD",
-      "bidirectional_dna": true
+      "bounding": true,
+      "remove_td": false,
+      "remove_tw": false,
+      "initial_solution_tag": "INIT_UB"
     }
   ]
 }

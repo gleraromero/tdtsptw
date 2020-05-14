@@ -2,14 +2,19 @@
   "datasets": [{"name":  "guerriero_et_al_2014b", "select": "!W75 !REDUCED"}],
   "experiments": [
     {
-      "name": "CG-NGLTI-DNA",
+    {
+      "name": "TI",
       "executable": "main",
-      "time_limit": 3600,
+      "time_limit_exact": 1200,
+      "time_limit_cg": 3000,
+      "time_limit_dna": 300,
       "objective": "makespan",
-      "colgen": true,
-      "dssr": true,
       "relaxation": "NGLTI",
-      "bidirectional_dna": true
+      "bounding": true,
+      "remove_td": false,
+      "remove_tw": true,
+      "initial_solution_tag": "INIT_UB"
+    },
     }
   ]
 }
