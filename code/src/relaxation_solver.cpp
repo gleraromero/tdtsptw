@@ -71,7 +71,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					S = s;
 					if (ngl_info.L[r] == u) r--;
 					v = u;
-					time = time_u;
+					time = min(time_u, l.Domain().right);
 					cost = l.CostAt(time);
 					break;
 				}
