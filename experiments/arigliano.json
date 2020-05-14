@@ -2,7 +2,6 @@
   "datasets": [{"name":  "guerriero_et_al_2014b", "select": "!W75 !REDUCED"}],
   "experiments": [
     {
-    {
       "name": "TI",
       "executable": "main",
       "time_limit_exact": 1200,
@@ -14,7 +13,6 @@
       "remove_td": false,
       "remove_tw": true,
       "initial_solution_tag": "INIT_UB"
-    },
     }
   ]
 }
