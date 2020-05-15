@@ -4,6 +4,9 @@
 
 #include "label_sequence_td.h"
 
+// Define VALIDATIONS_ON to enable validations.
+#define VALIDATIONS_OFF
+
 using namespace std;
 using namespace goc;
 
@@ -124,10 +127,12 @@ bool LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 		last_consolidated = Label(winner.early, t, winner.slope, winner.intercept);
 	}
 	sequence = result_seq;
+#ifdef VALIDATIONS_ON
 	if (!Validate())
 	{
-		fail("Wrong domination");
+		fail("Validation failed on domination of LabelSequenceTD.");
 	}
+#endif
 	return included_labels_from_L2;
 }
 
@@ -223,10 +228,12 @@ LabelSequenceTD LabelSequenceTD::Extend(const VRPInstance& vrp, const NGLInfo& n
 			++j;
 		}
 	}
+#ifdef VALIDATIONS_ON
 	if (!Lw.Validate())
 	{
-		fail("Wrong extension");
+		fail("Validation failed on extension of LabelSequenceTD.");
 	}
+#endif
 	return Lw;
 }
 

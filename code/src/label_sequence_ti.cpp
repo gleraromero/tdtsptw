@@ -2,6 +2,9 @@
 // Created by Gonzalo Lera Romero on 28/04/2020.
 //
 
+// Define VALIDATIONS_ON to enable validations.
+#define VALIDATIONS_OFF
+
 #include "label_sequence_ti.h"
 
 using namespace std;
@@ -97,13 +100,12 @@ void LabelSequenceTI::DominateBy(const LabelSequenceTI& L2, bool include_dominat
 		last_consolidated = Label(winner.cost, winner.early, t);
 	}
 	sequence = result_seq;
+#ifdef VALIDATIONS_ON
 	if (!Validate())
 	{
-		clog << sequence << endl;
-		clog << L2.sequence << endl;
-		clog << include_dominating_labels << endl;
-		fail("Wrong");
+		fail("Validation failed on domination of LabelSequenceTI.");
 	}
+#endif
 }
 
 bool LabelSequenceTI::Empty() const
@@ -197,10 +199,12 @@ LabelSequenceTI LabelSequenceTI::Extend(const VRPInstance& vrp, const NGLInfo& n
 			}
 		}
 	}
+#ifdef VALIDATIONS_ON
 	if (!Lw.Validate())
 	{
-		fail("Wrong");
+		fail("Validation failed on extension of LabelSequenceTI.");
 	}
+#endif
 	return Lw;
 }
 
