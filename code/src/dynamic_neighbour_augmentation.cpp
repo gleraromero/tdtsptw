@@ -58,17 +58,14 @@ void dynamic_neighbour_augmentation(const RelaxationSolver& relaxation, const VR
 			break;
 		}
 
-		// Find vertex-disjoint cycles to break.
+		// Find disjoint cycles to break.
 		int n = vrp_f.D.VertexCount();
 		auto& p = opt.path;
 		auto& N = ngl_info_f.N;
-		vector<bool> vertex_in_cycle(n, false); // indicates if a vertex was already in a broken cycle.
 		for (int i = 0; i < n; ++i)
 		{
-			if (vertex_in_cycle[p[i]]) continue; // If i is already in a cycle, skip.
 			for (int j = i+1; j < n; ++j)
 			{
-				if (vertex_in_cycle[p[j]]) break; // If j is in a cycle, then the cycle starting at i would not be disjoint.
 				if (!N[p[j]].test(p[i]) && N[p[j]].count() >= delta) break; // vertex j already has a neighbourhood of size delta, then we can not break this cycle.
 				if (p[i] != p[j]) continue; // Not a cycle from i to j, skip.
 				if (p[i] == p[j]) // Found a cycle disjoint with the previous one, modify neighbours.
@@ -78,11 +75,11 @@ void dynamic_neighbour_augmentation(const RelaxationSolver& relaxation, const VR
 					for (int k = i; k < j; ++k)
 					{
 						clog << p[k] << " ";
-						vertex_in_cycle[p[k]] = true;
 						ngl_info_f.N[p[k]].set(p[i]);
 						ngl_info_b.N[p[k]].set(p[i]);
 					}
 					clog << p[i] << endl;
+					i = j-1; // Cycles need to be disjoint.
 					break;
 				}
 			}

@@ -16,7 +16,7 @@ namespace tdtsptw
 //	L: map (v, S) -> LabelSequence of non-dominated labels.
 goc::GraphPath reconstruct_path(const VRPInstance& vrp,
 								const vector<double>& penalties,
-								vector<std::unordered_map<VertexSet, LabelSequenceTD>>& L)
+								vector<spp::sparse_hash_map<VertexSet, LabelSequenceTD>>& L)
 {
 	// Variables that contain information about the path to be built.
 	Vertex v = vrp.d;
@@ -38,7 +38,7 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp,
 		{
 			if (u == v) continue;
 			if (!S.test(u)) continue;
-			if (!includes_key(L[u], Su)) continue;
+			if (L[u].find(Su) == L[u].end()) continue;
 			auto& l = L[u][Su];
 			double time_u = vrp.DepartureTime({u, v}, time);
 			double cost_u = l.CostAt(time_u);
@@ -63,7 +63,7 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp,
 	return reverse(path);
 }
 
-void add_to_queue(vector<vector<vector<unordered_set<VertexSet>>>>& q, int k, Vertex v, VertexSet S, LabelSequenceTD& l,
+void add_to_queue(vector<vector<vector<spp::sparse_hash_set<VertexSet>>>>& q, int k, Vertex v, VertexSet S, LabelSequenceTD& l,
 				  int p, int base)
 {
 	double next_p = l.NextBound(p+base);
@@ -78,6 +78,7 @@ MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vecto
 	int gap = floor(UB->duration+EPS) - base;
 	MLBStatus status = MLBStatus::Finished;
 	MLBExecutionLog mlb_log(true);
+	mlb_log.count_by_length = vector<int>(vrp.D.VertexCount()+1, 0);
 
 	goc::Stopwatch rolex(true), rolex_temp(false);
 
@@ -85,8 +86,8 @@ MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vecto
 	VertexSet all_vertices;
 	for (Vertex v: vrp.D.Vertices()) all_vertices.set(v);
 	int n = vrp.D.VertexCount();
-	vector<unordered_map<VertexSet, LabelSequenceTD>> L(n);
-	vector<vector<vector<unordered_set<VertexSet>>>> q(gap+1, vector<vector<unordered_set<VertexSet>>>(n+1, vector<unordered_set<VertexSet>>(n)));
+	vector<spp::sparse_hash_map<VertexSet, LabelSequenceTD>> L(n);
+	vector<vector<vector<spp::sparse_hash_set<VertexSet>>>> q(gap+1, vector<vector<spp::sparse_hash_set<VertexSet>>>(n+1, vector<spp::sparse_hash_set<VertexSet>>(n)));
 	L[vrp.o][goc::create_bitset<MAX_N>({vrp.o})] = LabelSequenceTD({LabelSequenceTD::Initial(vrp.tw[vrp.o], -penalties[vrp.o], *lb)});
 	q[0][1][vrp.o].insert(goc::create_bitset<MAX_N>({vrp.o}));
 
@@ -117,6 +118,7 @@ MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vecto
 					auto l_p = l.WithCompletionBound(base + p); // Get labels with bound in [base+p, base+p+1).
 					if (l_p.Empty()) continue;
 					mlb_log.extended_count += l_p.Count();
+					(*mlb_log.count_by_length)[k] += l_p.Count();
 
 					// Extend labels in l_p.
 					for (Vertex w: vrp.D.Vertices())
@@ -147,10 +149,12 @@ MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vecto
 				}
 			}
 			if (did_some_processing) output.WriteRow({STR(base+p), STR(k)});
+			q[p][k].clear();
 		}
+		q[p].clear();
 
 		// Check if a full route was enumerated.
-		if (includes_key(L[vrp.d], all_vertices))
+		if (L[vrp.d].find(all_vertices) != L[vrp.d].end())
 		{
 			clog << "Found exact solution." << endl;
 			break;

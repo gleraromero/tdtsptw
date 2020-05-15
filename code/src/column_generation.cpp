@@ -36,7 +36,7 @@ void column_generation(const RelaxationSolver& relaxation, const VRPInstance& vr
 									 time_limit, &opt, &opt_cost, &log);
 		cg_execution_log->iterations->push_back(log);
 
-		if (status == BLBStatus::TimeLimitReached) { clog << "> Time limit reached" << endl; return false; }
+		if (status == BLBStatus::TimeLimitReached) { clog << "> Time limit reached" << endl; cg_execution_log->status = CGStatus::TimeLimitReached; return false; }
 
 		// Check if a new lower bound is found by the solution of the relaxation.
 		double pp_penalties_sum = sum(pricing_problem.penalties);
