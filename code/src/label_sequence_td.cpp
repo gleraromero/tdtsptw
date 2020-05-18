@@ -79,12 +79,12 @@ bool LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 	// Merge labels until both have reached the fictitious label which must be last because of INFTY domain.
 	while (i != s1.size() - 1 || j != s2.size() - 1)
 	{
-		dominate_label(last_consolidated, s1[i]);
-		dominate_label(last_consolidated, s2[j]);
-
 		// Move early times of labels beyond t.
 		s2[j].early = max(s2[j].early, t);
 		s1[i].early = max(s1[i].early, t);
+
+		dominate_label(last_consolidated, s1[i]);
+		dominate_label(last_consolidated, s2[j]);
 
 		// Dominate labels between them.
 		dominate_label(s2[j], s1[i]);
