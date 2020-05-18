@@ -135,7 +135,7 @@ bool LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 		}
 
 		// Keep the latest consolidated label.
-		last_consolidated = Label(winner.early, max(winner.early, t), winner.slope, winner.intercept);
+		last_consolidated = Label(winner.early, t, winner.slope, winner.intercept);
 	}
 	sequence = result_seq;
 #ifdef VALIDATIONS_ON
