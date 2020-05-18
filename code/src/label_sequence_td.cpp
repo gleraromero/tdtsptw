@@ -78,15 +78,6 @@ bool LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 	// Merge labels until both have reached the fictitious label which must be last because of INFTY domain.
 	while (i != s1.size() - 1 || j != s2.size() - 1)
 	{
-		if (k++ == 100000)
-		{
-			clog.precision(17);
-			clog << last_consolidated << endl;
-			clog << s2[j] << " " << s1[i] << endl;
-			clog << s1 << endl;
-			clog << s2 << endl;
-			exit(0);
-		}
 		// Move early times of labels beyond the last consolidated.
 		s2[j].early = max(s2[j].early, last_consolidated.late);
 		s1[i].early = max(s1[i].early, last_consolidated.late);
@@ -97,6 +88,17 @@ bool LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 		// Dominate labels between them.
 		dominate_label(s2[j], s1[i]);
 		dominate_label(s1[i], s2[j]);
+
+		if (k++ == 100000)
+		{
+			clog << "MAX: " << max(last_consolidated.late, s1[i]) << endl;
+			clog.precision(17);
+			clog << last_consolidated << endl;
+			clog << s2[j] << " " << s1[i] << endl;
+			clog << s1 << endl;
+			clog << s2 << endl;
+			exit(0);
+		}
 
 		// Move i and j to labels are fully dominated.
 		if (s1[i].early == INFTY && i + 1 < s1.size()) { ++i; continue; }
