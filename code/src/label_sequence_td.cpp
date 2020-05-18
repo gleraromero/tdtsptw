@@ -113,7 +113,7 @@ bool LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 
 		auto& winner = winner_label == 1 ? s1[i] : s2[j];
 		auto& loser = winner_label == 1 ? s2[j] : s1[i];
-		double t = min(min(winner.late, loser.late), loser.early); // late time of the part we must add.
+		double t = max(min(min(winner.late, loser.late), loser.early), winner.early); // late time of the part we must add.
 
 		if (winner_label == 2) included_labels_from_L2 = true;
 
