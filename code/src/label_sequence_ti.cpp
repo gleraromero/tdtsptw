@@ -83,7 +83,7 @@ void LabelSequenceTI::DominateBy(const LabelSequenceTI& L2, bool include_dominat
 		else winner_label = (epsilon_equal(s1[i].early, s1[i].late) ? 1 : 2); // If they start at the same time it is because one of them is a point that dominates the other one.
 		auto& winner = winner_label == 1 ? s1[i] : s2[j];
 		auto& loser = winner_label == 1 ? s2[j] : s1[i];
-		t = min(min(winner.late, loser.late), loser.early); // late time of the part we must add.
+		t = max(min(min(winner.late, loser.late), loser.early), winner.early); // late time of the part we must add.
 
 		// Add the next piece.
 		if (winner_label == 1 || (winner_label == 2 && include_dominating_labels))
