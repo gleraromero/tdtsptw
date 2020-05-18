@@ -91,9 +91,10 @@ bool LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 
 		if (k++ == 100000)
 		{
-			clog << "MAX: " << max(last_consolidated.late, s1[i].early) << endl;
 			clog.precision(17);
+			clog << "MAX: " << max(last_consolidated.late, s1[i].early) << endl;
 			clog << last_consolidated << endl;
+			s1[i].early = max(s1[i].early, last_consolidated.late);
 			clog << s2[j] << " " << s1[i] << endl;
 			clog << s1 << endl;
 			clog << s2 << endl;
