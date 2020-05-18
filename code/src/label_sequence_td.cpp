@@ -71,7 +71,7 @@ bool LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 	s2.emplace_back(Label::FromPoints(INFTY, INFTY, INFTY, INFTY));
 
 	vector<Label> result_seq;
-	int i = 0, j = 0;
+	int i = 0, j = 0, k = 0;
 	double t = -INFTY; // latest point covered.
 	Label last_consolidated = Label::FromPoints(INFTY, INFTY, INFTY, INFTY); // Last label that was verified as not dominated.
 	bool included_labels_from_L2 = false;
@@ -79,6 +79,14 @@ bool LabelSequenceTD::DominateBy(const LabelSequenceTD& L2, bool include_dominat
 	// Merge labels until both have reached the fictitious label which must be last because of INFTY domain.
 	while (i != s1.size() - 1 || j != s2.size() - 1)
 	{
+		if (k++ == 100000)
+		{
+			clog << last_consolidated << endl;
+			clog << s2[j] << " " << s1[i] << endl;
+			clog << s1 << endl;
+			clog << s2 << endl;
+			exit(0);
+		}
 		// Move early times of labels beyond t.
 		s2[j].early = max(s2[j].early, t);
 		s1[i].early = max(s1[i].early, t);
