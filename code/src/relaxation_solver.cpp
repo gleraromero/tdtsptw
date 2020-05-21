@@ -38,7 +38,6 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 
 	// Get next k-1 vertices.
 	GraphPath path = {v};
-	clog << path << " at time " << time << " with cost " << cost << endl;
 	for (int k = c.k-1; k > 0; --k)
 	{
 		bool found_next = false;
@@ -63,8 +62,13 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				// Check if extension of l into v gives the last label in the path.
 				auto l_v = l.Extend(vrp, ngl_info, k, u, v, penalties[v]);
 				double cost_lv = l_v.CostAt(time);
-				if (epsilon_smaller(cost_lv, cost)) fail("Smaller cost than expected");
-				if (epsilon_equal(cost_lv, cost))
+				if (epsilon_smaller(cost_lv+EPS, cost))
+				{
+					clog.precision(10);
+					clog << cost_lv << " vs " << cost << endl;
+					fail("Smaller cost than expected");
+				}
+				if (epsilon_smaller_equal(cost_lv, cost))
 				{
 					// Move to next label.
 					found_next = true;
