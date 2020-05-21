@@ -75,6 +75,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					path.push_back(u);
 					S = s;
 					if (ngl_info.L[r] == u) r--;
+					time_u = min(time_u, vrp.TWP[k][u].right);
 					cost = cost - (time - time_u) + penalties[v] + EPS;
 					time = time_u + EPS;
 					v = u;
@@ -289,7 +290,7 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 			new_dur = l.Domain().left;
 		}
 		double new_cost = new_dur - best_route_penalty;
-		if (epsilon_different(new_cost, best_cost))
+		if (fabs(new_cost - best_cost) > 0.001)
 		{
 			clog << best_time << endl;
 			clog << new_dur << " vs " << opt->duration << endl;
