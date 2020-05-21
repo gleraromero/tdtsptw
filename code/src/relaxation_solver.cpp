@@ -88,7 +88,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					path.push_back(u);
 					S = s;
 					if (ngl_info.L[r] == u) r--;
-					cost = cost + (time - time_u) + penalties[v];
+					cost = cost - (time - time_u) + penalties[v];
 					time = time_u;
 					v = u;
 					clog << path << " at time " << time << " with cost " << cost << " because " << v << " has a penalty " << penalties[v] << endl;
