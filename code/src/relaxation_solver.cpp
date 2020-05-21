@@ -116,7 +116,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 						clog.precision(8);
 						clog << "\t" << lab.early << " vs " << time_u << endl;
 						clog.precision(3);
-						if (epsilon_bigger(lab.early, time_u)) break;
+						if (epsilon_bigger(vrp.ArrivalTime({u, v}, lab.early), time)) break;
 						time = min(time_u, lab.late);
 					}
 //					time = min(time_u, l.Domain().right);
