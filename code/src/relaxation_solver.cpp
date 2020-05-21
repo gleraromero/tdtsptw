@@ -38,6 +38,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 
 	// Get next k-1 vertices.
 	GraphPath path = {v};
+	clog << path << " at time " << time << " with cost " << cost << endl;
 	for (int k = c.k-1; k > 0; --k)
 	{
 		bool found_next = false;
@@ -95,10 +96,11 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					}
 //					time = min(time_u, l.Domain().right);
 					cost = l.CostAt(time);
-					clog << "> L: " << l << endl;
-					clog << "> S: " << S << endl;
-					clog << "> k: " << k << endl;
-					clog << "> r: " << r << endl;
+					clog << path << " at time " << time << " with cost " << cost << endl;
+//					clog << "> L: " << l << endl;
+//					clog << "> S: " << S << endl;
+//					clog << "> k: " << k << endl;
+//					clog << "> r: " << r << endl;
 					break;
 				}
 			}
@@ -320,6 +322,15 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 		double new_cost = new_dur - best_route_penalty;
 		clog << new_dur << " vs " << opt->duration << endl;
 		clog << new_cost << " vs " << *opt_cost << endl;
+
+		GraphPath aux = {};
+		for (int i = 0; i < best_route_path.size(); ++i)
+		{
+			aux.push_back(best_route_path[i]);
+			double durr = vrp_f.BestDurationRoute(aux).duration;
+			double penn = sum<Vertex>(aux, [&] (Vertex v) { return penalties[v]; });
+			clog << durr << " " << penn << " " << (durr - penn) << endl;
+		}
 	}
 
 	// Log total execution time.
