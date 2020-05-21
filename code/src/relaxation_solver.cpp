@@ -65,6 +65,8 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				if (epsilon_smaller(cost_lv, cost))
 				{
 					clog.precision(8);
+					clog << "k: " << k << endl;
+					clog << "r: " << r << endl;
 					clog << "TWP[k][u]: " <<  vrp.TWP[k][u] << endl;
 					clog << "N[v]: " << ngl_info.N[v] << endl;
 					clog << "N[u]: " << ngl_info.N[u] << endl;
@@ -172,6 +174,11 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 
 					auto& s1 = s_l.first; // ng memory.
 					auto& l1 = s_l.second; // label sequence.
+
+					if (s1.count() == 2 && s1.test(8) && s1.test(15) && k == 12 && r == 2 && v == 8)
+					{
+						clog << l1 << endl;
+					}
 
 					// Dominate L1 by those L2 whose core Core2 <= Core1.
 					rolex_temp.Reset().Resume();
