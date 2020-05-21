@@ -32,6 +32,7 @@ void column_generation(const RelaxationSolver& relaxation, const VRPInstance& vr
 		double opt_cost;
 		nlohmann::json log;
 		auto pricing_problem = spf.InterpretDuals(duals);
+		clog << pricing_problem.penalties << endl;
 		auto status = relaxation.Run(vrp_f, vrp_b, ngl_info_f, ngl_info_b, pricing_problem.penalties, nullptr,
 									 time_limit, &opt, &opt_cost, &log);
 		cg_execution_log->iterations->push_back(log);
