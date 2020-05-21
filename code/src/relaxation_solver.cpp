@@ -175,9 +175,10 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 					auto& s1 = s_l.first; // ng memory.
 					auto& l1 = s_l.second; // label sequence.
 
-					if (s1.count() == 2 && s1.test(8) && s1.test(15) && k == 12 && r == 2 && v == 8)
+					if (s1.count() == 2 && s1.test(8) && s1.test(15) && k == 7 && r == 2 && v == 8)
 					{
 						clog << l1 << endl;
+						exit(0);
 					}
 
 					// Dominate L1 by those L2 whose core Core2 <= Core1.
