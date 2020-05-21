@@ -307,7 +307,10 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 
 		double best_route_penalty = sum<Vertex>(best_route_path, [&](Vertex v) { return penalties[v]; });
 		*opt = Route(best_route_path, 0.0, best_cost + best_route_penalty);
-		clog << vrp_f.BestDurationRoute(opt->path).duration << " vs " << opt->duration << endl;
+		double new_dur = vrp_f.BestDurationRoute(opt->path).duration;
+		double new_cost = new_dur - best_route_penalty;
+		clog << new_dur << " vs " << opt->duration << endl;
+		clog << new_cost << " vs " << *opt_cost << endl;
 	}
 
 	// Log total execution time.
