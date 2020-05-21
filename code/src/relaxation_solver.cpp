@@ -90,8 +90,10 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					v = u;
 					time = min(time_u, l.Domain().right);
 					cost = l.CostAt(time);
-					clog << "L: " << l << endl;
-					clog << "S: " << S << endl;
+					clog << "> L: " << l << endl;
+					clog << "> S: " << S << endl;
+					clog << "> k: " << k << endl;
+					clog << "> r: " << r << endl;
 					break;
 				}
 			}
