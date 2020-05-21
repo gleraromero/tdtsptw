@@ -133,6 +133,7 @@ int main(int argc, char** argv)
 		vector<double> penalties(n, 0.0); // Initial set of penalties.
 		double penalty_sum = 0.0;
 		json log;
+		penalties = {0, 753.828, 0, 34.0104, -13.4799, 0, 16.7947, 0, -46.0655, -41.8248, -21.1261, -53.4608, -41.0332, 23.5451, -25.373, -25.9973, 0};
 
 		// Set relaxation solver for CG and DNA.
 		RelaxationSolver cg_relaxation(relaxation == "NGLTI" ? RelaxationSolver::NGLTI : RelaxationSolver::NGLTD, RelaxationSolver::Forward);
@@ -157,13 +158,14 @@ int main(int argc, char** argv)
 			clog << "> Finished in " << rolex_temp.Peek() << " - LB: " << lb << endl;
 			output["initial_relaxation"] = log;
 			clog << opt << endl;
+			return 0;
 
 			// Solve column generation.
 			if (epsilon_different(UB.duration, lb))
 			{
 				clog << "Running column generation..." << endl;
 				rolex_temp.Reset().Resume();
-				column_generation(cg_relaxation, vrp_f, vrp_b, ngl_info_f, ngl_info_b, tl_cg, &penalties, &UB, &lb, &log);
+//				column_generation(cg_relaxation, vrp_f, vrp_b, ngl_info_f, ngl_info_b, tl_cg, &penalties, &UB, &lb, &log);
 				rolex_temp.Pause();
 				output["column_generation"] = log;
 				clog << "> Finished in " << rolex_temp.Peek() << " - LB: " << lb << endl;
