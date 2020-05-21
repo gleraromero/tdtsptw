@@ -65,6 +65,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				if (epsilon_smaller(cost_lv, cost))
 				{
 					clog.precision(8);
+					clog << "s: " << s << endl;
 					clog << cost_lv << " vs " << cost << endl;
 					clog << "time: " << time << endl;
 					clog << "cost: " << cost << endl;
@@ -84,6 +85,8 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					v = u;
 					time = min(time_u, l.Domain().right);
 					cost = l.CostAt(time);
+					clog << "L: " << l << endl;
+					clog << "S: " << S << endl;
 					break;
 				}
 			}
