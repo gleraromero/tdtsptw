@@ -121,7 +121,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 //					}
 //					time = ttt;
 					time = time_u;
-					cost = l.CostAt(time);
+					cost = cost + (time - time_u) - penalties[v];
 					clog << path << " at time " << time << " with cost " << cost << " because " << v << " has a penalty " << penalties[v] << endl;
 //					clog << "> L: " << l << endl;
 //					clog << "> S: " << S << endl;
