@@ -111,16 +111,16 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					S = s;
 					if (ngl_info.L[r] == u) r--;
 					v = u;
-					double ttt = 0.0;
-					for (auto& lab: l.sequence)
-					{
-//						clog.precision(8);
-//						clog << "\t" << lab.early << " vs " << time_u << endl;
-						if (epsilon_bigger(vrp.ArrivalTime({u, v}, lab.early), time)) break;
-						ttt = min(time_u, lab.late);
-					}
-					time = ttt;
-//					time = min(time_u, l.Domain().right);
+//					double ttt = 0.0;
+//					for (auto& lab: l.sequence)
+//					{
+////						clog.precision(8);
+////						clog << "\t" << lab.early << " vs " << time_u << endl;
+//						if (epsilon_bigger(vrp.ArrivalTime({u, v}, lab.early), time)) break;
+//						ttt = min(time_u, lab.late);
+//					}
+//					time = ttt;
+					time = time_u;
 					cost = l.CostAt(time);
 					clog << path << " at time " << time << " with cost " << cost << endl;
 //					clog << "> L: " << l << endl;
