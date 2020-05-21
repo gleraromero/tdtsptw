@@ -65,6 +65,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				if (epsilon_smaller(cost_lv, cost))
 				{
 					clog.precision(8);
+					clog << "TWP[k][u]: " <<  vrp.TWP[k][u] << endl;
 					clog << "N[v]: " << ngl_info.N[v] << endl;
 					clog << "N[u]: " << ngl_info.N[u] << endl;
 					clog << "s: " << s << endl;
