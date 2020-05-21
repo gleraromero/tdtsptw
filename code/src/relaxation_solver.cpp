@@ -353,6 +353,7 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 			double penn = sum<Vertex>(aux, [&] (Vertex v) { return penalties[v]; });
 			clog << durr << " " << penn << " " << (durr - penn) << endl;
 		}
+		clog << "FINAL: " << vrp_f.ArrivalTime({13, 5}, 191.550) << endl;
 	}
 
 	// Log total execution time.
