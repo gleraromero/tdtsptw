@@ -91,7 +91,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					v = u;
 					time = time_u;
 					cost = cost + (time - time_u) - penalties[v];
-//					clog << path << " at time " << time << " with cost " << cost << " because " << v << " has a penalty " << penalties[v] << endl;
+					clog << path << " at time " << time << " with cost " << cost << " because " << v << " has a penalty " << penalties[v] << endl;
 					break;
 				}
 			}
