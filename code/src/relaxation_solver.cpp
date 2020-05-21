@@ -63,70 +63,35 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				// Check if extension of l into v gives the last label in the path.
 				auto l_v = l.Extend(vrp, ngl_info, k, u, v, penalties[v]);
 				double cost_lv = l_v.CostAt(time);
-//				if (epsilon_smaller(cost_lv, cost))
-//				{
-//					clog.precision(8);
-//					clog << "k: " << k << endl;
-//					clog << "r: " << r << endl;
-//					clog << "TWP[k][u]: " <<  vrp.TWP[k][u] << endl;
-//					clog << "N[v]: " << ngl_info.N[v] << endl;
-//					clog << "N[u]: " << ngl_info.N[u] << endl;
-//					clog << "s: " << s << endl;
-//					clog << cost_lv << " vs " << cost << endl;
-//					clog << "time: " << time << endl;
-//					clog << "cost: " << cost << endl;
-//					clog << u << " -> " << v << endl;
-//					clog << path << endl;
-//					clog << l << endl;
-//					clog << l_v << endl;
-//					fail("Smaller cost than expected");
-//				}
-				if (epsilon_smaller_equal(cost_lv, cost))
+				if (epsilon_smaller(cost_lv, cost))
 				{
-//					if (epsilon_smaller(cost_lv, cost) || v == 5)
-//					{
-//						clog.precision(8);
-//						clog << "VRPO: " << vrp.o << endl;
-//						clog << "time_u: " << time_u << endl;
-//						clog << "ARR: " << vrp.ArrivalTime({u,v}, time_u) << endl;
-//						clog << "TWP[k+1][v]: " << vrp.TWP[k+1][v] << endl;
-//						clog << "k: " << k << endl;
-//						clog << "r: " << r << endl;
-//						clog << "TWP[k][u]: " <<  vrp.TWP[k][u] << endl;
-//						clog << "N[v]: " << ngl_info.N[v] << endl;
-//						clog << "N[u]: " << ngl_info.N[u] << endl;
-//						clog << "s: " << s << endl;
-//						clog << cost_lv << " vs " << cost << endl;
-//						clog << "time: " << time << endl;
-//						clog << "cost: " << cost << endl;
-//						clog << u << " -> " << v << endl;
-//						clog << path << endl;
-//						clog << l << endl;
-//						clog << l_v << endl;
-//						fail("v == 5");
-//					}
+					clog.precision(8);
+					clog << "k: " << k << endl;
+					clog << "r: " << r << endl;
+					clog << "TWP[k][u]: " <<  vrp.TWP[k][u] << endl;
+					clog << "N[v]: " << ngl_info.N[v] << endl;
+					clog << "N[u]: " << ngl_info.N[u] << endl;
+					clog << "s: " << s << endl;
+					clog << cost_lv << " vs " << cost << endl;
+					clog << "time: " << time << endl;
+					clog << "cost: " << cost << endl;
+					clog << u << " -> " << v << endl;
+					clog << path << endl;
+					clog << l << endl;
+					clog << l_v << endl;
+					fail("Smaller cost than expected");
+				}
+				if (epsilon_equal(cost_lv, cost))
+				{
 					// Move to next label.
 					found_next = true;
 					path.push_back(u);
 					S = s;
 					if (ngl_info.L[r] == u) r--;
 					v = u;
-//					double ttt = 0.0;
-//					for (auto& lab: l.sequence)
-//					{
-////						clog.precision(8);
-////						clog << "\t" << lab.early << " vs " << time_u << endl;
-//						if (epsilon_bigger(vrp.ArrivalTime({u, v}, lab.early), time)) break;
-//						ttt = min(time_u, lab.late);
-//					}
-//					time = ttt;
 					time = time_u;
 					cost = cost + (time - time_u) - penalties[v];
-					clog << path << " at time " << time << " with cost " << cost << " because " << v << " has a penalty " << penalties[v] << endl;
-//					clog << "> L: " << l << endl;
-//					clog << "> S: " << S << endl;
-//					clog << "> k: " << k << endl;
-//					clog << "> r: " << r << endl;
+//					clog << path << " at time " << time << " with cost " << cost << " because " << v << " has a penalty " << penalties[v] << endl;
 					break;
 				}
 			}
