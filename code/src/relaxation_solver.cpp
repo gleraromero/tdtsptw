@@ -63,7 +63,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				// Check if extension of l into v gives the last label in the path.
 				auto l_v = l.Extend(vrp, ngl_info, k, u, v, penalties[v]);
 				double cost_lv = l_v.CostAt(time);
-				if (epsilon_smaller(cost_lv, cost))
+				if (epsilon_smaller(cost_lv, cost) || v == 5)
 				{
 					clog.precision(8);
 					clog << "k: " << k << endl;
