@@ -191,6 +191,10 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 
 						// Check that Core2 <= Core1.
 						if (s1 == s2 || !is_subset(s2, s1)) continue;
+						if (s1.count() == 2 && s1.test(8) && s1.test(15) && k == 8 && r == 2 && v == 8)
+						{
+							clog << "DOM BY: " << s2 << " - " << l2 << endl;
+						}
 						l1.DominateBy(l2);
 						if (l1.Empty()) break;
 					}
@@ -198,6 +202,7 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 					if (s1.count() == 2 && s1.test(8) && s1.test(15) && k == 8 && r == 2 && v == 8)
 					{
 						clog << "After dom: " << l1 << endl;
+						exit(0);
 					}
 					*mlb_log[d]->domination_time += rolex_temp.Pause();
 					if (l1.Empty()) continue; // If all pieces were dominated, then skip.
