@@ -114,8 +114,8 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					double ttt = 0.0;
 					for (auto& lab: l.sequence)
 					{
-						clog.precision(8);
-						clog << "\t" << lab.early << " vs " << time_u << endl;
+//						clog.precision(8);
+//						clog << "\t" << lab.early << " vs " << time_u << endl;
 						if (epsilon_bigger(vrp.ArrivalTime({u, v}, lab.early), time)) break;
 						ttt = min(time_u, lab.late);
 					}
