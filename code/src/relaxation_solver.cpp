@@ -83,26 +83,26 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				}
 				if (epsilon_equal(cost_lv, cost))
 				{
-					if (epsilon_smaller(cost_lv, cost) || v == 5)
-					{
-						clog.precision(8);
-						clog << "ARR: " << vrp.ArrivalTime({u,v}, time_u) << endl;
-						clog << "TWP[k+1][v]: " << vrp.TWP[k+1][v] << endl;
-						clog << "k: " << k << endl;
-						clog << "r: " << r << endl;
-						clog << "TWP[k][u]: " <<  vrp.TWP[k][u] << endl;
-						clog << "N[v]: " << ngl_info.N[v] << endl;
-						clog << "N[u]: " << ngl_info.N[u] << endl;
-						clog << "s: " << s << endl;
-						clog << cost_lv << " vs " << cost << endl;
-						clog << "time: " << time << endl;
-						clog << "cost: " << cost << endl;
-						clog << u << " -> " << v << endl;
-						clog << path << endl;
-						clog << l << endl;
-						clog << l_v << endl;
-						fail("v == 5");
-					}
+//					if (epsilon_smaller(cost_lv, cost) || v == 5)
+//					{
+//						clog.precision(8);
+//						clog << "ARR: " << vrp.ArrivalTime({u,v}, time_u) << endl;
+//						clog << "TWP[k+1][v]: " << vrp.TWP[k+1][v] << endl;
+//						clog << "k: " << k << endl;
+//						clog << "r: " << r << endl;
+//						clog << "TWP[k][u]: " <<  vrp.TWP[k][u] << endl;
+//						clog << "N[v]: " << ngl_info.N[v] << endl;
+//						clog << "N[u]: " << ngl_info.N[u] << endl;
+//						clog << "s: " << s << endl;
+//						clog << cost_lv << " vs " << cost << endl;
+//						clog << "time: " << time << endl;
+//						clog << "cost: " << cost << endl;
+//						clog << u << " -> " << v << endl;
+//						clog << path << endl;
+//						clog << l << endl;
+//						clog << l_v << endl;
+//						fail("v == 5");
+//					}
 					// Move to next label.
 					found_next = true;
 					path.push_back(u);
@@ -344,10 +344,12 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 		clog << new_cost << " vs " << *opt_cost << endl;
 
 		GraphPath aux = {};
+		double tt = 0;
 		for (int i = 0; i < best_route_path.size(); ++i)
 		{
 			aux.push_back(best_route_path[i]);
-			double durr = vrp_f.BestDurationRoute(aux).duration;
+			if (i > 0) tt = max(vrp_f.ArrivalTime({aux[i-1], aux[i]}, tt), vrp_f.TWP[i+1][aux[i]].left);
+			double durr = tt;
 			double penn = sum<Vertex>(aux, [&] (Vertex v) { return penalties[v]; });
 			clog << durr << " " << penn << " " << (durr - penn) << endl;
 		}
