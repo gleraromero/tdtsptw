@@ -202,7 +202,6 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 					if (s1.count() == 2 && s1.test(8) && s1.test(15) && k == 8 && r == 2 && v == 8)
 					{
 						clog << "After dom: " << l1 << endl;
-						exit(0);
 					}
 					*mlb_log[d]->domination_time += rolex_temp.Pause();
 					if (l1.Empty()) continue; // If all pieces were dominated, then skip.
