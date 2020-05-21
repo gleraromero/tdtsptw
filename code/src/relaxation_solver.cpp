@@ -88,7 +88,12 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					S = s;
 					if (ngl_info.L[r] == u) r--;
 					v = u;
-					time = min(time_u, l.Domain().right);
+					for (auto& lab: l.sequence)
+					{
+						if (epsilon_bigger(lab.early, time_u)) break;
+						time = min(time_u, lab.late);
+					}
+//					time = min(time_u, l.Domain().right);
 					cost = l.CostAt(time);
 					clog << "> L: " << l << endl;
 					clog << "> S: " << S << endl;

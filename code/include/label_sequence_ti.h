@@ -63,7 +63,6 @@ public:
 
 	virtual void Print(std::ostream& os) const;
 
-private:
 	std::vector<Label> sequence;
 };
 } // namespace tdtsptw
