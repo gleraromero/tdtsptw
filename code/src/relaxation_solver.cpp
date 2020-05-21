@@ -63,24 +63,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				// Check if extension of l into v gives the last label in the path.
 				auto l_v = l.Extend(vrp, ngl_info, k, u, v, penalties[v]);
 				double cost_lv = l_v.CostAt(time);
-				if (epsilon_smaller(cost_lv, cost))
-				{
-					clog.precision(8);
-					clog << "k: " << k << endl;
-					clog << "r: " << r << endl;
-					clog << "TWP[k][u]: " <<  vrp.TWP[k][u] << endl;
-					clog << "N[v]: " << ngl_info.N[v] << endl;
-					clog << "N[u]: " << ngl_info.N[u] << endl;
-					clog << "s: " << s << endl;
-					clog << cost_lv << " vs " << cost << endl;
-					clog << "time: " << time << endl;
-					clog << "cost: " << cost << endl;
-					clog << u << " -> " << v << endl;
-					clog << path << endl;
-					clog << l << endl;
-					clog << l_v << endl;
-					fail("Smaller cost than expected");
-				}
+				if (epsilon_smaller(cost_lv, cost)) fail("Smaller cost than expected");
 				if (epsilon_equal(cost_lv, cost))
 				{
 					// Move to next label.
@@ -174,11 +157,6 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 					auto& s1 = s_l.first; // ng memory.
 					auto& l1 = s_l.second; // label sequence.
 
-					if (s1.count() == 2 && s1.test(8) && s1.test(15) && k == 8 && r == 2 && v == 8)
-					{
-						clog << l1 << endl;
-					}
-
 					// Dominate L1 by those L2 whose core Core2 <= Core1.
 					rolex_temp.Reset().Resume();
 					for (auto& s_l2: L[d][k][r][v])
@@ -188,17 +166,8 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 
 						// Check that Core2 <= Core1.
 						if (s1 == s2 || !is_subset(s2, s1)) continue;
-						if (s1.count() == 2 && s1.test(8) && s1.test(15) && k == 8 && r == 2 && v == 8)
-						{
-							clog << "DOM BY: " << s2 << " - " << l2 << endl;
-						}
 						l1.DominateBy(l2);
 						if (l1.Empty()) break;
-					}
-
-					if (s1.count() == 2 && s1.test(8) && s1.test(15) && k == 8 && r == 2 && v == 8)
-					{
-						clog << "After dom: " << l1 << endl;
 					}
 					*mlb_log[d]->domination_time += rolex_temp.Pause();
 					if (l1.Empty()) continue; // If all pieces were dominated, then skip.
@@ -310,20 +279,11 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 		*opt = Route(best_route_path, 0.0, best_cost + best_route_penalty);
 		double new_dur = vrp_f.BestDurationRoute(opt->path).duration;
 		double new_cost = new_dur - best_route_penalty;
-		clog << new_dur << " vs " << opt->duration << endl;
-		clog << new_cost << " vs " << *opt_cost << endl;
-
-		GraphPath aux = {};
-		double tt = 0;
-		for (int i = 0; i < best_route_path.size(); ++i)
+		if (epsilon_different(new_cost, best_cost))
 		{
-			aux.push_back(best_route_path[i]);
-			if (i > 0) tt = max(vrp_f.ArrivalTime({aux[i-1], aux[i]}, tt), vrp_f.TWP[i+1][aux[i]].left);
-			double durr = tt;
-			double penn = sum<Vertex>(aux, [&] (Vertex v) { return penalties[v]; });
-			clog << durr << " " << penn << " " << (durr - penn) << endl;
+			clog << best_cost << " vs " << new_cost << endl;
+			fail("Different costs");
 		}
-		clog << "FINAL: " << vrp_f.ArrivalTime({13, 5}, 191.550) << endl;
 	}
 
 	// Log total execution time.
