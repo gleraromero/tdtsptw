@@ -86,6 +86,8 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					if (epsilon_smaller(cost_lv, cost) || v == 5)
 					{
 						clog.precision(8);
+						clog << "ARR: " << vrp.ArrivalTime({u,v}, time_u) << endl;
+						clog << "TWP[k+1][v]: " << vrp.TWP[k+1][v] << endl;
 						clog << "k: " << k << endl;
 						clog << "r: " << r << endl;
 						clog << "TWP[k][u]: " <<  vrp.TWP[k][u] << endl;
