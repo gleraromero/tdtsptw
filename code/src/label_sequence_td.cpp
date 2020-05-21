@@ -447,7 +447,7 @@ double LabelSequenceTD::Label::CostAt(double t) const
 	// Check that t is inside domain or includes waiting times..
 	if (epsilon_smaller(t, early)) fail("Cost of label at " + STR(t) + " is infeasible because domain is [" + STR(early) + ", " + STR(late) + "]");
 	// If t is after the late time, then we must consider the cost plus the waiting time.
-	if (epsilon_bigger_equal(t, late)) return slope * late + intercept  + (t - late);
+	if (epsilon_bigger(t, late)) return slope * late + intercept  + (t - late);
 	// We are inside the domain.
 	return slope * t + intercept;
 }
