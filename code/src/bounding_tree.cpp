@@ -69,6 +69,9 @@ void BoundingTree::Bound(const VertexSet& S, Vertex v, LabelSequenceTD& L, doubl
 		int j = s2.size()-1;
 		for (auto& l: s1)
 		{
+			// If bound is already set, continue.
+			if (l.completion_bound != -INFTY) continue;
+			// Otherwise initialize it in INFTY.
 			if (l.completion_bound == -INFTY) l.completion_bound = INFTY;
 
 			// Try to merge l with all opposite labels that come afterwards with overlap domain and the first
