@@ -62,12 +62,6 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				// Check if extension of l into v gives the last label in the path.
 				auto l_v = l.Extend(vrp, ngl_info, k, u, v, penalties[v]);
 				double cost_lv = l_v.CostAt(time);
-//				if (epsilon_smaller(cost_lv+EPS, cost))
-//				{
-//					clog.precision(10);
-//					clog << cost_lv << " vs " << cost << endl;
-//					fail("Smaller cost than expected");
-//				}
 				if (epsilon_smaller_equal(cost_lv, cost))
 				{
 					// Move to next label.
@@ -282,21 +276,6 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 
 		double best_route_penalty = sum<Vertex>(best_route_path, [&](Vertex v) { return penalties[v]; });
 		*opt = Route(best_route_path, 0.0, best_cost + best_route_penalty);
-		double new_dur = 0.0;
-		auto l = LS({LS::Initial({0, 0}, 0)});
-		for (int i = 1; i < best_route_path.size(); ++i)
-		{
-			l = l.Extend(vrp_f, ngl_info_f, i, best_route_path[i-1], best_route_path[i], penalties[best_route_path[i]]);
-			new_dur = l.Domain().left;
-		}
-		double new_cost = new_dur - best_route_penalty;
-		if (fabs(new_cost - best_cost) > 0.001)
-		{
-			clog << best_time << endl;
-			clog << new_dur << " vs " << opt->duration << endl;
-			clog << best_cost << " vs " << new_cost << endl;
-			fail("Different costs");
-		}
 	}
 
 	// Log total execution time.
