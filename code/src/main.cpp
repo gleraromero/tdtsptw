@@ -159,14 +159,13 @@ int main(int argc, char** argv)
 			clog << "> Finished in " << rolex_temp.Peek() << " - LB: " << lb << endl;
 			output["initial_relaxation"] = log;
 			clog << opt << endl;
-			exit(0);
 
 			// Solve column generation.
 			if (epsilon_different(UB.duration, lb))
 			{
 				clog << "Running column generation..." << endl;
 				rolex_temp.Reset().Resume();
-				column_generation(cg_relaxation, vrp_f, vrp_b, ngl_info_f, ngl_info_b, tl_cg, &penalties, &UB, &lb, &log);
+//				column_generation(cg_relaxation, vrp_f, vrp_b, ngl_info_f, ngl_info_b, tl_cg, &penalties, &UB, &lb, &log);
 				rolex_temp.Pause();
 				output["column_generation"] = log;
 				clog << "> Finished in " << rolex_temp.Peek() << " - LB: " << lb << endl;
