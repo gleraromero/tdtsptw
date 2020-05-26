@@ -59,7 +59,11 @@ goc::GraphPath reconstruct_path(const VRPInstance& vrp,
 	}
 
 	// Check that the expected duration of the path matches what we reconstructed.
-	if (epsilon_different(vrp.BestDurationRoute(reverse(path)).duration, route_duration)) fail("Path duration is not as expected.");
+	if (epsilon_different(vrp.BestDurationRoute(reverse(path)).duration, route_duration))
+	{
+		clog << vrp.BestDurationRoute(reverse(path)).duration << " Vs " << route_duration << endl;
+		fail("Path duration is not as expected.");
+	}
 	return reverse(path);
 }
 

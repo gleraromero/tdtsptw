@@ -56,6 +56,11 @@ void BoundingTree::Bound(const VertexSet& S, Vertex v, LabelSequenceTD& L, doubl
 	int k = S.count();
 	int r = 0;
 	while (r+1 < ngl_info->L.size() && S.test(ngl_info->L[r+1])) ++r;
+
+	vector<int> unbounded_labels; // indices of labels without bounds.
+	for (int i = 0; i < L.Count(); ++i) if (L.sequence[i].completion_bound == -INFTY) unbounded_labels.push_back(i);
+	if (unbounded_labels.empty()) return;
+
 	for (auto& S_L: T[k][r][v])
 	{
 		auto& S2 = S_L.first;
@@ -68,9 +73,10 @@ void BoundingTree::Bound(const VertexSet& S, Vertex v, LabelSequenceTD& L, doubl
 		// s2 comes from an opposite direction algorithm, therefore its labels are sorted backwards.
 		int j = s2.size()-1;
 		for (auto& l: s1)
+		for (int i: unbounded_labels)
 		{
-			// If bound is already set, continue.
-			if (l.completion_bound != -INFTY) continue;
+			auto& l = L.sequence[i];
+
 			// Otherwise initialize it in INFTY.
 			if (l.completion_bound == -INFTY) l.completion_bound = INFTY;
 
