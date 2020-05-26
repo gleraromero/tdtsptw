@@ -70,7 +70,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					S = s;
 					if (ngl_info.L[r] == u) r--;
 					time_u = min(time_u, vrp.TWP[k][u].right);
-					cost = cost - (time - time_u) + penalties[v] + EPS;
+					cost = cost_lv - (time - time_u) + penalties[v];
 					time = time_u + EPS;
 					v = u;
 					break;
