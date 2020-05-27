@@ -14,7 +14,7 @@
 namespace goc
 {
 // Constant that represents the minimum granularity to be taken into account to compare numbers.
-const double EPS = 10e-6;
+const double EPS = 10e-4;
 // Constant representing a number that is bigger than the numbers that will be used.
 const double INFTY = 10e50;
 
