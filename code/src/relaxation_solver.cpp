@@ -69,9 +69,9 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					path.push_back(u);
 					S = s;
 					if (ngl_info.L[r] == u) r--;
-					time_u = min(time_u, vrp.TWP[k][u].right);
+					time_u = min(time_u, vrp.TWP[k][u].right) + EPS;
 					cost = cost_lv - (time - time_u) + penalties[v];
-					time = time_u + EPS;
+					time = time_u;
 					v = u;
 					break;
 				}
@@ -100,8 +100,8 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 template<class LS>
 BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, const NGLInfo& ngl_info_f,
 						 const NGLInfo& ngl_info_b, const vector<double>& penalties, BoundingTree* B,
-						 const Duration& time_limit, RelaxationSolver::Direction direction, Route* opt,
-						 double* opt_cost, nlohmann::json* log)
+						 const Duration& time_limit, RelaxationSolver::Direction direction, bool asymmetric,
+						 Route* opt, double* opt_cost, nlohmann::json* log)
 {
 	// Create execution logs.
 	BLBExecutionLog blb_log(true);
@@ -130,10 +130,12 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 	L[1][1][0][vrp_b.o][create_bitset<MAX_N>({vrp_b.o})] = LS({LS::Initial(vrp_b.tw[vrp_b.o], -penalties[vrp_b.o])});
 
 	// Keep extending while merging is not possible (merge should yield complete routes with n vertices).
+	int d = 0;
 	while (k_dir[0] + k_dir[1] < n+1)
 	{
 		if (rolex.Peek() > time_limit) { blb_log.status = BLBStatus::TimeLimitReached; break; } // Check time limit.
-		int d = c_dir[0] < c_dir[1] ? 0 : 1; // Get the direction which needs to extend the least labels.
+		if (asymmetric) d = c_dir[0] < c_dir[1] ? 0 : 1; // Get the direction which needs to extend the least labels.
+		if (!asymmetric) d = (d + 1) % 2;
 
 		if (direction == RelaxationSolver::Forward) d = 0;
 		else if (direction == RelaxationSolver::Backward) d = 1;
@@ -177,6 +179,7 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 					*mlb_log[d]->bounding_time += rolex_temp.Pause();
 
 					// Extend l1.
+					(*mlb_log[d]->count_by_length)[k]+=l1.Count();
 					mlb_log[d]->processed_count += l1.Count();
 					mlb_log[d]->extended_count++;
 					rolex_temp.Reset().Resume();
@@ -199,7 +202,6 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 						Core c_w(k+1, r + (ngl_info.L[r+1] == w), w, ngl_info.ExtendNG(s1, w));
 						L[d][c_w.k][c_w.r][c_w.v].insert({c_w.S, LS()}).first->second.DominateBy(l_w, true);
 						mlb_log[d]->enumerated_count++;
-						(*mlb_log[d]->count_by_length)[c_w.k]++;
 					}
 					*mlb_log[d]->extension_time += rolex_temp.Pause();
 				}
@@ -286,8 +288,8 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 }
 }
 
-RelaxationSolver::RelaxationSolver(Type type, Direction direction)
-	: type(type), direction(direction)
+RelaxationSolver::RelaxationSolver(Type type, Direction direction, bool asymmetric)
+	: type(type), direction(direction), asymmetric(asymmetric)
 {
 
 }
@@ -299,12 +301,12 @@ BLBStatus RelaxationSolver::Run(const VRPInstance& vrp_f, const VRPInstance& vrp
 	if (type == NGLTI)
 	{
 		return run_relaxation<LabelSequenceTI>(vrp_f, vrp_b, ngl_info_f, ngl_info_b, penalties, B, time_limit,
-											   direction, opt, opt_cost, log);
+											   direction, asymmetric, opt, opt_cost, log);
 	}
 	else if (type == NGLTD)
 	{
 		return run_relaxation<LabelSequenceTD>(vrp_f, vrp_b, ngl_info_f, ngl_info_b, penalties, B, time_limit,
-											   direction, opt, opt_cost, log);
+											   direction, asymmetric, opt, opt_cost, log);
 	}
 	fail("Unexpected type in RelaxationSolver.");
 	return BLBStatus::DidNotStart;

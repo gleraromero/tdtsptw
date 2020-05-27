@@ -22,10 +22,11 @@ public:
 	enum Direction { Forward, Backward, Bidirectional };
 	Type type;
 	Direction direction;
+	bool asymmetric;
 
 	RelaxationSolver() = default;
 
-	RelaxationSolver(Type type, Direction direction);
+	RelaxationSolver(Type type, Direction direction, bool asymmetric);
 
 	goc::BLBStatus Run(const VRPInstance& vrp_f, const VRPInstance& vrp_b, const NGLInfo& ngl_info_f,
 					   const NGLInfo& ngl_info_b, const std::vector<double>& penalties, BoundingTree* B,

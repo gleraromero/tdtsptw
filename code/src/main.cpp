@@ -135,8 +135,8 @@ int main(int argc, char** argv)
 		json log;
 
 		// Set relaxation solver for CG and DNA.
-		RelaxationSolver cg_relaxation(relaxation == "NGLTI" ? RelaxationSolver::NGLTI : RelaxationSolver::NGLTD, RelaxationSolver::Forward);
-		RelaxationSolver dna_relaxation(RelaxationSolver::NGLTD, RelaxationSolver::Bidirectional);
+		RelaxationSolver cg_relaxation(relaxation == "NGLTI" ? RelaxationSolver::NGLTI : RelaxationSolver::NGLTD, RelaxationSolver::Forward, false);
+		RelaxationSolver dna_relaxation(RelaxationSolver::NGLTD, RelaxationSolver::Bidirectional, false);
 
 		// Generate NG structures for forward and backward instances.
 		NGLInfo ngl_info_f, ngl_info_b;
@@ -206,6 +206,16 @@ int main(int argc, char** argv)
 			run_exact(vrp_f, ngl_info_f, penalties, B, tl_exact - rolex_exact.Peek(), &lb, &UB, &log);
 			rolex_temp.Pause();
 			output["exact"] = log;
+			if (rolex_exact.Peek() >= tl_exact)
+			{
+				clog << "> Time limit reached" << endl;
+				general_log.status = BCStatus::TimeLimitReached;
+			}
+			if (UB.duration == INFTY)
+			{
+				clog << "> The problem is infeasible" << endl;
+				general_log.status = BCStatus::Infeasible;
+			}
 			clog << "> Finished in " << rolex_temp.Peek() << " - UB: " << UB.duration << endl;
 		}
 

@@ -169,7 +169,6 @@ MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vecto
 
 	if (solution.Empty())
 	{
-		clog << "The problem is infeasible" << endl;
 		*lb = INFTY;
 		UB->duration = INFTY;
 	}
