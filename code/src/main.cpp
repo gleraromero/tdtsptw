@@ -131,7 +131,6 @@ int main(int argc, char** argv)
 		int n = vrp_f.D.VertexCount();
 		double lb = 0.0;
 		vector<double> penalties(n, 0.0); // Initial set of penalties.
-		double penalty_sum = 0.0;
 		json log;
 
 		// Set relaxation solver for CG and DNA.
@@ -153,7 +152,7 @@ int main(int argc, char** argv)
 			auto status = cg_relaxation.Run(vrp_f, vrp_b, ngl_info_f, ngl_info_b, penalties, nullptr, tl_cg, &opt, &opt_cost, &log);
 			rolex_temp.Pause();
 			if (status == BLBStatus::TimeLimitReached) clog << "> Time limit reached" << endl;
-			lb = max(lb, opt_cost + penalty_sum);
+			lb = max(lb, opt_cost + sum(penalties));
 			clog << "> Finished in " << rolex_temp.Peek() << " - LB: " << lb << endl;
 			output["initial_relaxation"] = log;
 			clog << opt << endl;
