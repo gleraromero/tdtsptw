@@ -20,6 +20,7 @@
 #include "exact_solver.h"
 #include "dynamic_neighbour_augmentation.h"
 #include "column_generation.h"
+#include "heuristic.h"
 
 using namespace std;
 using namespace goc;
@@ -109,6 +110,16 @@ int main(int argc, char** argv)
 		// Get initial solution.
 		clog << "Looking for initial solution with tag " << initial_solution_tag << " in solutions.json..." << endl;
 		Route UB = get_initial_solution(solutions, initial_solution_tag);
+
+		// No solution found, using heuristic.
+		clog << "> No initial solution found, using heuristic." << endl;
+		if (UB.path.empty())
+		{
+			vector<Vertex> P = {vrp_f.o};
+			VertexSet S_P;
+			S_P.set(vrp_f.o);
+			UB = initial_heuristic(vrp_f, P, S_P, 0.0);
+		}
 
 		// Set output of this process.
 		json output;
