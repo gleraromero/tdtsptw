@@ -1,5 +1,5 @@
 {
-  "datasets": [{"name":  "vu_et_al_2020", "select": "!W180 N100"}],
+  "datasets": [{"name":  "vu_et_al_2020", "select": "!W180"}],
   "experiments": [
     {
       "name": "makespan",
