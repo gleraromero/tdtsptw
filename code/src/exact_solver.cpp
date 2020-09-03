@@ -110,7 +110,7 @@ MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vecto
 				for (auto& S: q[p][k][v])
 				{
 					did_some_processing = true;
-					if (rolex.Peek() > time_limit) { mlb_log.status = MLBStatus::TimeLimitReached; break; } // Check time limit.
+					if (rolex.Peek() > time_limit) { status = MLBStatus::TimeLimitReached; break; } // Check time limit.
 					mlb_log.processed_count++;
 
 					auto& l = L[v][S]; // Get label sequence with Core (v, S).
@@ -178,6 +178,7 @@ MLBStatus run_exact(const VRPInstance& vrp, const NGLInfo& ngl_info, const vecto
 		*UB = vrp.BestDurationRoute(opt_path);
 		*lb = UB->duration;
 	}
+	mlb_log.status = status;
 	mlb_log.time = rolex.Peek();
 	*log = mlb_log;
 

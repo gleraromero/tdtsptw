@@ -213,10 +213,10 @@ int main(int argc, char** argv)
 
 			clog << "Running exact algorithm..." << endl;
 			rolex_temp.Reset().Resume();
-			run_exact(vrp_f, ngl_info_f, penalties, B, tl_exact - rolex_exact.Peek(), &lb, &UB, &log);
+			auto status = run_exact(vrp_f, ngl_info_f, penalties, B, tl_exact - rolex_exact.Peek(), &lb, &UB, &log);
 			rolex_temp.Pause();
 			output["exact"] = log;
-			if (rolex_exact.Peek() >= tl_exact)
+			if (status == MLBStatus::TimeLimitReached)
 			{
 				clog << "> Time limit reached" << endl;
 				general_log.status = BCStatus::TimeLimitReached;
