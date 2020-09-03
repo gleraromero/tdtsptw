@@ -62,7 +62,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				// Check if extension of l into v gives the last label in the path.
 				auto l_v = l.Extend(vrp, ngl_info, k, u, v, penalties[v]);
 				double cost_lv = l_v.CostAt(time);
-				if (epsilon_smaller_equal(cost_lv, cost+EPS)) // Add tolerance because of propagation of errors.
+				if (epsilon_smaller_equal(cost_lv, cost+EPS*10)) // Add tolerance because of propagation of errors.
 				{
 					// Move to next label.
 					found_next = true;
