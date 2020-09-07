@@ -27,31 +27,5 @@
       "remove_tw": false,
       "initial_solution_tag": "INIT_UB"
     }
-
-  ,
-    {
-      "name": "makespan",
-      "executable": "main",
-      "objective": "makespan",
-      "colgen": true,
-      "relaxation": "NGLTI",
-      "dssr": true,
-      "bidirectional_dna": true,
-      "time_limit_exact": 3600,
-      "time_limit_cg": 3600,
-      "time_limit_dna": 3600
-    },
-    {
-      "name": "duration",
-      "executable": "main",
-      "objective": "duration",
-      "colgen": true,
-      "relaxation": "NGLTI",
-      "dssr": true,
-      "bidirectional_dna": true,
-      "time_limit_exact": 3600,
-      "time_limit_cg": 3600,
-      "time_limit_dna": 3600
-    }
   ]
 }
