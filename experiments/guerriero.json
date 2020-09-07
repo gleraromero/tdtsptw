@@ -9,7 +9,7 @@
       "time_limit_dna": 1200,
       "objective": "makespan",
       "relaxation": "NGLTI",
-      "bounding": true,
+      "bounding": false,
       "remove_td": false,
       "remove_tw": false,
       "initial_solution_tag": "INIT_UB"
@@ -22,7 +22,7 @@
       "time_limit_dna": 1200,
       "objective": "duration",
       "relaxation": "NGLTI",
-      "bounding": true,
+      "bounding": false,
       "remove_td": false,
       "remove_tw": false,
       "initial_solution_tag": "INIT_UB"
