@@ -44,7 +44,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 		bool found_next = false;
 		for (Vertex u: vrp.D.Vertices())
 		{
-			if (u == v) continue;
+			if (u == v || !vrp.D.IncludesArc({u, v})) continue;
 			if (!is_subset(S, ngl_info.ExtendNG(ngl_info.N[u], v))) continue; // Check that after visiting (u, v) we can have S as the NGset.
 			if (!ngl_info.V[r].test(u) && ngl_info.L[r] != u) continue;
 
@@ -85,8 +85,8 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 		if (!found_next)
 		{
 			TOL += 1; // Increase tolerance.
-			--k;
-			if (TOL == 500) fail("Could not reconstruct path"); // 500 is enough, otherwise means we have a bug.
+			++k;
+			if (TOL == 100) fail("Could not reconstruct path"); // 100 is enough, otherwise means we have a bug.
 		}
 	}
 
