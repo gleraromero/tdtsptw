@@ -37,6 +37,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 	VertexSet S = c.S;
 
 	// Get next k-1 vertices.
+	double TOL = 0;
 	GraphPath path = {v};
 	for (int k = c.k-1; k > 0; --k)
 	{
@@ -62,9 +63,10 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				// Check if extension of l into v gives the last label in the path.
 				auto l_v = l.Extend(vrp, ngl_info, k, u, v, penalties[v]);
 				double cost_lv = l_v.CostAt(time);
-				if (epsilon_smaller_equal(cost_lv, cost+EPS)) // Add tolerance because of propagation of errors.
+				if (epsilon_smaller_equal(cost_lv, cost+EPS*TOL)) // Add tolerance because of propagation of errors.
 				{
 					// Move to next label.
+					TOL = 0; // Reset tolerance.
 					found_next = true;
 					path.push_back(u);
 					S = s;
@@ -79,7 +81,13 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 
 			if (found_next) break; // If next vertex was found, continue.
 		}
-		if (!found_next) fail("Could not reconstruct path");
+		// If no vertex was found, it may have happened because of a tolerance issue.
+		if (!found_next)
+		{
+			TOL += 1; // Increase tolerance.
+			--k;
+			if (TOL == 500) fail("Could not reconstruct path"); // 500 is enough, otherwise means we have a bug.
+		}
 	}
 
 	return reverse(path);
