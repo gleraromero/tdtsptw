@@ -71,7 +71,7 @@ int main(int argc, char** argv)
 	try
 	{
 		// This line only works in debug mode.
-		simulate_runner_input("instances/guerriero_et_al_2014b", "20_95_A_0_A3", "experiments/arigliano_reduced.json", "TI");
+		simulate_runner_input("instances/guerriero_et_al_2014b", "15_70_A_0_A1", "experiments/arigliano_reduced_duration.json", "TI");
 
 		// Read input.
 		json experiment, instance, solutions;

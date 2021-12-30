@@ -41,6 +41,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 	GraphPath path = {v};
 	for (int k = c.k-1; k > 0; --k)
 	{
+//        clog << "Finding " << "v=" << v << " r=" << r << " S=" << S << " cost=" << cost << " time=" << time << endl;
 		bool found_next = false;
 		for (Vertex u: vrp.D.Vertices())
 		{
@@ -72,7 +73,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					S = s;
 					if (ngl_info.L[r] == u) r--;
 					time_u = min(time_u, vrp.TWP[k][u].right) + EPS;
-					cost = cost_lv - (time - time_u) + penalties[v];
+					cost = l.CostAt(time_u);
 					time = time_u;
 					v = u;
 					break;
@@ -86,7 +87,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 		{
 			TOL += 1; // Increase tolerance.
 			++k;
-			if (TOL == 100) fail("Could not reconstruct path"); // 100 is enough, otherwise means we have a bug.
+			if (TOL == 1) fail("Could not reconstruct path"); // 100 is enough, otherwise means we have a bug.
 		}
 	}
 
@@ -208,6 +209,9 @@ BLBStatus run_relaxation(const VRPInstance& vrp_f, const VRPInstance& vrp_b, con
 						// Add extension to queue L, and perform a fusion with the existing sequence with the same
 						// core if it exists.
 						Core c_w(k+1, r + (ngl_info.L[r+1] == w), w, ngl_info.ExtendNG(s1, w));
+//                        clog << "Extending " << d << " k=" << c.k << " r=" << c.r << " v=" << c.v << " S=" << c.S << " **TO** " << " k=" << c_w.k << " r=" << c_w.r << " v=" << c_w.v << " S=" << c_w.S << endl;
+//                        clog << "\t\t From: " << l1 << endl;
+//                        clog << "\t\t To: " << l_w << endl;
 						L[d][c_w.k][c_w.r][c_w.v].insert({c_w.S, LS()}).first->second.DominateBy(l_w, true);
 						mlb_log[d]->enumerated_count++;
 					}
