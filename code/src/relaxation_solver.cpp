@@ -92,7 +92,7 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
                                     min_tau = min(min_tau, tau_i.Value(min(tau_i.domain.right, p.late)));
                                     if (epsilon_bigger(tau_i.domain.left, p.late)) break;
                                 }
-                                time = min(time - min_tau, p.late) - EPS;
+                                time = min(time - min_tau, p.late) - EPS * 3;
                                 cost = p.cost;
                                 break;
                             }
