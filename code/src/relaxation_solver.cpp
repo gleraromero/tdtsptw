@@ -79,11 +79,14 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
                     // Workaround for experimentation
                     if (l.IsTI())
                     {
+                        found_next = false;
+                        vector<typename LS::Label> parts;
                         for (auto& p: l.sequence) {
-                            LS new_seq({p});
+                            parts.push_back(p);
+                            LS new_seq(parts);
                             auto new_lv = new_seq.Extend(vrp, ngl_info, k, u, v, penalties[v]);
                             // Extended from this piece.
-                            if (epsilon_equal(new_lv.CostAt(time), cost)) {
+                            if (epsilon_smaller_equal(new_lv.CostAt(time), cost+EPS*TOL)) {
                                 // Compute min tau_uv in domain.
                                 double min_tau = INFTY;
                                 for (auto& tau_i: vrp.tau[u][v].Pieces()) {
@@ -92,10 +95,14 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
                                     min_tau = min(min_tau, tau_i.Value(min(tau_i.domain.right, p.late)));
                                     if (epsilon_bigger(tau_i.domain.left, p.late)) break;
                                 }
-                                time = min(time - min_tau, p.late) - EPS * 3;
+                                time = min(time - min_tau, p.late);
                                 cost = p.cost;
+                                found_next = true;
                                 break;
                             }
+                        }
+                        if (!found_next) {
+                            fail("NOPE");
                         }
                     }
                     else
