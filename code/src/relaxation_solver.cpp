@@ -58,13 +58,16 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 				if (s.test(v)) continue; // If v \in s, then adding (u, v) forms an ng-cycle.
 				// Verify that (S_u \cap N[v]) \cup {v} = S_v (i.e. extension of L through v gives the last step).
 				if (ngl_info.ExtendNG(s, v) != S) continue;
-				double time_u = vrp.DepartureTime({u, v}, time);
-				if (time_u == INFTY) continue;
+
+                double time_u = vrp.DepartureTime({u, v}, time);
+                if (!l.IsTI()) {
+                    if (time_u == INFTY) continue;
+                }
 
 				// Check if extension of l into v gives the last label in the path.
 				auto l_v = l.Extend(vrp, ngl_info, k, u, v, penalties[v]);
 				double cost_lv = l_v.CostAt(time);
-				if (epsilon_smaller_equal(cost_lv, cost+EPS*TOL)) // Add tolerance because of propagation of errors.
+				if (epsilon_equal(cost_lv, cost)) // Add tolerance because of propagation of errors.
 				{
 					// Move to next label.
 					TOL = 0; // Reset tolerance.
@@ -72,9 +75,35 @@ GraphPath reconstruct_path(const VRPInstance& vrp, const NGLInfo& ngl_info,
 					path.push_back(u);
 					S = s;
 					if (ngl_info.L[r] == u) r--;
-					time_u = min(time_u, vrp.TWP[k][u].right) + EPS;
-					cost = l.CostAt(time_u);
-					time = time_u;
+
+                    // Workaround for experimentation
+                    if (l.IsTI())
+                    {
+                        for (auto& p: l.sequence) {
+                            LS new_seq({p});
+                            auto new_lv = new_seq.Extend(vrp, ngl_info, k, u, v, penalties[v]);
+                            // Extended from this piece.
+                            if (epsilon_equal(new_lv.CostAt(time), cost)) {
+                                // Compute min tau_uv in domain.
+                                double min_tau = INFTY;
+                                for (auto& tau_i: vrp.tau[u][v].Pieces()) {
+                                    if (epsilon_smaller(tau_i.domain.right, p.early)) continue;
+                                    min_tau = min(min_tau, tau_i.Value(max(tau_i.domain.left, p.early)));
+                                    min_tau = min(min_tau, tau_i.Value(min(tau_i.domain.right, p.late)));
+                                    if (epsilon_bigger(tau_i.domain.left, p.late)) break;
+                                }
+                                time = min(time - min_tau, p.late) - EPS;
+                                cost = p.cost;
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        time_u = min(time_u, vrp.TWP[k][u].right);
+                        cost = l.CostAt(time_u);
+                        time = time_u;
+                    }
 					v = u;
 					break;
 				}

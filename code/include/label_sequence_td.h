@@ -20,6 +20,7 @@ public:
 	class Label : public goc::Printable
 	{
 	public:
+        double cost; // dummy
 		double early, late; // Earliest and latest arrival time for the label.
 		double slope, intercept; // slope and intercept of the function.
 		double completion_bound=-goc::INFTY; // completion bound of the label
@@ -82,6 +83,8 @@ public:
 	void LowestCostArrival(double* t, double* cost) const;
 
 	void Print(std::ostream& os) const;
+
+    bool IsTI() const { return false; }
 
 	std::vector<Label> sequence;
 };

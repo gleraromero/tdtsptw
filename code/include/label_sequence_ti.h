@@ -63,6 +63,8 @@ public:
 
 	virtual void Print(std::ostream& os) const;
 
+    bool IsTI() const { return true; }
+
 	std::vector<Label> sequence;
 };
 } // namespace tdtsptw
